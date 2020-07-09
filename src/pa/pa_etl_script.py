@@ -3,10 +3,10 @@ import sys
 import boto3
 import pandas as pd
 import base64
-import datetime
+from datetime import datetime
 
 import pymysql
-from awsglue.utils import getResolvedOptions
+#from awsglue.utils import getResolvedOptions
 from urllib.parse import urlparse
 
 
@@ -136,8 +136,8 @@ if __name__ == "__main__":
 
     df["new_price"] = df["new_price"].apply(lambda x: x.strip('$'))
     df["new_price_effective_date"] = df["new_price_effective_date"].apply(
-        lambda x: datetime.datetime.strptime(x, "%m/%d/%Y"))
-    df['export_date'] = df["export_date"].apply(lambda x: datetime.datetime.strptime(x, "%m/%d/%Y").timestamp())
+        lambda x: datetime.strptime(x, "%m/%d/%Y"))
+    df['export_date'] = df["export_date"].apply(lambda x: datetime.strptime(x, "%m/%d/%Y").timestamp())
     del df['current_price']
     del df['reason_code']
 
