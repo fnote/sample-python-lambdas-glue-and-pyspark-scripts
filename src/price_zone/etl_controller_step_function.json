@@ -1,0 +1,79 @@
+{
+  "Comment": "Transform and Loads EATs data from S3 to DB",
+  "StartAt": "Uncompress",
+  "States": {
+    "Uncompress": {
+      "Comment": "Uncompress spark job",
+      "Type": "Pass",
+      "Next": "Transform"
+    },
+    "Transform": {
+      "Type": "Pass",
+      "Next": "Fetch File List"
+    },
+    "Fetch File List": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:us-east-1:037295147636:function:cp-ref-poc-eats-stepfn-fetch-opcos:$LATEST"
+      },
+      "OutputPath": "$.Payload",
+      "Next": "Load All"
+    },
+    "Load All": {
+      "Type": "Map",
+      "ItemsPath": "$",
+      "MaxConcurrency": 2,
+      "Parameters": {
+        "file.$": "$$.Map.Item.Value"
+      },
+      "Iterator": {
+        "StartAt": "Load Job",
+        "States": {
+          "Load Job": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::glue:startJobRun.sync",
+            "Parameters": {
+              "JobName": "cp-ref-poc-eats-stepfn-load",
+              "Arguments": {
+                "--file.$": "$.file"
+              }
+            },
+            "Retry": [
+              {
+                "ErrorEquals": [
+                  "States.TaskFailed"
+                ],
+                "IntervalSeconds": 3,
+                "MaxAttempts": 2,
+                "BackoffRate": 10
+              }
+            ],
+            "Catch": [
+              {
+                "ErrorEquals": [
+                  "States.TaskFailed"
+                ],
+                "Next": "Load Job Failed"
+              }
+            ],
+            "End": true
+          },
+          "Load Job Failed": {
+            "Type": "Pass",
+            "End": true
+          }
+        }
+      },
+      "Next": "Alert"
+    },
+    "Alert": {
+      "Type": "Pass",
+      "Next": "Clean up S3"
+    },
+    "Clean up S3": {
+      "Type": "Pass",
+      "End": true
+    }
+  }
+}
