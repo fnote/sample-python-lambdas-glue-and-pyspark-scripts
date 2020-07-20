@@ -5,8 +5,8 @@ from pyspark.context import SparkContext
 from awsglue.context import GlueContext
 from awsglue.job import Job
 from awsglue.dynamicframe import DynamicFrame
-from pyspark.sql.functions import substring, length, col, expr
-
+from pyspark.sql.functions import substring, col, expr
+from validator import validate_column, validate_column_length, validate_data_range
 
 ## @params: [JOB_NAME]
 args = getResolvedOptions(sys.argv, ['JOB_NAME'])
@@ -16,15 +16,28 @@ spark = glueContext.spark_session
 job = Job(glueContext)
 job.init(args['JOB_NAME'], args)
 
-datasource0 = glueContext.create_dynamic_frame_from_options(connection_type="s3", connection_options={'paths': ["s3://cp-ref-price-poc-bucket/_fin_cust_pz_df.csv.gz"], "compressionType":"gzip"},format="csv", format_options={"separator": ",", 'withHeader': True}, transformation_ctx = "datasource0")
+mandatory_columns = ["co_cust_nbr", "supc", "prc_zone"]
 
+datasource0 = glueContext.create_dynamic_frame_from_options(connection_type="s3", connection_options={
+    'paths': ["s3://cp-ref-price-poc-bucket/_fin_cust_pz_df.csv.gz"], "compressionType": "gzip"}, format="csv",
+                                                            format_options={"separator": ",", 'withHeader': True},
+                                                            transformation_ctx="datasource0")
 
-#drop fields from the dataframs
-filteredDataframe = DropFields.apply(frame=datasource0, paths=["lvl_model_id","leaf_node_id","ks2_id","prc_zone_target"], transformation_ctx = "filteredDataframe")
-
-#renaming columns
-applyMapping1 = ApplyMapping.apply(frame=filteredDataframe, mappings =[("co_cust_nbr", "bigint", "co_cust_nbr", "string"), ("supc", "bigint", "supc", "string"), ("prc_zone", "bigint", "price_zone", "string")], transformation_ctx = "applyMapping1")
+# renaming columns and dropping off unnecessary columns
+applyMapping1 = ApplyMapping.apply(frame=datasource0, mappings=[("co_cust_nbr", "bigint", "co_cust_nbr", "string"),
+                                                                ("supc", "bigint", "supc", "string"),
+                                                                ("prc_zone", "bigint", "price_zone", "bigint")],
+                                   transformation_ctx="applyMapping1")
 sparkDF = applyMapping1.toDF()
+
+# validate data
+validate_column(sparkDF, 'co_cust_nbr')
+validate_column(sparkDF, 'supc')
+validate_column(sparkDF, 'price_zone')
+
+validate_column_length(sparkDF, 'co_cust_nbr', 9)
+validate_column_length(sparkDF, 'supc', 7)
+validate_data_range(sparkDF, 'price_zone', 1, 5)
 
 #creating new dataframe containing customer_id from co_cust_nbr
 sparkDF = sparkDF.withColumn("customer_id", substring(col("co_cust_nbr"), -6, 6))
