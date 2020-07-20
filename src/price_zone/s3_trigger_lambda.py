@@ -14,7 +14,7 @@ def lambda_handler(event, context):
     logger.info(event)
     s3 = event['Records'][0]['s3']
     s3_object_key = s3['object']['key']
-    s3_path = "s" + s3['bucket']['name'] + "/" + s3_object_key
+    s3_path = s3['bucket']['name'] + "/" + s3_object_key
     params = {
         "s3_path": s3_path
     }
