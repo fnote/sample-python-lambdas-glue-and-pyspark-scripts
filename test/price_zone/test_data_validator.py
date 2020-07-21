@@ -4,10 +4,10 @@ from pyspark.sql.types import StructType, StructField, IntegerType, StringType
 
 from src.price_zone import validator
 from src.price_zone.constants import SUPC_LENGTH, CO_CUST_NBR_LENGTH, PRICE_ZONE_MIN_VALUE, PRICE_ZONE_MAX_VALUE, \
-    DATE_FORMAT_REGEX
+    DATE_FORMAT_REGEX, INPUT_DATE_FORMAT
 
 
-class PySparkTestCase(unittest.TestCase):
+class TestSparkDataframeValidator(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
@@ -369,22 +369,6 @@ class PySparkTestCase(unittest.TestCase):
         with self.assertRaises(ValueError):
             validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX)
 
-    def test_empty_data_for_effective_date(self):
-        """PRCP-2015"""
-
-        data = [['68752267', '4518403', 5, '']]
-
-        schema = StructType([
-            StructField("co_cust_nbr", StringType(), True),
-            StructField("supc", StringType(), True),
-            StructField("price_zone", IntegerType(), True),
-            StructField("effective_date", StringType(), True)]
-        )
-        df = self.spark.createDataFrame(data=data, schema=schema)
-
-        with self.assertRaises(ValueError):
-            validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX)
-
     def test_non_numeric_data_for_effective_date(self):
         """PRCP-2015"""
 
@@ -562,7 +546,7 @@ class PySparkTestCase(unittest.TestCase):
             validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX)
 
     def test_data_with_one_invalid_effective_date_and_valid_effective_date_list(self):
-        """PRCP-2015 invalid format wrong split"""
+        """PRCP-2020"""
 
         data = [['11810622', '9002908', 1, '5/15/2020'],
                 ['19666867', '3555349', 1, '5/15/2020'],
@@ -579,6 +563,24 @@ class PySparkTestCase(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX)
+
+    def test_data_with_one_invalid_effective_date_value_and_valid_effective_date_list(self):
+
+        data = [['11810622', '9002908', 1, '2/15/2019'],
+                ['19666867', '3555349', 1, '2/15/2019'],
+                ['11480111', '4518408', 5, '2/15/2019'],
+                ['68752267', '4518403', 5, '2/30/2019']]
+
+        schema = StructType([
+            StructField("co_cust_nbr", StringType(), True),
+            StructField("supc", StringType(), True),
+            StructField("price_zone", IntegerType(), True),
+            StructField("effective_date_str", StringType(), True)]
+        )
+        df = self.spark.createDataFrame(data=data, schema=schema)
+
+        with self.assertRaises(ValueError):
+            validator.validate_and_get_as_date(df, 'effective_date_str', 'effective_date', INPUT_DATE_FORMAT)
 
     @classmethod
     def tearDownClass(cls):

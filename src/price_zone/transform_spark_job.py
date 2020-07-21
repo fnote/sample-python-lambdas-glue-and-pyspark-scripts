@@ -5,10 +5,10 @@ from pyspark.context import SparkContext
 from awsglue.context import GlueContext
 from awsglue.job import Job
 from awsglue.dynamicframe import DynamicFrame
-from pyspark.sql.functions import substring, col, expr
+from pyspark.sql.functions import substring, col, expr, to_date
 from pyspark.sql.types import IntegerType
-from validator import validate_column, validate_column_length, validate_data_range, validate_date_format
-from constants import CO_CUST_NBR_LENGTH, SUPC_LENGTH, PRICE_ZONE_MIN_VALUE, PRICE_ZONE_MAX_VALUE, DATE_FORMAT_REGEX
+from validator import validate_column, validate_column_length, validate_data_range, validate_date_format, validate_and_get_as_date
+from constants import CO_CUST_NBR_LENGTH, SUPC_LENGTH, PRICE_ZONE_MIN_VALUE, PRICE_ZONE_MAX_VALUE, DATE_FORMAT_REGEX, INPUT_DATE_FORMAT
 
 ## @params: [JOB_NAME]
 args = getResolvedOptions(sys.argv, ['JOB_NAME'])
@@ -28,7 +28,7 @@ datasource0 = glueContext.create_dynamic_frame_from_options(connection_type="s3"
 applyMapping1 = ApplyMapping.apply(frame=datasource0, mappings=[("co_cust_nbr", "bigint", "co_cust_nbr", "string"),
                                                                 ("supc", "bigint", "supc", "string"),
                                                                 ("prc_zone", "bigint", "price_zone", "string"),
-                                                                ("effective_date", "string", "effective_date", "string")],
+                                                                ("effective_date", "string", "effective_date_str", "string")],
                                    transformation_ctx="applyMapping1")
 sparkDF = applyMapping1.toDF()
 
@@ -49,10 +49,13 @@ sparkDF = sparkDF.withColumn("customer_id", substring(col("co_cust_nbr"), -6, 6)
 
 #creating new dataframe containing opco_id from co_cust_nbr
 sparkDF = sparkDF.withColumn("opco_id", expr("substring(co_cust_nbr, 0, length(co_cust_nbr)-6)"))
+
+sparkDF = validate_and_get_as_date(sparkDF, 'effective_date_str', 'effective_date', INPUT_DATE_FORMAT)
+
 convertedDynamicFrame = DynamicFrame.fromDF(sparkDF, glueContext, "convertedDynamicFrame")
 
 #drop co_cust_nbr
-customer_nb_dropped_dynamicdataframe = DropFields.apply(frame = convertedDynamicFrame, paths = ["co_cust_nbr"], transformation_ctx = "customer_nb_dropped_dynamicdataframe")
+customer_nb_dropped_dynamicdataframe = DropFields.apply(frame = convertedDynamicFrame, paths = ["co_cust_nbr", "effective_date_str"], transformation_ctx = "customer_nb_dropped_dynamicdataframe")
 
 #save dataframe to s3, partitioned per OPCO
 datasink2 = glueContext.write_dynamic_frame.from_options(frame=customer_nb_dropped_dynamicdataframe, connection_type="s3", connection_options={"path": "s3://cp-ref-price-poc-bucket/output/glue_output_partioned/", "partitionKeys": ["opco_id"]}, format="csv", transformation_ctx="datasink2")
