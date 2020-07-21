@@ -250,7 +250,7 @@ class PySparkTestCase(unittest.TestCase):
     def test_data_with_one_invalid_price_zone_and_valid_price_zone_list(self):
         """PRCP-2018"""
 
-        data = [['11480111', '4119061', None],
+        data = [['11480111', '4119061', None, '5/15/2020'],
                 ['11810622', '9002908', '1', '5/15/2020'],
                 ['19666867', '3555349', '1', '5/15/2020'],
                 ['68752266', '4518403', '5', '5/15/2020']]
@@ -292,7 +292,7 @@ class PySparkTestCase(unittest.TestCase):
                 ['11810622', '9002908', '1', '5/15/2020'],
                 ['19666867', '3555349', '1', '5/15/2020'],
                 ['68752266', '4518403', '5', '5/15/2020'],
-                ['', '', '']]
+                ['', '', '', '']]
 
         schema = StructType([
             StructField("co_cust_nbr", StringType(), True),
@@ -318,7 +318,7 @@ class PySparkTestCase(unittest.TestCase):
                 ['11810622', '9002908', '1', '5/15/2020'],
                 ['19666867', '3555349', '1', '5/15/2020'],
                 ['68752266', '4518403', '5', '5/15/2020'],
-                [None, None, None]]
+                [None, None, None,  None]]
 
         schema = StructType([
             StructField("co_cust_nbr", StringType(), True),
