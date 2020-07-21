@@ -6,7 +6,7 @@ import base64
 from datetime import datetime
 
 import pymysql
-#from awsglue.utils import getResolvedOptions
+from awsglue.utils import getResolvedOptions
 from urllib.parse import urlparse
 
 
@@ -42,28 +42,18 @@ def load_data(opco_id, df):
     s3_output_file_path = "s3://" + Configuration.BUCKET_NAME + "/" + Configuration.OUTPUT_FILE_PATH + output_file_name
     cur = conn.cursor()
 
-    createTableIfnotExistsQuery = "CREATE TABLE IF NOT EXISTS " + table_with_database_name + "(" \
-                                                                                             "`SUPC` VARCHAR(9) NOT NULL," \
-                                                                                             "  `PRICE_ZONE` TINYINT(1) UNSIGNED NOT NULL," \
-                                                                                             "  `PRICE` DOUBLE(13 , 3) NOT NULL," \
-                                                                                             "  `EFFECTIVE_DATE` DATETIME NOT NULL," \
-                                                                                             "  `EXPORTED_DATE` BIGINT(10) UNSIGNED NOT NULL," \
-                                                                                             "  PRIMARY KEY (`SUPC`,`PRICE_ZONE`,`EFFECTIVE_DATE`, `EXPORTED_DATE`)" \
-                                                                                             ")  ENGINE=INNODB DEFAULT CHARSET=UTF8;"
-
     loadQry = "LOAD DATA FROM S3 '" + s3_output_file_path + "' " \
                                                             "REPLACE INTO TABLE " + table_with_database_name + \
               " FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '\"' LINES TERMINATED BY '\n' " \
-              "IGNORE 1 LINES (@item_id, @price_zone_id, @new_price, @new_price_effective_date, " \
-              "@export_date, @isPound) SET " \
-              "SUPC=@item_id," \
+              "IGNORE 1 LINES (@supc, @price_zone_id, @new_price, @new_price_effective_date, " \
+              "@export_date, @split_indicator) SET " \
+              "SUPC=@supc," \
               "PRICE_ZONE=@price_zone_id," \
               "PRICE=@new_price," \
               "EXPORTED_DATE=@export_date," \
               "EFFECTIVE_DATE=@new_price_effective_date," \
-              "ISPOUND=@isPound;"
+              "SPLIT_INDICATOR=@split_indicator;"
 
-    cur.execute(createTableIfnotExistsQuery)
     print("Loading PA data to the table : %s from file %s\n" % (table_with_database_name, s3_output_file_path))
     cur.execute(loadQry)
     conn.commit()
@@ -126,23 +116,20 @@ if __name__ == "__main__":
 
     parsed_path = urlparse(inputFilePath, allow_fragments=False)
     df = read_data_from_s3(bucketname=parsed_path.netloc, key=parsed_path.path.lstrip('/'))
-    df.columns = ["item_id",
-                  "price_zone_id",
-                  "new_price",
-                  "new_price_effective_date",
-                  "current_price",
-                  "reason_code",
-                  "export_date"]
 
-    df["new_price"] = df["new_price"].apply(lambda x: x.strip('$'))
-    df["new_price_effective_date"] = df["new_price_effective_date"].apply(
-        lambda x: datetime.strptime(x, "%m/%d/%Y"))
-    df['export_date'] = df["export_date"].apply(lambda x: datetime.strptime(x, "%m/%d/%Y").timestamp())
-    del df['current_price']
-    del df['reason_code']
+    del df['CURRENT_PRICE']
+    del df['REASON']
+    del df['LOCAL_REFERENCE_PRICE']
 
-    df["opco_id"] = df["price_zone_id"].apply(lambda x: x.split('-')[0])
-    df["price_zone_id"] = df["price_zone_id"].apply(lambda x: x.split('-')[1])
+    df = df.rename(columns={'ITEM_ID': 'supc'})
+    df = df.rename(columns={'NEW_PRICE': 'new_price'})
+    df = df.rename(columns={'ITEM_ATTR_5_NM': 'split_indicator'})
+
+    df["effective_date"] = df["EFFECTIVE_DATE"].apply(
+        lambda x: datetime.strptime(x.split()[0], "%Y-%m-%d"))
+    df['export_date'] = df["EXPORT_DATE"].apply(lambda x: datetime.strptime(x, "%Y-%m-%d %H:%M:%S").timestamp())
+    df["opco_id"] = df["PRICE_ZONE_ID"].apply(lambda x: x.split('-')[0])
+    df["price_zone_id"] = df["PRICE_ZONE_ID"].apply(lambda x: x.split('-')[1])
 
     item_zone_prices_for_opco = dict(tuple(df.groupby(df['opco_id'])))  # group data by opco_id
 
