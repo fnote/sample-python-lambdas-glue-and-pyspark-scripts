@@ -3,3 +3,4 @@ SUPC_LENGTH = 7
 PRICE_ZONE_MIN_VALUE = 1
 PRICE_ZONE_MAX_VALUE = 5
 MANDATOARY_COLUMNS = ["co_cust_nbr", "supc", "prc_zone"]
+DATE_FORMAT_REGEX = '^(1[0-2]|[1-9])/(3[01]|[12][0-9]|[1-9])/[0-9]{4}$'
