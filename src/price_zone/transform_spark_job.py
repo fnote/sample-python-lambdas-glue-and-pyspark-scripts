@@ -36,7 +36,7 @@ sparkDF = applyMapping1.toDF()
 validate_column(sparkDF, 'co_cust_nbr')
 validate_column(sparkDF, 'supc')
 validate_column(sparkDF, 'price_zone')
-validate_date_format(sparkDF, 'effective_date', DATE_FORMAT_REGEX)
+validate_date_format(sparkDF, 'effective_date_str', DATE_FORMAT_REGEX)
 
 validate_column_length(sparkDF, 'co_cust_nbr', CO_CUST_NBR_LENGTH)
 validate_column_length(sparkDF, 'supc', SUPC_LENGTH)
