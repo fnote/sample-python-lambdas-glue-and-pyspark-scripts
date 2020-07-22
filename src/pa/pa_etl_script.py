@@ -113,12 +113,6 @@ class Configuration:
 def getNewConnection(host, user, decrypted):
     return pymysql.connect(host=host, user=user, password=decrypted["Plaintext"])
 
-
-def validate_data(dataframe):
-    if dataframe.isnull().values.any():
-        raise Exception('dataframe should not contain null values')
-
-
 if __name__ == "__main__":
     args = getResolvedOptions(sys.argv, ['s3_path'])
     inputFilePath = args['s3_path']
