@@ -6,7 +6,7 @@ import base64
 from datetime import datetime
 
 import pymysql
-#from awsglue.utils import getResolvedOptions
+from awsglue.utils import getResolvedOptions
 from urllib.parse import urlparse
 
 
@@ -20,12 +20,14 @@ def read_data_from_s3(bucketname, key):
 
 def write_dataframe_to_s3(opco_id, fileName):
     print("starting uploading Price Advisor data of opco %s to s3 file %s" % (opco_id, fileName))
-    key = Configuration.OUTPUT_FILE_PATH + fileName
+    intermediate_storage_parsed_path = urlparse(intermediate_storage_path, allow_fragments=False)
+    intermediate_bucket = intermediate_storage_parsed_path.netloc
+    key = intermediate_storage_parsed_path.path.lstrip('/') + Configuration.OUTPUT_FILE_PATH + fileName
     with open(fileName, 'rb') as data:
         s3_output = boto3.client('s3')
-        s3_output.upload_fileobj(data, Configuration.BUCKET_NAME, key)
+        s3_output.upload_fileobj(data, intermediate_bucket, key)
 
-    print("Completed uploading Price Advisor data of opco %s to s3 file %s" % (opco_id, fileName))
+    print("Completed uploading Price Advisor data of opco %s to s3 bucket: %s key:%s" % (opco_id, intermediate_bucket, key))
 
 
 def load_data(opco_id, df):
@@ -114,8 +116,9 @@ def getNewConnection(host, user, decrypted):
     return pymysql.connect(host=host, user=user, password=decrypted["Plaintext"])
 
 if __name__ == "__main__":
-    args = getResolvedOptions(sys.argv, ['s3_path'])
+    args = getResolvedOptions(sys.argv, ['s3_path', 'intermediate_storage_path'])
     inputFilePath = args['s3_path']
+    intermediate_storage_path = args['intermediate_storage_path']
     print("Started ETL process for Price Advisor data in file %s\n" % inputFilePath)
 
     parsed_path = urlparse(inputFilePath, allow_fragments=False)
