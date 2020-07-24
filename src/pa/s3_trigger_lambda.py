@@ -31,5 +31,3 @@ def lambda_handler(event, context):
                                     input=json.dumps(step_function_input_params))
 
     logger.info('Started the Step Function: ' + step_function_arn)
-    logger.info('Started at:' + str(response['startDate']))
-    return response
