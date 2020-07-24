@@ -67,7 +67,7 @@ def load_data(opco_id, df):
 def getConnectionDetails():
     glue = boto3.client('glue', region_name='us-east-1')
 
-    response = glue.get_connection(Name=Configuration.GLUE_CONNECTION_NAME)
+    response = glue.get_connection(Name=glue_connection_name)
 
     connection_properties = response['Connection']['ConnectionProperties']
     URL = connection_properties['JDBC_CONNECTION_URL']
@@ -95,7 +95,6 @@ class Configuration:
 
     TABLE_NAME = "PA"
     DATABASE_PREFIX = "REF_PRICE_"
-    GLUE_CONNECTION_NAME = 'rp-data-populator-poc-connection'
     BUCKET_NAME = "cp-ref-price-poc-bucket"
     OUTPUT_FILE_PREFIX = "pa_data_output"
     FILE_NAME = "pa_data.csv.gz"
@@ -106,9 +105,11 @@ def getNewConnection(host, user, decrypted):
     return pymysql.connect(host=host, user=user, password=decrypted["Plaintext"])
 
 if __name__ == "__main__":
-    args = getResolvedOptions(sys.argv, ['s3_path', 'intermediate_storage_path'])
+    args = getResolvedOptions(sys.argv, ['s3_path', 'intermediate_storage_path', 'glue-connection-name'])
     inputFilePath = args['s3_path']
     intermediate_storage_path = args['intermediate_storage_path']
+    glue_connection_name = args['glue-connection-name']
+
     print("Started ETL process for Price Advisor data in file %s\n" % inputFilePath)
 
     parsed_path = urlparse(inputFilePath, allow_fragments=False)
@@ -130,6 +131,6 @@ if __name__ == "__main__":
 
     item_zone_prices_for_opco = dict(tuple(df.groupby(df['opco_id'])))  # group data by opco_id
 
+    # opco_id validation
     for opco in item_zone_prices_for_opco:
-        # opco_id validation
         load_data(opco, item_zone_prices_for_opco[opco])
