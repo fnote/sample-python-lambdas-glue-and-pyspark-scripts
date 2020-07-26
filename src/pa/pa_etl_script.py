@@ -20,14 +20,13 @@ def read_data_from_s3(bucketname, key):
 
 def write_dataframe_to_s3(opco_id, fileName):
     print("starting uploading Price Advisor data of opco %s to s3 file %s" % (opco_id, fileName))
-    intermediate_storage_parsed_path = urlparse(intermediate_storage_path, allow_fragments=False)
-    intermediate_bucket = intermediate_storage_parsed_path.netloc
-    key = intermediate_storage_parsed_path.path.lstrip('/') + Configuration.OUTPUT_FILE_PATH + fileName
+    key = Configuration.OUTPUT_FILE_PATH + fileName
     with open(fileName, 'rb') as data:
         s3_output = boto3.client('s3')
-        s3_output.upload_fileobj(data, intermediate_bucket, key)
+        s3_output.upload_fileobj(data, intermediate_s3_bucket, key)
 
-    print("Completed uploading Price Advisor data of opco %s to s3 bucket: %s key:%s" % (opco_id, intermediate_bucket, key))
+    print("Completed uploading Price Advisor data of opco %s to s3 bucket: %s key:%s" % (
+    opco_id, intermediate_s3_bucket, key))
 
 
 def load_data(opco_id, df):
@@ -41,14 +40,14 @@ def load_data(opco_id, df):
                             connectionDetails["decrypted"])
 
     table_with_database_name = Configuration.DATABASE_PREFIX + opco_id + Configuration.DOT + Configuration.TABLE_NAME
-    s3_output_file_path = "s3://" + Configuration.BUCKET_NAME + "/" + Configuration.OUTPUT_FILE_PATH + output_file_name
+    s3_output_file_path = "s3://" + intermediate_s3_bucket + "/" + Configuration.OUTPUT_FILE_PATH + output_file_name
     cur = conn.cursor()
 
     loadQry = "LOAD DATA FROM S3 '" + s3_output_file_path + "' " \
                                                             "REPLACE INTO TABLE " + table_with_database_name + \
               " FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '\"' LINES TERMINATED BY '\n' " \
-              "IGNORE 1 LINES (@supc, @price_zone_id, @new_price, @new_price_effective_date, " \
-              "@export_date, @split_indicator) SET " \
+              "IGNORE 1 LINES (@supc,@new_price_effective_date,@new_price,@export_date,@split_indicator," \
+              "@price_zone_id) SET " \
               "SUPC=@supc," \
               "PRICE_ZONE=@price_zone_id," \
               "PRICE=@new_price," \
@@ -95,20 +94,20 @@ class Configuration:
 
     TABLE_NAME = "PA"
     DATABASE_PREFIX = "REF_PRICE_"
-    BUCKET_NAME = "cp-ref-price-poc-bucket"
     OUTPUT_FILE_PREFIX = "pa_data_output"
     FILE_NAME = "pa_data.csv.gz"
-    OUTPUT_FILE_PATH = "output/"
+    OUTPUT_FILE_PATH = "pa/output/"
 
 
 def getNewConnection(host, user, decrypted):
     return pymysql.connect(host=host, user=user, password=decrypted["Plaintext"])
 
+
 if __name__ == "__main__":
-    args = getResolvedOptions(sys.argv, ['s3_path', 'intermediate_storage_path', 'glue-connection-name'])
+    args = getResolvedOptions(sys.argv, ['s3_path', 'INTERMEDIATE_S3_BUCKET', 'GLUE_CONNECTION_NAME'])
     inputFilePath = args['s3_path']
-    intermediate_storage_path = args['intermediate_storage_path']
-    glue_connection_name = args['glue-connection-name']
+    intermediate_s3_bucket = args['INTERMEDIATE_S3_BUCKET']
+    glue_connection_name = args['GLUE_CONNECTION_NAME']
 
     print("Started ETL process for Price Advisor data in file %s\n" % inputFilePath)
 
@@ -123,11 +122,15 @@ if __name__ == "__main__":
     df = df.rename(columns={'NEW_PRICE': 'new_price'})
     df = df.rename(columns={'ITEM_ATTR_5_NM': 'split_indicator'})
 
-    df["effective_date"] = df["EFFECTIVE_DATE"].apply(
+    df["EFFECTIVE_DATE"] = df["EFFECTIVE_DATE"].apply(
         lambda x: datetime.strptime(x.split()[0], "%Y-%m-%d"))
-    df['export_date'] = df["EXPORT_DATE"].apply(lambda x: datetime.strptime(x, "%Y-%m-%d %H:%M:%S").timestamp())
+    df['EXPORT_DATE'] = df["EXPORT_DATE"].apply(lambda x: datetime.strptime(x, "%Y-%m-%d %H:%M:%S").timestamp())
     df["opco_id"] = df["PRICE_ZONE_ID"].apply(lambda x: x.split('-')[0])
     df["price_zone_id"] = df["PRICE_ZONE_ID"].apply(lambda x: x.split('-')[1])
+
+    df = df.rename(columns={'EFFECTIVE_DATE': 'new_price_effective_date'})
+    df = df.rename(columns={'EXPORT_DATE': 'export_date'})
+    del df['PRICE_ZONE_ID']
 
     item_zone_prices_for_opco = dict(tuple(df.groupby(df['opco_id'])))  # group data by opco_id
 

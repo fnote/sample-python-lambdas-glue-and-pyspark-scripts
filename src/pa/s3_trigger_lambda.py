@@ -12,19 +12,15 @@ logger.setLevel(logging.INFO)
 def lambda_handler(event, context):
     logger.info('## TRIGGERED BY EVENT: ')
     logger.info(event)
-    step_function_arn = "arn:aws:states:us-east-1:037295147636:stateMachine:CP-REF-pa-state-machine-DEV"
-    intermediate_s3_storage = os.environ['intermediateStorageS3']
+    step_function_arn = os.environ['stepFunctionArn']
 
     s3 = event['Records'][0]['s3']
     s3_object_key = s3['object']['key']
     s3_path = "s3://" + s3['bucket']['name'] + "/" + s3_object_key
     logger.info("File Path: %s" % s3_path)
 
-    intermediate_pa_data_storage_path = "s3://" + intermediate_s3_storage + "/pa"
-
     step_function_input_params = {
-        "s3_path": s3_path,
-        "intermediate_storage_path": intermediate_pa_data_storage_path
+        "s3_path": s3_path
     }
     client = boto3.client('stepfunctions')
     response = client.start_execution(stateMachineArn=step_function_arn,
