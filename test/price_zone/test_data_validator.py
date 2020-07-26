@@ -15,6 +15,33 @@ class TestSparkDataframeValidator(unittest.TestCase):
         cls.sc = pyspark.SparkContext(conf=conf)
         cls.spark = pyspark.SQLContext(cls.sc)
 
+    def test_with_valid_data(self):
+        data = [['38104612', '1234567', '5', '5/15/2020']]
+        schema = StructType([
+            StructField("co_cust_nbr", StringType(), True),
+            StructField("supc", StringType(), True),
+            StructField("price_zone", StringType(), True),
+            StructField("effective_date_str", StringType(), True)]
+        )
+        df = self.spark.createDataFrame(data=data, schema=schema)
+        try:
+            validator.validate_column(df, 'co_cust_nbr')
+            validator.validate_column(df, 'supc')
+            validator.validate_column(df, 'price_zone')
+            validator.validate_date_format(df, 'effective_date_str', DATE_FORMAT_REGEX)
+
+            validator.validate_column_length(df, 'co_cust_nbr', CO_CUST_NBR_LENGTH)
+            validator.validate_column_length(df, 'supc', SUPC_LENGTH)
+
+            df = df.withColumn("price_zone", df["price_zone"].cast(IntegerType()))
+            validator.validate_data_range(df, 'price_zone', PRICE_ZONE_MIN_VALUE, PRICE_ZONE_MAX_VALUE)
+
+            validator.validate_and_get_as_date(df, 'effective_date_str', 'effective_date', INPUT_DATE_FORMAT)
+
+        except ValueError:
+            self.fail("Should fail. Received ValueError for valid data")
+
+
     def test_null_data_for_supc(self):
         """PRCP-2012"""
 
