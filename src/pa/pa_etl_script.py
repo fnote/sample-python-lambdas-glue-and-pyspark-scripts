@@ -6,7 +6,7 @@ import base64
 from datetime import datetime
 
 import pymysql
-#from awsglue.utils import getResolvedOptions
+from awsglue.utils import getResolvedOptions
 from urllib.parse import urlparse
 
 
@@ -15,7 +15,7 @@ def read_data_from_s3(bucketname, key):
     s3 = boto3.client('s3')
     s3.download_file(bucketname, key, Configuration.FILE_NAME)
     print("Completed downloading Price advisor data file from S3")
-    return pd.read_csv(Configuration.FILE_NAME, ",")
+    return pd.read_csv(Configuration.FILE_NAME, sep="|")
 
 
 def write_dataframe_to_s3(opco_id, fileName):
@@ -23,9 +23,10 @@ def write_dataframe_to_s3(opco_id, fileName):
     key = Configuration.OUTPUT_FILE_PATH + fileName
     with open(fileName, 'rb') as data:
         s3_output = boto3.client('s3')
-        s3_output.upload_fileobj(data, Configuration.BUCKET_NAME, key)
+        s3_output.upload_fileobj(data, intermediate_s3_bucket, key)
 
-    print("Completed uploading Price Advisor data of opco %s to s3 file %s" % (opco_id, fileName))
+    print("Completed uploading Price Advisor data of opco %s to s3 bucket: %s key:%s" % (
+    opco_id, intermediate_s3_bucket, key))
 
 
 def load_data(opco_id, df):
@@ -39,31 +40,21 @@ def load_data(opco_id, df):
                             connectionDetails["decrypted"])
 
     table_with_database_name = Configuration.DATABASE_PREFIX + opco_id + Configuration.DOT + Configuration.TABLE_NAME
-    s3_output_file_path = "s3://" + Configuration.BUCKET_NAME + "/" + Configuration.OUTPUT_FILE_PATH + output_file_name
+    s3_output_file_path = "s3://" + intermediate_s3_bucket + "/" + Configuration.OUTPUT_FILE_PATH + output_file_name
     cur = conn.cursor()
-
-    createTableIfnotExistsQuery = "CREATE TABLE IF NOT EXISTS " + table_with_database_name + "(" \
-                                                                                             "`SUPC` VARCHAR(9) NOT NULL," \
-                                                                                             "  `PRICE_ZONE` TINYINT(1) UNSIGNED NOT NULL," \
-                                                                                             "  `PRICE` DOUBLE(13 , 3) NOT NULL," \
-                                                                                             "  `EFFECTIVE_DATE` DATETIME NOT NULL," \
-                                                                                             "  `EXPORTED_DATE` BIGINT(10) UNSIGNED NOT NULL," \
-                                                                                             "  PRIMARY KEY (`SUPC`,`PRICE_ZONE`,`EFFECTIVE_DATE`, `EXPORTED_DATE`)" \
-                                                                                             ")  ENGINE=INNODB DEFAULT CHARSET=UTF8;"
 
     loadQry = "LOAD DATA FROM S3 '" + s3_output_file_path + "' " \
                                                             "REPLACE INTO TABLE " + table_with_database_name + \
               " FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '\"' LINES TERMINATED BY '\n' " \
-              "IGNORE 1 LINES (@item_id, @price_zone_id, @new_price, @new_price_effective_date, " \
-              "@export_date, @isPound) SET " \
-              "SUPC=@item_id," \
+              "IGNORE 1 LINES (@supc,@new_price_effective_date,@new_price,@export_date,@split_indicator," \
+              "@price_zone_id) SET " \
+              "SUPC=@supc," \
               "PRICE_ZONE=@price_zone_id," \
               "PRICE=@new_price," \
               "EXPORTED_DATE=@export_date," \
               "EFFECTIVE_DATE=@new_price_effective_date," \
-              "ISPOUND=@isPound;"
+              "SPLIT_INDICATOR=@split_indicator;"
 
-    cur.execute(createTableIfnotExistsQuery)
     print("Loading PA data to the table : %s from file %s\n" % (table_with_database_name, s3_output_file_path))
     cur.execute(loadQry)
     conn.commit()
@@ -75,7 +66,7 @@ def load_data(opco_id, df):
 def getConnectionDetails():
     glue = boto3.client('glue', region_name='us-east-1')
 
-    response = glue.get_connection(Name=Configuration.GLUE_CONNECTION_NAME)
+    response = glue.get_connection(Name=glue_connection_name)
 
     connection_properties = response['Connection']['ConnectionProperties']
     URL = connection_properties['JDBC_CONNECTION_URL']
@@ -103,43 +94,46 @@ class Configuration:
 
     TABLE_NAME = "PA"
     DATABASE_PREFIX = "REF_PRICE_"
-    GLUE_CONNECTION_NAME = 'rp-data-populator-poc-connection'
-    BUCKET_NAME = "cp-ref-price-poc-bucket"
     OUTPUT_FILE_PREFIX = "pa_data_output"
     FILE_NAME = "pa_data.csv.gz"
-    OUTPUT_FILE_PATH = "output/"
+    OUTPUT_FILE_PATH = "pa/output/"
 
 
 def getNewConnection(host, user, decrypted):
     return pymysql.connect(host=host, user=user, password=decrypted["Plaintext"])
 
+
 if __name__ == "__main__":
-    args = getResolvedOptions(sys.argv, ['s3_path'])
+    args = getResolvedOptions(sys.argv, ['s3_path', 'INTERMEDIATE_S3_BUCKET', 'GLUE_CONNECTION_NAME'])
     inputFilePath = args['s3_path']
+    intermediate_s3_bucket = args['INTERMEDIATE_S3_BUCKET']
+    glue_connection_name = args['GLUE_CONNECTION_NAME']
+
     print("Started ETL process for Price Advisor data in file %s\n" % inputFilePath)
 
     parsed_path = urlparse(inputFilePath, allow_fragments=False)
     df = read_data_from_s3(bucketname=parsed_path.netloc, key=parsed_path.path.lstrip('/'))
-    df.columns = ["item_id",
-                  "price_zone_id",
-                  "new_price",
-                  "new_price_effective_date",
-                  "current_price",
-                  "reason_code",
-                  "export_date"]
 
-    df["new_price"] = df["new_price"].apply(lambda x: x.strip('$'))
-    df["new_price_effective_date"] = df["new_price_effective_date"].apply(
-        lambda x: datetime.strptime(x, "%m/%d/%Y"))
-    df['export_date'] = df["export_date"].apply(lambda x: datetime.strptime(x, "%m/%d/%Y").timestamp())
-    del df['current_price']
-    del df['reason_code']
+    del df['CURRENT_PRICE']
+    del df['REASON']
+    del df['LOCAL_REFERENCE_PRICE']
 
-    df["opco_id"] = df["price_zone_id"].apply(lambda x: x.split('-')[0])
-    df["price_zone_id"] = df["price_zone_id"].apply(lambda x: x.split('-')[1])
+    df = df.rename(columns={'ITEM_ID': 'supc'})
+    df = df.rename(columns={'NEW_PRICE': 'new_price'})
+    df = df.rename(columns={'ITEM_ATTR_5_NM': 'split_indicator'})
+
+    df["EFFECTIVE_DATE"] = df["EFFECTIVE_DATE"].apply(
+        lambda x: datetime.strptime(x.split()[0], "%Y-%m-%d"))
+    df['EXPORT_DATE'] = df["EXPORT_DATE"].apply(lambda x: datetime.strptime(x, "%Y-%m-%d %H:%M:%S").timestamp())
+    df["opco_id"] = df["PRICE_ZONE_ID"].apply(lambda x: x.split('-')[0])
+    df["price_zone_id"] = df["PRICE_ZONE_ID"].apply(lambda x: x.split('-')[1])
+
+    df = df.rename(columns={'EFFECTIVE_DATE': 'new_price_effective_date'})
+    df = df.rename(columns={'EXPORT_DATE': 'export_date'})
+    del df['PRICE_ZONE_ID']
 
     item_zone_prices_for_opco = dict(tuple(df.groupby(df['opco_id'])))  # group data by opco_id
 
+    # opco_id validation
     for opco in item_zone_prices_for_opco:
-        # opco_id validation
         load_data(opco, item_zone_prices_for_opco[opco])
