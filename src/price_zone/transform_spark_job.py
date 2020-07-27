@@ -11,9 +11,9 @@ from validator import validate_column, validate_column_length, validate_data_ran
 from constants import CO_CUST_NBR_LENGTH, SUPC_LENGTH, PRICE_ZONE_MIN_VALUE, PRICE_ZONE_MAX_VALUE, DATE_FORMAT_REGEX, INPUT_DATE_FORMAT
 
 ## @params: [JOB_NAME]
-args = getResolvedOptions(sys.argv, ['JOB_NAME', 'decompressed_file_path', 'intermediate_directory_path'])
+args = getResolvedOptions(sys.argv, ['JOB_NAME', 'decompressed_file_path', 'partitioned_files_path'])
 decompressed_file_path = args['decompressed_file_path']
-intermediate_directory_path = args['intermediate_directory_path'] + "/partitioned/"
+partitioned_files_path = args['partitioned_files_path']
 sc = SparkContext()
 glueContext = GlueContext(sc)
 spark = glueContext.spark_session
@@ -60,6 +60,6 @@ convertedDynamicFrame = DynamicFrame.fromDF(sparkDF, glueContext, "convertedDyna
 customer_nb_dropped_dynamicdataframe = DropFields.apply(frame = convertedDynamicFrame, paths = ["co_cust_nbr", "effective_date_str"], transformation_ctx = "customer_nb_dropped_dynamicdataframe")
 
 #save dataframe to s3, partitioned per OPCO
-datasink2 = glueContext.write_dynamic_frame.from_options(frame=customer_nb_dropped_dynamicdataframe, connection_type="s3", connection_options={"path": intermediate_directory_path, "partitionKeys": ["opco_id"]}, format="csv", transformation_ctx="datasink2")
+datasink2 = glueContext.write_dynamic_frame.from_options(frame=customer_nb_dropped_dynamicdataframe, connection_type="s3", connection_options={"path": partitioned_files_path, "partitionKeys": ["opco_id"]}, format="csv", transformation_ctx="datasink2")
 
 job.commit()
