@@ -16,9 +16,17 @@ def lambda_handler(event, context):
     s3 = event['Records'][0]['s3']
     s3_object_key = s3['object']['key']
     s3_path = "s3://" + s3['bucket']['name'] + "/" + s3_object_key
+    intermediate_directory_path = "s3://" + intermediate_s3_storage + "/" + s3_object_key
+    decompressed_file_path = intermediate_directory_path + "/decompress.csv"
+    partitioned_files_key = s3_object_key + "/partitioned"
+    partitioned_files_path = intermediate_directory_path + "/partitioned/"
+
     params = {
-        "s3_path": s3_path
-        "intermediate_s3_storage": intermediate_s3_storage
+        "s3_path": s3_path,
+        "intermediate_s3_name": intermediate_s3_storage,
+        "partitioned_files_path": partitioned_files_path,
+        "decompressed_file_path": decompressed_file_path,
+        "partitioned_files_key": partitioned_files_key
     }
 
     logger.info("Prize Zone data file Path: %s" % s3_path)
