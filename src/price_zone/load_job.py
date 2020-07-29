@@ -38,13 +38,13 @@ def __create_db_engine(credentials):
 
 def _execute_load(pool, queue, database, table, threadErrors):
     while not queue.empty():
+        s3_file_path = queue.get()
         try:
-            s3_file_path = queue.get()
             table_with_database_name = database + Configuration.DOT + table
             load_qry = "LOAD DATA FROM S3 '" + s3_file_path + "'" \
                                                               "REPLACE INTO TABLE " + table_with_database_name + \
                        " FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '\"' LINES TERMINATED BY '\n' " \
-                       "IGNORE 1 LINES (@supc, @customer_id, @price_zone, @effective_date) SET " \
+                       "IGNORE 1 LINES (@supc,@price_zone,@customer_id,@effective_date) SET " \
                        "SUPC=@supc," \
                        "CUSTOMER_ID=@customer_id," \
                        "EFFECTIVE_DATE=@effective_date," \
@@ -53,10 +53,11 @@ def _execute_load(pool, queue, database, table, threadErrors):
             connection = pool.connect()
             print("Populating price zone data from file: %s to table %s\n" % (s3_file_path, table_with_database_name))
             connection.execute(load_qry)
-            print("Completed loading price zone data from s3 %s to table %s\n" % (s3_file_path, table_with_database_name))
+            print(
+                "Completed loading price zone data from s3 %s to table %s\n" % (s3_file_path, table_with_database_name))
             connection.close()
         except Exception as e:
-            print("Error occurred when trying to file: %s, error: %s" %(s3_file_path, repr(e)))
+            print("Error occurred when trying to file: %s, error: %s" % (s3_file_path, repr(e)))
             threadErrors.append(repr(e))
             raise e
 
@@ -64,7 +65,9 @@ def _execute_load(pool, queue, database, table, threadErrors):
 def load_data(dbconfigs, opco_id, bucketname, partitioned_files_path):
     prefix = partitioned_files_path + Configuration.OUTPUT_PATH_PREFIX + opco_id
     output_files = list_files_in_s3(bucketname, prefix)['Contents']
-
+    zero_prefix = "0"
+    if len(opco_id) == 2:
+        opco_id = zero_prefix + opco_id
     dbconfigs['database'] = Configuration.DATABASE_PREFIX + opco_id
     pool = __create_db_engine(dbconfigs)
     queue = Queue()
@@ -78,7 +81,8 @@ def load_data(dbconfigs, opco_id, bucketname, partitioned_files_path):
     threadErrors = []
     threads = []
     for i in range(0, 4):
-        threads.append(threading.Thread(target=_execute_load, args=(pool, queue, dbconfigs['database'], dbconfigs['table'], threadErrors)))
+        threads.append(threading.Thread(target=_execute_load,
+                                        args=(pool, queue, dbconfigs['database'], dbconfigs['table'], threadErrors)))
 
     for t in threads:
         t.start()
@@ -90,6 +94,7 @@ def load_data(dbconfigs, opco_id, bucketname, partitioned_files_path):
 
     if len(threadErrors) > 0:
         raise Exception(threadErrors)
+
 
 def _retrieve_conection_details():
     glue = boto3.client('glue', region_name='us-east-1')
@@ -124,7 +129,8 @@ if __name__ == "__main__":
     opco_id = args['opco_id']  # opco_id validation
     partitioned_files_key = args['partitioned_files_key']
     intermediate_s3 = args['intermediate_s3_name']
-    print("Started data loading job for Opco: %s, file path: %s/%s\n" % (opco_id, intermediate_s3, partitioned_files_key))
+    print(
+        "Started data loading job for Opco: %s, file path: %s/%s\n" % (opco_id, intermediate_s3, partitioned_files_key))
     dbconfigs = _retrieve_conection_details()
 
     load_data(dbconfigs, opco_id, intermediate_s3, partitioned_files_key)
