@@ -20,7 +20,6 @@ class Configuration:
     DOT = "."
 
     TABLE_NAME = "PRICE_ZONE_01"
-    GLUE_CONNECTION_NAME = 'cp-ref-data-poc-common'
     OUTPUT_PATH_PREFIX = "/opco_id="  # opco_id substring depends on the column naming at spark job
     DATABASE_PREFIX = "REF_PRICE_"
 
@@ -90,16 +89,15 @@ def load_data(dbconfigs, opco_id, bucketname, partitioned_files_path):
     for t in threads:
         t.join()
 
-    print(threadErrors)
-
     if len(threadErrors) > 0:
+        print(threadErrors)
         raise Exception(threadErrors)
 
 
 def _retrieve_conection_details():
     glue = boto3.client('glue', region_name='us-east-1')
 
-    response = glue.get_connection(Name=Configuration.GLUE_CONNECTION_NAME)
+    response = glue.get_connection(Name=glue_connection_name)
 
     connection_properties = response['Connection']['ConnectionProperties']
     URL = connection_properties['JDBC_CONNECTION_URL']
@@ -125,7 +123,8 @@ def _retrieve_conection_details():
 
 
 if __name__ == "__main__":
-    args = getResolvedOptions(sys.argv, ['opco_id', 'partitioned_files_key', 'intermediate_s3_name'])
+    args = getResolvedOptions(sys.argv, ['opco_id', 'partitioned_files_key', 'intermediate_s3_name', 'GLUE_CONNECTION_NAME'])
+    glue_connection_name = args['GLUE_CONNECTION_NAME']
     opco_id = args['opco_id']  # opco_id validation
     partitioned_files_key = args['partitioned_files_key']
     intermediate_s3 = args['intermediate_s3_name']
