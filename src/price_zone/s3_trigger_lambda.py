@@ -17,7 +17,7 @@ def lambda_handler(event, context):
     s3 = event['Records'][0]['s3']
     s3_object_key = s3['object']['key']
     s3_path = "s3://" + s3['bucket']['name'] + "/" + s3_object_key
-    folder_key = 'price_zone/etl_output_{}' + str(int(time.time()))
+    folder_key = 'price_zone/etl_output_' + str(int(time.time()))
     intermediate_directory_path = "s3://" + intermediate_s3_storage + "/" + folder_key
     decompressed_file_path = intermediate_directory_path + "/decompress.csv"
     partitioned_files_key = folder_key + "/partitioned"
