@@ -8,13 +8,15 @@ logger.setLevel(logging.INFO)
 
 def lambda_handler(event, context):
     REFERENCE_PRICING = "REFERENCE_PRICING"
-    current_time = int(time.time())
+
+    url = os.environ['cp_notification_url']
+    host = os.environ['cp_notification_host']
     event_component = event.get("event", "PROCESSOR")
     status = event.get("status", "ERROR")
     env = os.environ['env']
     message = event.get("message", "NA")
     opco_id = event.get("opco_id", "NA")
-
+    current_time = int(time.time())
     logger.info('Sending notification env: %s, time: %s, opco: %s, status: %s, message: %s' % (
         env, current_time, opco_id, status, message))
     data = {
@@ -35,8 +37,8 @@ def lambda_handler(event, context):
             "triggeredTime": current_time,
         }
     }
-    url = 'https://vpce-0ee878fea3ffd19c4-6bsoxvze.execute-api.us-east-1.vpce.amazonaws.com/stg/v1/cpns/notifications'
-    headers = {'host': 'ivsgfq5vdl.execute-api.us-east-1.amazonaws.com', 'Content-Type': 'application/json'}
+
+    headers = {'host': host, 'Content-Type': 'application/json'}
     response = requests.post(url, json=data, headers=headers)
     logger.info('Response: %s' % response.json())
     return response.json()
