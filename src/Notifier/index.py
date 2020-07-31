@@ -11,9 +11,9 @@ def lambda_handler(event, context):
 
     url = os.environ['cp_notification_url']
     host = os.environ['cp_notification_host']
+    env = os.environ['env']
     notification_event = event.get("event", "PROCESSOR")
     status = event.get("status", "ERROR")
-    env = os.environ['env']
     message = event.get("message", "NA")
     opco_id = event.get("opco_id", "NA")
     current_time = int(time.time())
