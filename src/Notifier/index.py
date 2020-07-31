@@ -11,7 +11,7 @@ def lambda_handler(event, context):
 
     url = os.environ['cp_notification_url']
     host = os.environ['cp_notification_host']
-    event_component = event.get("event", "PROCESSOR")
+    notification_event = event.get("event", "PROCESSOR")
     status = event.get("status", "ERROR")
     env = os.environ['env']
     message = event.get("message", "NA")
@@ -22,7 +22,7 @@ def lambda_handler(event, context):
     data = {
         "messageAttributes": {
             "application": REFERENCE_PRICING,
-            "event": event_component,
+            "event": notification_event,
             "status": status,
             "environment": env,
             "businessUnit": opco_id,
@@ -31,7 +31,7 @@ def lambda_handler(event, context):
         "message": {
             "opco": opco_id,
             "application": REFERENCE_PRICING,
-            "event": event_component,
+            "event": notification_event,
             "status": status,
             "message": message,
             "triggeredTime": current_time,
