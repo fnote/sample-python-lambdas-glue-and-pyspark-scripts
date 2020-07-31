@@ -7,25 +7,29 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 def lambda_handler(event, context):
+    REFERENCE_PRICING = "REFERENCE_PRICING"
     current_time = int(time.time())
-    opco_id = event.get("opco_id", "NA")
+    event_component = event.get("event", "PROCESSOR")
     status = event.get("status", "ERROR")
     env = os.environ['env']
     message = event.get("message", "NA")
-    logger.info('Sending notification env: %s, time: %s, opco: %s, status: %s, message: %s' %(env, current_time, opco_id, status, message))
+    opco_id = event.get("opco_id", "NA")
+
+    logger.info('Sending notification env: %s, time: %s, opco: %s, status: %s, message: %s' % (
+        env, current_time, opco_id, status, message))
     data = {
         "messageAttributes": {
-            "application": "REFERENCE_PRICING",
-            "event": "PROCESSOR",
+            "application": REFERENCE_PRICING,
+            "event": event_component,
             "status": status,
-            "environment" : env,
+            "environment": env,
             "businessUnit": opco_id,
             "triggeredTime": current_time
         },
         "message": {
             "opco": opco_id,
-            "application": "REFERENCE_PRICING",
-            "event": "PROCESSOR",
+            "application": REFERENCE_PRICING,
+            "event": event_component,
             "status": status,
             "message": message,
             "triggeredTime": current_time,
