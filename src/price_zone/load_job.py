@@ -12,8 +12,13 @@ from awsglue.utils import getResolvedOptions
 
 def list_files_in_s3(bucketname, prefix):
     s3 = boto3.client('s3')
-    all_objects = s3.list_objects_v2(Bucket=bucketname, Prefix=prefix)
-    return all_objects
+    paginator = s3.get_paginator('list_objects_v2')
+    pages = paginator.paginate(Bucket=bucketname, Prefix=prefix)
+    matchingObjects = []
+    for page in pages:
+        matchingObjects.extend(page['Contents'])
+
+    return matchingObjects
 
 
 class Configuration:
@@ -63,7 +68,7 @@ def _execute_load(pool, queue, database, table, threadErrors):
 
 def load_data(dbconfigs, opco_id, bucketname, partitioned_files_path):
     prefix = partitioned_files_path + Configuration.OUTPUT_PATH_PREFIX + opco_id
-    output_files = list_files_in_s3(bucketname, prefix)['Contents']
+    output_files = list_files_in_s3(bucketname, prefix)
     zero_prefix = "0"
     if len(opco_id) == 2:
         opco_id = zero_prefix + opco_id
@@ -73,8 +78,7 @@ def load_data(dbconfigs, opco_id, bucketname, partitioned_files_path):
     for file in output_files:
         prefix_path = prefix + '/'
         if file['Key'] != prefix_path:
-            filename = file['Key'].replace(prefix_path, '')
-            s3_file_path = "s3://" + bucketname + "/" + prefix_path + filename
+            s3_file_path = "s3://" + bucketname + "/" + file['Key']
             queue.put(s3_file_path)
 
     threadErrors = []
