@@ -17,7 +17,8 @@ def lambda_handler(event, context):
     s3 = event['Records'][0]['s3']
     s3_object_key = s3['object']['key']
     s3_path = "s3://" + s3['bucket']['name'] + "/" + s3_object_key
-    folder_key = 'price_zone/etl_output_' + str(int(time.time()))
+    etl_timestamp = str(int(time.time()))
+    folder_key = 'price_zone/etl_output_' + etl_timestamp
     intermediate_directory_path = "s3://" + intermediate_s3_storage + "/" + folder_key
     decompressed_file_path = intermediate_directory_path + "/decompress.csv"
     partitioned_files_key = folder_key + "/partitioned"
@@ -28,7 +29,9 @@ def lambda_handler(event, context):
         "intermediate_s3_name": intermediate_s3_storage,
         "partitioned_files_path": partitioned_files_path,
         "decompressed_file_path": decompressed_file_path,
-        "partitioned_files_key": partitioned_files_key
+        "partitioned_files_key": partitioned_files_key,
+        "etl_timestamp": etl_timestamp,
+        "etl_output_path_key": folder_key
     }
 
     logger.info("Prize Zone data file Path: %s" % s3_path)
