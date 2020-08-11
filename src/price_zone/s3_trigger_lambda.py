@@ -1,6 +1,8 @@
 # Set up logging
 import logging
 import os
+from urllib.parse import unquote_plus
+
 import boto3
 import json
 import time
@@ -15,7 +17,7 @@ def lambda_handler(event, context):
     logger.info('Prize Zone lambda triggered by: ')
     logger.info(event)
     s3 = event['Records'][0]['s3']
-    s3_object_key = s3['object']['key']
+    s3_object_key = unquote_plus(s3['object']['key'])
     s3_path = "s3://" + s3['bucket']['name'] + "/" + s3_object_key
     etl_timestamp = str(int(time.time()))
     folder_key = 'price_zone/etl_output_' + etl_timestamp

@@ -3,12 +3,14 @@ from urllib.parse import urlparse
 import boto3
 
 
+# should be added to glue backup jobs as external scripts
+
 def move_objects_with_prefix(source_bucket, source_prefix, destination_bucket, destination_prefix):
     s3 = boto3.client('s3')
     paginator = s3.get_paginator('list_objects_v2')
     pages = paginator.paginate(Bucket=source_bucket, Prefix=source_prefix)
 
-    print("started moving s3 objects matching prefix %s of bucket %s\n" % (source_bucket, source_prefix))
+    print("started moving s3 objects matching prefix %s of bucket %s\n" % (source_prefix, source_bucket))
 
     matching_objects = []
     for page in pages:
@@ -34,10 +36,10 @@ def move_object_with_key(source_bucket, source_key, destination_bucket, destinat
     }
     copy_bucket = s3.Bucket(destination_bucket)
 
-    print("Started data moving from bucket %s with key %s to bucket %s with key %s\n" % (
+    print("Started moving s3 object from bucket %s with key %s to bucket %s with key %s\n" % (
         source_bucket, source_key, destination_bucket, destination_key))
     copy_bucket.copy(copy_source, destination_key)
-    print("Completed data moving from bucket %s with key %s to bucket %s with key %s\n" % (
+    print("Completed moving s3 object from bucket %s with key %s to bucket %s with key %s\n" % (
         source_bucket, source_key, destination_bucket, destination_key))
 
 
@@ -83,6 +85,8 @@ def delete_directory(source_bucket, prefix):
     paginator = s3.get_paginator('list_objects_v2')
     source_pages = paginator.paginate(Bucket=source_bucket, Prefix=prefix)
 
+    print("started deleting s3 objects matching prefix: %s of bucket: %s\n" % (prefix, source_bucket))
+
     for page in source_pages:
         del_object_list = []
         for delete_file in page['Contents']:  # delete 1000 objects at max at once
@@ -94,10 +98,12 @@ def delete_directory(source_bucket, prefix):
             'Objects': del_object_list
         }
         s3.delete_objects(Bucket=source_bucket, Delete=del_object)
+        print("Successfully deleted s3 objects matching prefix: %s of bucket: %s\n. "
+              "Deleted content: %s" % (prefix, source_bucket, del_object_list))
 
 
 def delete_object(source_bucket, source_key):
     s3 = boto3.client('s3')
     print("Deleting object in bucket %s with key %s\n" % (source_bucket, source_key))
     s3.delete_object(Bucket=source_bucket, Key=source_key)
-    print("Completed deleting object in bucket %s with key %s\n" % (source_bucket, source_key))
+    print("Successfully deleted object in bucket %s with key %s\n" % (source_bucket, source_key))

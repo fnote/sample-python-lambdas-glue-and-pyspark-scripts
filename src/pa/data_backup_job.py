@@ -22,5 +22,5 @@ if __name__ == "__main__":
         etl_time_object.day) + '/etl_output_' + etl_timestamp + '/'
 
     move_input_file(input_file_path, archiving_s3_bucket, archiving_path)
-    opco_partitioned = archiving_path + 'partitioned/'
-    move_objects_with_prefix(intermediate_s3_bucket, etl_output_path_key, archiving_s3_bucket, opco_partitioned)
+    opco_partitioned_path = archiving_path + 'partitioned/'
+    move_objects_with_prefix(intermediate_s3_bucket, etl_output_path_key, archiving_s3_bucket, opco_partitioned_path)
