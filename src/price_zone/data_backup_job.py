@@ -38,5 +38,5 @@ if __name__ == "__main__":
 
     # cleaning source files
     delete_object(input_file_bucket, input_file_key)
-    delete_object(decompressed_file_bucket, decompressed_file_path)
+    delete_object(decompressed_file_bucket, decompressed_file_key)
     delete_directory(source_bucket=intermediate_s3_bucket, prefix=partitioned_files_path)
