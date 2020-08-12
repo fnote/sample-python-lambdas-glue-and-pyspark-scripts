@@ -1,5 +1,4 @@
 import sys
-import time
 
 import boto3
 import pandas as pd
@@ -20,13 +19,13 @@ def read_data_from_s3(bucketname, key):
 
 
 def write_dataframe_to_s3(opco_id, fileName):
-    print("starting uploading Price Advisor data of opco %s to s3 file %s" % (opco_id, fileName))
+    print("starting uploading PA data of opco %s to s3 file %s" % (opco_id, fileName))
     key = output_file_path + fileName
     with open(fileName, 'rb') as data:
         s3_output = boto3.client('s3')
         s3_output.upload_fileobj(data, intermediate_s3_bucket, key)
 
-    print("Completed uploading Price Advisor data of opco %s to s3 bucket: %s key:%s" % (
+    print("Completed uploading PA data of opco %s to s3 bucket: %s key:%s" % (
     opco_id, intermediate_s3_bucket, key))
 
 
@@ -97,7 +96,6 @@ class Configuration:
     DATABASE_PREFIX = "REF_PRICE_"
     OUTPUT_FILE_PREFIX = "pa_data_output"
     FILE_NAME = "pa_data.csv.gz"
-    OUTPUT_FILE_PATH = "pa/etl_output_{}/"
 
 
 def getNewConnection(host, user, decrypted):
@@ -105,13 +103,14 @@ def getNewConnection(host, user, decrypted):
 
 
 if __name__ == "__main__":
-    args = getResolvedOptions(sys.argv, ['s3_path', 'INTERMEDIATE_S3_BUCKET', 'GLUE_CONNECTION_NAME'])
+    args = getResolvedOptions(sys.argv, ['s3_path', 'etl_output_path_key',
+                                         'INTERMEDIATE_S3_BUCKET', 'GLUE_CONNECTION_NAME'])
     inputFilePath = args['s3_path']
     intermediate_s3_bucket = args['INTERMEDIATE_S3_BUCKET']
     glue_connection_name = args['GLUE_CONNECTION_NAME']
-    output_file_path = Configuration.OUTPUT_FILE_PATH.format(str(int(time.time())))
+    output_file_path = args['etl_output_path_key'] + "/"
 
-    print("Started ETL process for Price Advisor data in file %s\n" % inputFilePath)
+    print("Started ETL process for PA data in file %s\n" % inputFilePath)
 
     parsed_path = urlparse(inputFilePath, allow_fragments=False)
     df = read_data_from_s3(bucketname=parsed_path.netloc, key=parsed_path.path.lstrip('/'))
