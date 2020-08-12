@@ -1,25 +1,13 @@
 import unittest
-
-from src.util.move_s3_objects import validate_copy_count, validate_copy, move_object_with_key
+from src.util.move_s3_objects import validate_copy_count, validate_copy
 from botocore.exceptions import ClientError
 from mock import patch
 import botocore
 
 orig = botocore.client.BaseClient._make_api_call
 
+
 class TestMoveS3Objects(unittest.TestCase):
-
-    def test_move_object_with_key_successfully(self):
-        response = {'ResponseMetadata': {'RequestId': '5E7F058C0F19D489',
-                                         'HTTPStatusCode': 200, 'RetryAttempts': 0},
-                    'AcceptRanges': 'bytes', 'ContentLength': 280, 'ETag': '"09c7b314e3acd679d29f21bf57f595f5"',
-                    'ContentType': 'application/x-gzip', 'Metadata': {}}
-
-        with patch('boto3.resource.BaseClient._make_api_call', return_value=response):
-            try:
-                move_object_with_key('source_bucket', 'source_key', 'destination_bucket', 'destination_key')
-            except ClientError:
-                self.fail("Should not fail")
 
     def test_validate_copy_successful(self):
         response = {'ResponseMetadata': {'RequestId': '5E7F058C0F19D489',

@@ -1,11 +1,9 @@
-from urllib.parse import urlparse
-
 import boto3
 
 
 # should be added to glue backup jobs as external scripts
 
-def move_objects_with_prefix(source_bucket, source_prefix, destination_bucket, destination_prefix):
+def copy_objects_with_prefix(source_bucket, source_prefix, destination_bucket, destination_prefix):
     s3 = boto3.client('s3')
     paginator = s3.get_paginator('list_objects_v2')
     pages = paginator.paginate(Bucket=source_bucket, Prefix=source_prefix)
@@ -20,14 +18,13 @@ def move_objects_with_prefix(source_bucket, source_prefix, destination_bucket, d
     for matching_object in matching_objects:
         temp_key = matching_object['Key'].replace(source_prefix, '').lstrip('/')
         destination_path = destination_prefix + temp_key
-        move_object_with_key(source_bucket, matching_object['Key'], destination_bucket, destination_path)
+        copy_object_with_key(source_bucket, matching_object['Key'], destination_bucket, destination_path)
 
-    if len(matching_objects) > 0:
+    if matching_objects:
         validate_copy_count(source_bucket, source_prefix, len(matching_objects), destination_bucket, destination_prefix)
-        delete_directory(source_bucket=source_bucket, prefix=source_prefix)
 
 
-def move_object_with_key(source_bucket, source_key, destination_bucket, destination_key):
+def copy_object_with_key(source_bucket, source_key, destination_bucket, destination_key):
     s3 = boto3.resource('s3')
 
     copy_source = {
@@ -43,17 +40,12 @@ def move_object_with_key(source_bucket, source_key, destination_bucket, destinat
         source_bucket, source_key, destination_bucket, destination_key))
 
 
-def move_input_file(source_path, destination_bucket, destination_path_prefix):
-    parsed_path = urlparse(source_path, allow_fragments=False)
-    source_bucket = parsed_path.netloc
-    source_key = parsed_path.path.lstrip('/')
-    destination_key = destination_path_prefix + parsed_path.path.split('/')[-1]
+def copy_input_file(source_bucket, source_key, destination_bucket, destination_path_prefix):
+    destination_key = destination_path_prefix + source_key
 
-    move_object_with_key(source_bucket, source_key, destination_bucket, destination_key)
+    copy_object_with_key(source_bucket, source_key, destination_bucket, destination_key)
 
     validate_copy(destination_bucket, destination_key)
-
-    delete_object(source_bucket, source_key)
 
 
 def validate_copy(bucket, key):
@@ -88,18 +80,19 @@ def delete_directory(source_bucket, prefix):
     print("started deleting s3 objects matching prefix: %s of bucket: %s\n" % (prefix, source_bucket))
 
     for page in source_pages:
-        del_object_list = []
-        for delete_file in page['Contents']:  # delete 1000 objects at max at once
+        if page['KeyCount'] > 0:
+            del_object_list = []
+            for delete_file in page['Contents']:  # delete 1000 objects at max at once
+                del_object = {
+                    'Key': delete_file['Key']
+                }
+                del_object_list.append(del_object)
             del_object = {
-                'Key': delete_file['Key']
+                'Objects': del_object_list
             }
-            del_object_list.append(del_object)
-        del_object = {
-            'Objects': del_object_list
-        }
-        s3.delete_objects(Bucket=source_bucket, Delete=del_object)
-        print("Successfully deleted s3 objects matching prefix: %s of bucket: %s\n. "
-              "Deleted content: %s" % (prefix, source_bucket, del_object_list))
+            s3.delete_objects(Bucket=source_bucket, Delete=del_object)
+            print("Successfully deleted s3 objects matching prefix: %s of bucket: %s\n. "
+                  "Deleted content: %s" % (prefix, source_bucket, del_object_list))
 
 
 def delete_object(source_bucket, source_key):
