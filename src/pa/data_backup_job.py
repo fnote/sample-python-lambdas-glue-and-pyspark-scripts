@@ -26,7 +26,8 @@ if __name__ == "__main__":
     input_file_bucket = input_file_parsed_path.netloc
     input_file_key = input_file_parsed_path.path.lstrip('/')
 
-    copy_input_file(input_file_bucket, input_file_key, archiving_s3_bucket, archiving_path)
+    input_file_destination_key = archiving_path + input_file_key
+    copy_input_file(input_file_bucket, input_file_key, archiving_s3_bucket, input_file_destination_key)
     opco_partitioned_path = archiving_path + 'partitioned/'
     copy_objects_with_prefix(intermediate_s3_bucket, etl_output_path_key, archiving_s3_bucket, opco_partitioned_path)
 

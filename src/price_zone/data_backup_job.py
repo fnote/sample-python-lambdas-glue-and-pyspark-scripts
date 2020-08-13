@@ -31,8 +31,10 @@ if __name__ == "__main__":
     decompressed_file_bucket = decompressed_file_parsed_path.netloc
     decompressed_file_key = decompressed_file_parsed_path.path.lstrip('/')
 
-    copy_input_file(input_file_bucket, input_file_key, archiving_s3_bucket, archiving_path)
-    copy_input_file(decompressed_file_bucket, decompressed_file_key, archiving_s3_bucket, archiving_path)
+    input_file_destination_key = archiving_path + input_file_key
+    decompressed_file_destination_key = archiving_path + decompressed_file_key.split('/')[-1]
+    copy_input_file(input_file_bucket, input_file_key, archiving_s3_bucket, input_file_destination_key)
+    copy_input_file(decompressed_file_bucket, decompressed_file_key, archiving_s3_bucket, decompressed_file_destination_key)
     opco_partitioned_path = archiving_path + 'partitioned/'
     copy_objects_with_prefix(intermediate_s3_bucket, partitioned_files_path, archiving_s3_bucket, opco_partitioned_path)
 
