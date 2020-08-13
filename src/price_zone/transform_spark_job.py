@@ -52,7 +52,7 @@ sparkDF = validate_and_get_as_date(sparkDF, 'eff_from_dttm', 'effective_date', O
 
 convertedDynamicFrame = DynamicFrame.fromDF(sparkDF, glueContext, "convertedDynamicFrame")
 
-# drop co_cust_nbr
+# drop eff_from_dttm
 dropped_dynamicdataframe = DropFields.apply(frame=convertedDynamicFrame, paths=["eff_from_dttm"],
                                             transformation_ctx="dropped_dynamicdataframe")
 
