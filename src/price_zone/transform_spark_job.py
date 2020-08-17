@@ -56,9 +56,10 @@ convertedDynamicFrame = DynamicFrame.fromDF(sparkDF, glueContext, "convertedDyna
 dropped_dynamicdataframe = DropFields.apply(frame=convertedDynamicFrame, paths=["eff_from_dttm"],
                                             transformation_ctx="dropped_dynamicdataframe")
 
+# cast timestamp type of effective_date to string
 casted_dynamicframe = dropped_dynamicdataframe.resolveChoice(specs=[('effective_date', 'cast:string')])
 
-# save dataframe to s3, partitioned per OPCO
+# save dataframe to s3, partitioned per OPCO with quotes removed from casted effective_date
 datasink2 = glueContext.write_dynamic_frame.from_options(frame=casted_dynamicframe, connection_type="s3",
                                                          connection_options={"path": partitioned_files_path,
                                                                              "partitionKeys": ["opco_id"]},
