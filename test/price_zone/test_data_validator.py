@@ -708,9 +708,24 @@ class TestSparkDataframeValidator(unittest.TestCase):
         with self.assertRaises(ValueError):
             validator.validate_column(df, 'opco_id')
 
-    def test_data_length_for_opco_id(self):
+    def test_data_length_for_opco_id_for_when_input_length_is_high(self):
 
         data = [['0190', '104612', '1234567', 5, '2020-08-06 00:00:00.000000']]
+        schema = StructType([
+            StructField("opco_id", StringType(), True),
+            StructField("customer_id", StringType(), True),
+            StructField("supc", StringType(), True),
+            StructField("price_zone", IntegerType(), True),
+            StructField("effective_date", StringType(), True)]
+        )
+        df = self.spark.createDataFrame(data=data, schema=schema)
+
+        with self.assertRaises(ValueError):
+            validator.validate_column_length_equals(df, 'opco_id', CO_NBR_LENGTH)
+
+    def test_data_length_for_opco_id_for_when_input_length_is_less(self):
+
+        data = [['19', '104612', '1234567', 5, '2020-08-06 00:00:00.000000']]
         schema = StructType([
             StructField("opco_id", StringType(), True),
             StructField("customer_id", StringType(), True),
