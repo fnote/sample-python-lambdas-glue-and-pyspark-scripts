@@ -1,4 +1,4 @@
-from pyspark.sql.functions import isnan, length, to_date
+from pyspark.sql.functions import isnan, length, to_timestamp
 
 
 def validate_column(df, column):
@@ -40,8 +40,8 @@ def validate_date_format(df, column, input_date_regex, input_date_format):
                          + 'matching date time regex: ' + input_date_regex)
 
 
-def validate_and_get_as_date(df, input_column, output_column, output_format):
-    df = df.withColumn(output_column, to_date(df[input_column], output_format))
+def validate_and_get_as_date_time(df, input_column, output_column, output_format):
+    df = df.withColumn(output_column, to_timestamp(df[input_column], output_format))
     invalidDF = df.filter(df[output_column].isNull())
     if len(invalidDF.head(1)) > 0:
         invalidDF.show(truncate=False)

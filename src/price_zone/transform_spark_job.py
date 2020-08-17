@@ -6,7 +6,7 @@ from awsglue.context import GlueContext
 from awsglue.job import Job
 from awsglue.dynamicframe import DynamicFrame
 from pyspark.sql.types import IntegerType
-from validator import validate_column, validate_column_length_less_than, validate_column_length_equals, validate_data_range, validate_date_format, validate_and_get_as_date
+from validator import validate_column, validate_column_length_less_than, validate_column_length_equals, validate_data_range, validate_date_format, validate_and_get_as_date_time
 from constants import CUST_NBR_LENGTH, SUPC_LENGTH, PRICE_ZONE_MIN_VALUE, PRICE_ZONE_MAX_VALUE, DATE_FORMAT_REGEX, OUTPUT_DATE_FORMAT, INPUT_DATE_FORMAT, CO_NBR_LENGTH
 
 ## @params: [JOB_NAME]
@@ -48,7 +48,7 @@ validate_column_length_equals(sparkDF, 'opco_id', CO_NBR_LENGTH)
 sparkDF = sparkDF.withColumn("price_zone", sparkDF["price_zone"].cast(IntegerType()))
 validate_data_range(sparkDF, 'price_zone', PRICE_ZONE_MIN_VALUE, PRICE_ZONE_MAX_VALUE)
 
-sparkDF = validate_and_get_as_date(sparkDF, 'eff_from_dttm', 'effective_date', OUTPUT_DATE_FORMAT)
+sparkDF = validate_and_get_as_date_time(sparkDF, 'eff_from_dttm', 'effective_date', OUTPUT_DATE_FORMAT)
 
 convertedDynamicFrame = DynamicFrame.fromDF(sparkDF, glueContext, "convertedDynamicFrame")
 
@@ -56,10 +56,13 @@ convertedDynamicFrame = DynamicFrame.fromDF(sparkDF, glueContext, "convertedDyna
 dropped_dynamicdataframe = DropFields.apply(frame=convertedDynamicFrame, paths=["eff_from_dttm"],
                                             transformation_ctx="dropped_dynamicdataframe")
 
+casted_dynamicframe = dropped_dynamicdataframe.resolveChoice(specs=[('effective_date', 'cast:string')])
+
 # save dataframe to s3, partitioned per OPCO
-datasink2 = glueContext.write_dynamic_frame.from_options(frame=dropped_dynamicdataframe, connection_type="s3",
+datasink2 = glueContext.write_dynamic_frame.from_options(frame=casted_dynamicframe, connection_type="s3",
                                                          connection_options={"path": partitioned_files_path,
                                                                              "partitionKeys": ["opco_id"]},
-                                                         format="csv", transformation_ctx="datasink2")
+                                                         format="csv", format_options={"quoteChar": -1},
+                                                         transformation_ctx="datasink2")
 
 job.commit()
