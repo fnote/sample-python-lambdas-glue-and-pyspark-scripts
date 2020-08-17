@@ -177,22 +177,10 @@ class TestDateRegex(unittest.TestCase):
         with self.assertRaises(ValueError):
             validate_date_format(df, 'eff_from_dttm', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
 
-    def test_date_format_regex_for_invalid_format_11(self):
+    def test_date_format_regex_for_invalid_format_12(self):
         """Invalid day numeric value"""
 
         data = [['2020-08-32 00:00:00']]
-        schema = StructType([
-            StructField("eff_from_dttm", StringType(), True)]
-        )
-        df = self.spark.createDataFrame(data=data, schema=schema)
-
-        with self.assertRaises(ValueError):
-            validate_date_format(df, 'eff_from_dttm', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
-
-    def test_date_format_regex_for_invalid_format_12(self):
-        """Invalid year (year with less than 4 digits) numeric value"""
-
-        data = [['202-08-06 00:00:00']]
         schema = StructType([
             StructField("eff_from_dttm", StringType(), True)]
         )
@@ -214,6 +202,18 @@ class TestDateRegex(unittest.TestCase):
             validate_date_format(df, 'eff_from_dttm', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
 
     def test_date_format_regex_for_invalid_format_14(self):
+        """Invalid year (year with less than 4 digits) numeric value"""
+
+        data = [['202-08-06 00:00:00']]
+        schema = StructType([
+            StructField("eff_from_dttm", StringType(), True)]
+        )
+        df = self.spark.createDataFrame(data=data, schema=schema)
+
+        with self.assertRaises(ValueError):
+            validate_date_format(df, 'eff_from_dttm', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+
+    def test_date_format_regex_for_invalid_format_15(self):
         """Invalid hour numeric value"""
 
         data = [['2020-08-32 25:00:00']]
@@ -225,7 +225,7 @@ class TestDateRegex(unittest.TestCase):
         with self.assertRaises(ValueError):
             validate_date_format(df, 'eff_from_dttm', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
 
-    def test_date_format_regex_for_invalid_format_15(self):
+    def test_date_format_regex_for_invalid_format_16(self):
         """Invalid minute numeric value"""
 
         data = [['2020-08-32 08:66:00']]
@@ -237,7 +237,7 @@ class TestDateRegex(unittest.TestCase):
         with self.assertRaises(ValueError):
             validate_date_format(df, 'eff_from_dttm', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
 
-    def test_date_format_regex_for_invalid_format_16(self):
+    def test_date_format_regex_for_invalid_format_17(self):
         """Invalid second numeric value"""
 
         data = [['2020-08-32 08:00:90']]
