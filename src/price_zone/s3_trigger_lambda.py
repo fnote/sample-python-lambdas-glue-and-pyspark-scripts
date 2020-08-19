@@ -33,7 +33,9 @@ def lambda_handler(event, context):
         "decompressed_file_path": decompressed_file_path,
         "partitioned_files_key": partitioned_files_key,
         "etl_timestamp": etl_timestamp,
-        "etl_output_path_key": folder_key
+        "etl_output_path_key": folder_key,
+        "s3_input_bucket": s3['bucket']['name'],
+        "s3_input_file_key": s3_object_key
     }
 
     logger.info("Prize Zone data file Path: %s" % s3_path)
