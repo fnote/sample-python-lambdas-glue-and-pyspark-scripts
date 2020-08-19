@@ -40,9 +40,7 @@ def copy_object_with_key(source_bucket, source_key, destination_bucket, destinat
         source_bucket, source_key, destination_bucket, destination_key))
 
 
-def copy_input_file(source_bucket, source_key, destination_bucket, destination_path_prefix):
-    destination_key = destination_path_prefix + source_key
-
+def copy_input_file(source_bucket, source_key, destination_bucket, destination_key):
     copy_object_with_key(source_bucket, source_key, destination_bucket, destination_key)
 
     validate_copy(destination_bucket, destination_key)
