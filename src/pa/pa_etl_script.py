@@ -1,4 +1,5 @@
 import sys
+import time
 
 import boto3
 import pandas as pd
@@ -7,7 +8,6 @@ from datetime import datetime
 
 import pymysql
 from awsglue.utils import getResolvedOptions
-from urllib.parse import urlparse
 
 
 def read_data_from_s3(bucketname, key):
@@ -43,19 +43,25 @@ def load_data(opco_id, df):
     s3_output_file_path = "s3://" + intermediate_s3_bucket + "/" + output_file_path + output_file_name
     cur = conn.cursor()
 
+    load_timestamp = str(int(time.time()))
+
     loadQry = "LOAD DATA FROM S3 '" + s3_output_file_path + "' " \
                                                             "REPLACE INTO TABLE " + table_with_database_name + \
               " FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '\"' LINES TERMINATED BY '\n' " \
-              "IGNORE 1 LINES (@supc,@new_price_effective_date,@new_price,@export_date,@split_indicator," \
+              "IGNORE 1 LINES (@supc,@new_price_effective_date,@new_price,@export_date,@catch_weight_indicator," \
               "@price_zone_id) SET " \
               "SUPC=@supc," \
               "PRICE_ZONE=@price_zone_id," \
               "PRICE=@new_price," \
               "EXPORTED_DATE=@export_date," \
               "EFFECTIVE_DATE=@new_price_effective_date," \
-              "SPLIT_INDICATOR=@split_indicator;"
+              "CATCH_WEIGHT_INDICATOR=@catch_weight_indicator," \
+              "ARRIVED_TIME=" + data_arrival_timestamp + "," \
+              "UPDATED_TIME=" + load_timestamp + ";"
 
-    print("Loading PA data to the table : %s from file %s\n" % (table_with_database_name, s3_output_file_path))
+    print("Loading PA data to the table : %s from file %s with load timestamp %s\n" % (table_with_database_name,
+                                                                                       s3_output_file_path,
+                                                                                       load_timestamp))
     cur.execute(loadQry)
     conn.commit()
     print("Successfully populated PA data to the table : %s from file %s\n" % (
@@ -92,7 +98,7 @@ class Configuration:
     DOT = "."
     CSV = ".csv"
 
-    TABLE_NAME = "PA"
+    TABLE_NAME = "PRICE"
     DATABASE_PREFIX = "REF_PRICE_"
     OUTPUT_FILE_PREFIX = "pa_data_output"
     FILE_NAME = "pa_data.csv.gz"
@@ -103,12 +109,14 @@ def getNewConnection(host, user, decrypted):
 
 
 if __name__ == "__main__":
-    args = getResolvedOptions(sys.argv, ['s3_input_bucket', 's3_input_file_key', 'etl_output_path_key',
+    args = getResolvedOptions(sys.argv, ['s3_input_bucket', 's3_input_file_key', 'etl_timestamp', 'etl_output_path_key',
                                          'INTERMEDIATE_S3_BUCKET', 'GLUE_CONNECTION_NAME'])
     s3_input_bucket = args['s3_input_bucket']
     s3_input_file_key = args['s3_input_file_key']
     intermediate_s3_bucket = args['INTERMEDIATE_S3_BUCKET']
     glue_connection_name = args['GLUE_CONNECTION_NAME']
+    data_arrival_timestamp = args['etl_timestamp']
+
     output_file_path = args['etl_output_path_key'] + "/"
 
     print("Started ETL process for PA data in bucket %s with key %s\n" % (s3_input_bucket, s3_input_file_key))
@@ -121,7 +129,7 @@ if __name__ == "__main__":
 
     df = df.rename(columns={'ITEM_ID': 'supc'})
     df = df.rename(columns={'NEW_PRICE': 'new_price'})
-    df = df.rename(columns={'ITEM_ATTR_5_NM': 'split_indicator'})
+    df = df.rename(columns={'ITEM_ATTR_5_NM': 'catch_weight_indicator'})
 
     df["EFFECTIVE_DATE"] = df["EFFECTIVE_DATE"].apply(
         lambda x: datetime.strptime(x.split()[0], "%Y-%m-%d"))
