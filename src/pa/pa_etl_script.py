@@ -103,17 +103,17 @@ def getNewConnection(host, user, decrypted):
 
 
 if __name__ == "__main__":
-    args = getResolvedOptions(sys.argv, ['s3_path', 'etl_output_path_key',
+    args = getResolvedOptions(sys.argv, ['s3_input_bucket', 's3_input_file_key', 'etl_output_path_key',
                                          'INTERMEDIATE_S3_BUCKET', 'GLUE_CONNECTION_NAME'])
-    inputFilePath = args['s3_path']
+    s3_input_bucket = args['s3_input_bucket']
+    s3_input_file_key = args['s3_input_file_key']
     intermediate_s3_bucket = args['INTERMEDIATE_S3_BUCKET']
     glue_connection_name = args['GLUE_CONNECTION_NAME']
     output_file_path = args['etl_output_path_key'] + "/"
 
-    print("Started ETL process for PA data in file %s\n" % inputFilePath)
+    print("Started ETL process for PA data in bucket %s with key %s\n" % (s3_input_bucket, s3_input_file_key))
 
-    parsed_path = urlparse(inputFilePath, allow_fragments=False)
-    df = read_data_from_s3(bucketname=parsed_path.netloc, key=parsed_path.path.lstrip('/'))
+    df = read_data_from_s3(bucketname=s3_input_bucket, key=s3_input_file_key)
 
     del df['CURRENT_PRICE']
     del df['REASON']
