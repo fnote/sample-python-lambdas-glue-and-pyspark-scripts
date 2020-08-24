@@ -1,5 +1,6 @@
 import sys
 import threading
+import time
 
 import boto3
 import base64
@@ -45,6 +46,7 @@ def _execute_load(pool, queue, database, table, threadErrors):
         s3_file_path = queue.get()
         try:
             table_with_database_name = database + Configuration.DOT + table
+            load_timestamp = str(int(time.time()))
             load_qry = "LOAD DATA FROM S3 '" + s3_file_path + "'" \
                                                               "REPLACE INTO TABLE " + table_with_database_name + \
                        " FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '\"' LINES TERMINATED BY '\n' " \
@@ -52,10 +54,14 @@ def _execute_load(pool, queue, database, table, threadErrors):
                        "SUPC=@supc," \
                        "CUSTOMER_ID=@customer_id," \
                        "EFFECTIVE_DATE=@effective_date," \
-                       "PRICE_ZONE=@price_zone;"
+                       "PRICE_ZONE=@price_zone," \
+                       "ARRIVED_TIME=" + data_arrival_timestamp + "," \
+                       "UPDATED_TIME=" + load_timestamp + ";"
 
             connection = pool.connect()
-            print("Populating price zone data from file: %s to table %s\n" % (s3_file_path, table_with_database_name))
+            print("Populating price zone data from file: %s to table %s with load time %s\n" % (s3_file_path,
+                                                                                                table_with_database_name,
+                                                                                                load_timestamp))
             connection.execute(load_qry)
             print(
                 "Completed loading price zone data from s3 %s to table %s\n" % (s3_file_path, table_with_database_name))
@@ -127,11 +133,13 @@ def _retrieve_conection_details():
 
 
 if __name__ == "__main__":
-    args = getResolvedOptions(sys.argv, ['opco_id', 'partitioned_files_key', 'intermediate_s3_name', 'GLUE_CONNECTION_NAME'])
+    args = getResolvedOptions(sys.argv, ['opco_id', 'partitioned_files_key', 'etl_timestamp',
+                                         'intermediate_s3_name', 'GLUE_CONNECTION_NAME'])
     glue_connection_name = args['GLUE_CONNECTION_NAME']
     opco_id = args['opco_id']  # opco_id validation
     partitioned_files_key = args['partitioned_files_key']
     intermediate_s3 = args['intermediate_s3_name']
+    data_arrival_timestamp = args['etl_timestamp']
     print(
         "Started data loading job for Opco: %s, file path: %s/%s\n" % (opco_id, intermediate_s3, partitioned_files_key))
     dbconfigs = _retrieve_conection_details()
