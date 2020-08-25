@@ -28,8 +28,6 @@ def lambda_handler(event, context):
     new_customer = False
 
     glue_NumberOfWorkers = 0
-    input_file_name = s3_object_key.split('.')[0]  # remove file extensions
-
     # here file name is not included to the path to prevent errors from filenames containing special character
     unique_path_prefix = 'etl_output_' + etl_timestamp + '_' \
                          + str(uuid.uuid4())  # generate unique Id to handle concurrent uploads
