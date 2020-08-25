@@ -51,7 +51,7 @@ def lambda_handler(event, context):
     if step_function_execution_id in execution_dictionary:
         step_function_start_time = execution_dictionary.get(step_function_execution_id)
         step_function_wait_index = sorted_start_time_list.index(step_function_start_time) + 1
-        logger.info("Execution index: %d for step function execution Id:%s with start time:%6f "
+        logger.info("Current execution index: %d for  step function execution Id:%s with start time:%6f "
                     % (step_function_wait_index, step_function_execution_id, step_function_start_time))
 
         if step_function_wait_index <= ALLOWED_CONCURRENT_EXECUTIONS:
@@ -77,11 +77,14 @@ def lambda_handler(event, context):
 
             else:
                 logger.info("Does not contain duplicate start time values for %.6f. Hence execution id:%s "
-                            "can proceed " % (step_function_start_time, step_function_execution_id))
+                            "with list index %d can proceed " % (step_function_start_time,
+                                                                 step_function_execution_id,
+                                                                 step_function_wait_index))
                 shouldWait = False
         else:
-            logger.info("Step function execution id:%s with start time:%.6f has to wait"
-                        % (step_function_execution_id, step_function_start_time))
+            logger.info("Step function execution id:%s with start time:%.6f has list index %s. Allowed concurrency %s"
+                        % (step_function_execution_id, step_function_start_time, step_function_wait_index,
+                           ALLOWED_CONCURRENT_EXECUTIONS))
     else:
         logger.info("could not locate step function execution Id %s in the received execution list"
                     % step_function_execution_id)
