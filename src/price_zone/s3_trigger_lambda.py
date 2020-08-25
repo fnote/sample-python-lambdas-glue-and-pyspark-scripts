@@ -35,7 +35,7 @@ def lambda_handler(event, context):
     # here file name is not included to the path to prevent errors from filenames containing special characters
     unique_path_prefix = 'etl_output_' + etl_timestamp + '_' \
                          + str(uuid.uuid4())  # generate unique Id to handle concurrent uploads
-    if s3_object_key.startswith('customer'):  # handle new customer
+    if s3_object_key.startswith('customer'):  # added a temporary prefix to handle new customer
         custom_path = 'new/' + unique_path_prefix
         folder_key = 'price_zone/' + custom_path
         new_customer = True
