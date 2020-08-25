@@ -1,6 +1,7 @@
 # Set up logging
 import logging
 import os
+import uuid
 from urllib.parse import unquote_plus
 
 import boto3
@@ -27,17 +28,23 @@ def lambda_handler(event, context):
     new_customer = False
 
     glue_NumberOfWorkers = 0
-    if s3_object_key.startswith('new_customer'):
-        input_file_name = s3_object_key.split('.')[0]  # remove file extensions
-        folder_key = 'price_zone/new_customer_etl_output_' + input_file_name + '_' + etl_timestamp  # unique path prefix
+    input_file_name = s3_object_key.split('.')[0]  # remove file extensions
+
+    # here file name is not included to the path to prevent errors from filenames containing special character
+    unique_path_prefix = 'etl_output_' + etl_timestamp + '_' \
+                         + str(uuid.uuid4())  # generate unique Id to handle concurrent uploads
+    if s3_object_key.startswith('customer'):  # handle new customer
+        custom_path = 'new/' + unique_path_prefix
+        folder_key = 'price_zone/' + custom_path
         new_customer = True
-        new_cstr_dpu_count_key = '/CP/' + env + '/ETL/REF_PRICE/DPU_COUNT/MIN'
+        new_cstr_dpu_count_key = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/DPU_COUNT/MIN'
         parameter = client_ssm.get_parameter(Name=new_cstr_dpu_count_key)['Parameter']
         if parameter['Name'] == new_cstr_dpu_count_key:
             glue_NumberOfWorkers = int(parameter['Value'])
-    else:
-        folder_key = 'price_zone/etl_output_' + etl_timestamp
-        dpu_count_key = '/CP/' + env + '/ETL/REF_PRICE/DPU_COUNT/MAX'
+    else:  # handle full load
+        custom_path = 'all/' + unique_path_prefix
+        folder_key = 'price_zone/' + custom_path
+        dpu_count_key = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/DPU_COUNT/MAX'
         parameter = client_ssm.get_parameter(Name=dpu_count_key)['Parameter']
         if parameter['Name'] == dpu_count_key:
             glue_NumberOfWorkers = int(parameter['Value'])
@@ -58,7 +65,7 @@ def lambda_handler(event, context):
         "decompressed_file_path": decompressed_file_path,
         "partitioned_files_key": partitioned_files_key,
         "etl_timestamp": etl_timestamp,
-        "etl_output_path_key": folder_key,
+        "etl_output_path_key": custom_path,
         "s3_input_bucket": s3['bucket']['name'],
         "s3_input_file_key": s3_object_key,
         "new_customer": new_customer,
