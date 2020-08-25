@@ -14,7 +14,7 @@ logger.setLevel(logging.INFO)
 def get_value_from_ssm(key):
     client_ssm = boto3.client('ssm')
     logger.info("GetParameter called for ssm key: %s" % key)
-    parameter = client_ssm.get_parameter(Name=key)['Parameter']  # will throw error on key error
+    parameter = client_ssm.get_parameter(Name=key)['Parameter']  # will throw exception on key error
     return parameter['Value']
 
 
@@ -32,7 +32,7 @@ def lambda_handler(event, context):
     etl_timestamp = str(int(time.time()))
     new_customer = False
 
-    # here file name is not included to the path to prevent errors from filenames containing special character
+    # here file name is not included to the path to prevent errors from filenames containing special characters
     unique_path_prefix = 'etl_output_' + etl_timestamp + '_' \
                          + str(uuid.uuid4())  # generate unique Id to handle concurrent uploads
     if s3_object_key.startswith('customer'):  # handle new customer
