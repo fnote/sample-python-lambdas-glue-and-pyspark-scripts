@@ -8,20 +8,24 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 
+def get_value_from_ssm(key):
+    client_ssm = boto3.client('ssm')
+    logger.info("GetParameter called for ssm key: %s" % key)
+    parameter = client_ssm.get_parameter(Name=key)['Parameter']  # will throw exception on key error
+    return parameter['Value']
+
+
 def lambda_handler(event, context):
     logger.info("Received event:")
     logger.info(event)
     step_function = boto3.client('stepfunctions')
-    client_ssm = boto3.client('ssm')
 
     step_functionArn = event['stepFunctionArn']
     step_function_execution_id = event['stepFunctionExecutionId']
     env = os.environ['env']
     max_concurrency_ssm_key = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/MAX_CONCURRENCY'
-    ALLOWED_CONCURRENT_EXECUTIONS = 0
-    parameter = client_ssm.get_parameter(Name=max_concurrency_ssm_key)['Parameter']
-    if parameter['Name'] == max_concurrency_ssm_key:
-        ALLOWED_CONCURRENT_EXECUTIONS = int(parameter['Value'])
+
+    ALLOWED_CONCURRENT_EXECUTIONS = int(get_value_from_ssm(max_concurrency_ssm_key))
 
     if ALLOWED_CONCURRENT_EXECUTIONS == 0:
         error_msg = 'Received illegal value for Price Zone ETL workFlow maximum concurrency: {}' \
@@ -31,7 +35,7 @@ def lambda_handler(event, context):
     status = 'RUNNING'
     paginator = step_function.get_paginator('list_executions')
     pages = paginator.paginate(stateMachineArn=step_functionArn, statusFilter=status)
-    logger.info('Retrieved execution list for arn:%s with execution status:%s' % (step_functionArn, status))
+    logger.info('Retrieved execution list for step function:%s with execution status:%s' % (step_functionArn, status))
 
     execution_dictionary = {}
     for page in pages:

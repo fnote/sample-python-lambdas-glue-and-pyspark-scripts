@@ -1,4 +1,3 @@
-# Set up logging
 import logging
 import os
 import uuid
@@ -12,9 +11,15 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 
+def get_value_from_ssm(key):
+    client_ssm = boto3.client('ssm')
+    logger.info("GetParameter called for ssm key: %s" % key)
+    parameter = client_ssm.get_parameter(Name=key)['Parameter']  # will throw error on key error
+    return parameter['Value']
+
+
 def lambda_handler(event, context):
     client_step_function = boto3.client('stepfunctions')
-    client_ssm = boto3.client('ssm')
 
     step_function_arn = os.environ['stepFunctionArn']
     env = os.environ['env']
@@ -27,7 +32,6 @@ def lambda_handler(event, context):
     etl_timestamp = str(int(time.time()))
     new_customer = False
 
-    glue_NumberOfWorkers = 0
     # here file name is not included to the path to prevent errors from filenames containing special character
     unique_path_prefix = 'etl_output_' + etl_timestamp + '_' \
                          + str(uuid.uuid4())  # generate unique Id to handle concurrent uploads
@@ -36,16 +40,12 @@ def lambda_handler(event, context):
         folder_key = 'price_zone/' + custom_path
         new_customer = True
         new_cstr_dpu_count_key = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/DPU_COUNT/MIN'
-        parameter = client_ssm.get_parameter(Name=new_cstr_dpu_count_key)['Parameter']
-        if parameter['Name'] == new_cstr_dpu_count_key:
-            glue_NumberOfWorkers = int(parameter['Value'])
+        glue_NumberOfWorkers = int(get_value_from_ssm(new_cstr_dpu_count_key))
     else:  # handle full load
         custom_path = 'all/' + unique_path_prefix
         folder_key = 'price_zone/' + custom_path
         dpu_count_key = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/DPU_COUNT/MAX'
-        parameter = client_ssm.get_parameter(Name=dpu_count_key)['Parameter']
-        if parameter['Name'] == dpu_count_key:
-            glue_NumberOfWorkers = int(parameter['Value'])
+        glue_NumberOfWorkers = int(get_value_from_ssm(dpu_count_key))
 
     if glue_NumberOfWorkers == 0:
         error_msg = 'Received illegal value for glue_NumberOfWorkers: {}'.format(glue_NumberOfWorkers)
