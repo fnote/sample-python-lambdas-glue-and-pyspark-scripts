@@ -11,11 +11,21 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 
-def get_value_from_ssm(key):
+def get_values_from_ssm(keys):
     client_ssm = boto3.client('ssm')
-    logger.info("GetParameter called for ssm key: %s" % key)
-    parameter = client_ssm.get_parameter(Name=key)['Parameter']  # will throw exception on key error
-    return parameter['Value']
+    logger.info("GetParameter called for ssm key: %s" % keys)
+    response = client_ssm.get_parameters(Names=keys)
+    parameters = response['Parameters']
+    invalidParameters = response['InvalidParameters']
+
+    if invalidParameters:
+        raise KeyError('Found invalid ssm parameter keys:' + invalidParameters)
+
+    parameter_dictionary = {}
+    for parameter in parameters:
+        parameter_dictionary[parameter['Name']] = parameter['Value']
+
+    return parameter_dictionary
 
 
 def lambda_handler(event, context):
@@ -35,17 +45,24 @@ def lambda_handler(event, context):
     # here file name is not included to the path to prevent errors from filenames containing special characters
     unique_path_prefix = 'etl_output_' + etl_timestamp + '_' \
                          + str(uuid.uuid4())  # generate unique Id to handle concurrent uploads
+    etl_worker_type_key = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/WORKER_TYPE'
     if s3_object_key.startswith('customer'):  # added a temporary prefix to handle new customer
         custom_path = 'new/' + unique_path_prefix
         folder_key = 'price_zone/' + custom_path
         new_customer = True
-        new_cstr_dpu_count_key = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/DPU_COUNT/MIN'
-        glue_NumberOfWorkers = int(get_value_from_ssm(new_cstr_dpu_count_key))
+        min_worker_count_key = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/WORKER_COUNT/MIN'
+        ssm_keys = [min_worker_count_key, etl_worker_type_key]
+        ssm_key_values = get_values_from_ssm(ssm_keys)
+        glue_NumberOfWorkers = int(ssm_key_values[min_worker_count_key])
+        glue_worker_type = ssm_key_values[etl_worker_type_key]
     else:  # handle full load
         custom_path = 'all/' + unique_path_prefix
         folder_key = 'price_zone/' + custom_path
-        dpu_count_key = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/DPU_COUNT/MAX'
-        glue_NumberOfWorkers = int(get_value_from_ssm(dpu_count_key))
+        max_worker_count_key = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/WORKER_COUNT/MAX'
+        ssm_keys = [max_worker_count_key, etl_worker_type_key]
+        ssm_key_values = get_values_from_ssm(ssm_keys)
+        glue_NumberOfWorkers = int(ssm_key_values[max_worker_count_key])
+        glue_worker_type = ssm_key_values[etl_worker_type_key]
 
     if glue_NumberOfWorkers == 0:
         error_msg = 'Received illegal value for glue_NumberOfWorkers: {}'.format(glue_NumberOfWorkers)
@@ -67,7 +84,8 @@ def lambda_handler(event, context):
         "s3_input_bucket": s3['bucket']['name'],
         "s3_input_file_key": s3_object_key,
         "new_customer": new_customer,
-        "dpu_count": glue_NumberOfWorkers
+        "worker_count": glue_NumberOfWorkers,
+        "worker_type": glue_worker_type
     }
 
     logger.info("Prize Zone data file Path: %s" % s3_path)
