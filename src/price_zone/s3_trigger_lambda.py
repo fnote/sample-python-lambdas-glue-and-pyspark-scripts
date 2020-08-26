@@ -10,6 +10,8 @@ import time
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
+NEW_CUSTOMER_PREFIX = 'customer'  # added a temporary prefix to handle new customer
+
 
 def get_values_from_ssm(keys):
     client_ssm = boto3.client('ssm')
@@ -26,6 +28,12 @@ def get_values_from_ssm(keys):
         parameter_dictionary[parameter['Name']] = parameter['Value']
 
     return parameter_dictionary
+
+
+def is_newCustomer(file_name):
+    if file_name.startswith(NEW_CUSTOMER_PREFIX):
+        return True
+    return False
 
 
 def lambda_handler(event, context):
@@ -46,7 +54,7 @@ def lambda_handler(event, context):
     unique_path_prefix = 'etl_output_' + etl_timestamp + '_' \
                          + str(uuid.uuid4())  # generate unique Id to handle concurrent uploads
     etl_worker_type_key = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/WORKER_TYPE'
-    if s3_object_key.startswith('customer'):  # added a temporary prefix to handle new customer
+    if is_newCustomer(s3_object_key):
         custom_path = 'new/' + unique_path_prefix
         folder_key = 'price_zone/' + custom_path
         new_customer = True
