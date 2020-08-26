@@ -20,10 +20,13 @@ job = Job(glueContext)
 job.init(args['JOB_NAME'], args)
 
 
-datasource0 = glueContext.create_dynamic_frame_from_options(connection_type="s3", connection_options={
-    'paths': [decompressed_file_path]}, format="csv",
-                                                            format_options={"separator": ",", 'withHeader': True},
-                                                            transformation_ctx="datasource0")
+datasourceDF = spark.read.format("csv") \
+    .option("header", "true") \
+    .option("inferSchema", "false") \
+    .option("sep", ",") \
+    .load(decompressed_file_path)
+
+datasource0 = DynamicFrame.fromDF(datasourceDF, glueContext, "datasource0")
 
 # renaming columns and dropping off unnecessary columns
 applyMapping1 = ApplyMapping.apply(frame=datasource0, mappings=[("co_nbr", "string", "opco_id", "string"),
