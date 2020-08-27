@@ -16,6 +16,7 @@ def lambda_handler(event, context):
     status = event.get("status", "ERROR")
     message = event.get("message", "NA")
     opco_id = event.get("opco_id", "NA")
+    step_function_execution_id = event.get("stepFunctionExecutionId", "")
     current_time = int(time.time())
     logger.info('Sending notification env: %s, time: %s, opco: %s, status: %s, message: %s' % (
         env, current_time, opco_id, status, message))
@@ -35,6 +36,7 @@ def lambda_handler(event, context):
             "status": status,
             "message": message,
             "triggeredTime": current_time,
+            "stepFunctionExecutionId": step_function_execution_id
         }
     }
 
