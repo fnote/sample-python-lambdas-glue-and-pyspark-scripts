@@ -15,13 +15,13 @@ NEW_CUSTOMER_FILE_PREFIX = 'customer'  # added a temporary prefix to handle new 
 
 def get_values_from_ssm(keys):
     client_ssm = boto3.client('ssm')
-    logger.info("GetParameter called for ssm key: %s" % keys)
+    logger.info("GetParameter called for ssm key: {}".format(keys))
     response = client_ssm.get_parameters(Names=keys)
     parameters = response['Parameters']
     invalidParameters = response['InvalidParameters']
 
     if invalidParameters:
-        raise KeyError('Found invalid ssm parameter keys:' + invalidParameters)
+        raise KeyError('Found invalid ssm parameter keys:' + ','.join(invalidParameters))
 
     parameter_dictionary = {}
     for parameter in parameters:
@@ -95,13 +95,13 @@ def lambda_handler(event, context):
         "worker_type": glue_worker_type
     }
 
-    logger.info("Prize Zone data file Path: %s" % s3_path)
-    logger.info("Prize Zone data intermediate s3 storage: %s" % intermediate_s3_storage)
+    logger.info("Prize Zone data file Path: {}".format(s3_path))
+    logger.info("Prize Zone data intermediate s3 storage:{}".format(intermediate_s3_storage))
     response = client_step_function.start_execution(
         stateMachineArn=step_function_arn,
         input=json.dumps(params)
     )
-    logger.info('Started the Step Function: ' + step_function_arn)
+    logger.info('Started the Step Function: {}'.format(step_function_arn))
     logger.info('Started at:' + str(response['startDate']))
     return {
         'arn': response['executionArn'],

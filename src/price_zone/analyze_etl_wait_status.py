@@ -82,7 +82,7 @@ def lambda_handler(event, context):
                                                                  step_function_wait_index))
                 shouldWait = False
         else:
-            logger.info("Step function execution id:%s with start time:%.6f has list index %s. Allowed concurrency %s"
+            logger.info("Step function execution id:%s with start time:%.6f has list index %d. Allowed concurrency %d"
                         % (step_function_execution_id, step_function_start_time, step_function_wait_index,
                            ALLOWED_CONCURRENT_EXECUTIONS))
     else:
