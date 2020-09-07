@@ -75,9 +75,6 @@ def _execute_load(pool, queue, database, table, threadErrors):
 def load_data(dbconfigs, opco_id, bucketname, partitioned_files_path):
     prefix = partitioned_files_path + Configuration.OUTPUT_PATH_PREFIX + opco_id
     output_files = list_files_in_s3(bucketname, prefix)
-    zero_prefix = "0"
-    if len(opco_id) == 2:
-        opco_id = zero_prefix + opco_id
     dbconfigs['database'] = Configuration.DATABASE_PREFIX + opco_id
     pool = __create_db_engine(dbconfigs)
     queue = Queue()
