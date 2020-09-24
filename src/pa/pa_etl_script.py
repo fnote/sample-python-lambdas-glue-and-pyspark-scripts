@@ -3,6 +3,7 @@ import time
 
 import boto3
 import pandas as pd
+import numpy as np
 import base64
 from datetime import datetime
 
@@ -15,7 +16,7 @@ def read_data_from_s3(bucketname, key):
     s3 = boto3.client('s3')
     s3.download_file(bucketname, key, Configuration.FILE_NAME)
     print("Completed downloading Price advisor data file from S3")
-    return pd.read_csv(Configuration.FILE_NAME, sep="|")
+    return pd.read_csv(Configuration.FILE_NAME, sep="|", dtype={'ITEM_ID': np.str})
 
 
 def write_dataframe_to_s3(opco_id, fileName):
