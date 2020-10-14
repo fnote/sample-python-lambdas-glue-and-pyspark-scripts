@@ -10,7 +10,7 @@ import time
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-NEW_CUSTOMER_FILE_PREFIX = 'customer'  # added a temporary prefix to handle new customer
+NEW_CUSTOMER_FILE_PREFIX = 'ctt'  # prefix to handle new customer files
 
 
 def get_values_from_ssm(keys):
