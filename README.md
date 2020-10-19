@@ -21,13 +21,22 @@ or
 
 3.  Install pyspark
  
-`pip install pyspark`
+    `pip install pyspark`
+
+4.  Install boto3
+    
+    `pip install boto3`
+
+5.  Install mock   
+    
+    `pip install mock`
 
 **Note**: Makesure to install pyspark version compatible with spark version
 
 ##### Executing unit tests
 
 `python -W ignore -m unittest discover -s test/  -v`
+or `python3 -W ignore -m unittest discover -s test/  -v` 
 
 ##### Test execution with coverage
 

@@ -10,8 +10,6 @@ import time
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-NEW_CUSTOMER_FILE_PREFIX = 'ctt'  # prefix to handle new customer files
-
 
 def get_values_from_ssm(keys):
     client_ssm = boto3.client('ssm')
@@ -30,9 +28,11 @@ def get_values_from_ssm(keys):
     return parameter_dictionary
 
 
-def is_newCustomer(file_name):
-    if file_name.startswith(NEW_CUSTOMER_FILE_PREFIX):
-        return True
+def is_partial_load(file_name, prefixes_str):
+    prefix_list = prefixes_str.split(",")
+    for prefix in prefix_list:
+        if file_name.startswith(prefix):
+            return True
     return False
 
 
@@ -48,13 +48,15 @@ def lambda_handler(event, context):
     s3_object_key = unquote_plus(s3['object']['key'])
     s3_path = "s3://" + s3['bucket']['name'] + "/" + s3_object_key
     etl_timestamp = str(int(time.time()))
-    new_customer = is_newCustomer(s3_object_key)
+    partial_load_prefixes_key = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/PARTIAL_LOAD_PREFIXES'
+    partial_load_prefixes_val = get_values_from_ssm([partial_load_prefixes_key])
+    partial_load = is_partial_load(s3_object_key, partial_load_prefixes_val[partial_load_prefixes_key])
 
     # here file name is not included to the path to prevent errors from filenames containing special characters
     unique_path_prefix = 'etl_output_' + etl_timestamp + '_' \
                          + str(uuid.uuid4())  # generate unique Id to handle concurrent uploads
     etl_worker_type_key = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/WORKER_TYPE'
-    if new_customer:
+    if partial_load:
         custom_path = 'new/' + unique_path_prefix
         folder_key = 'price_zone/' + custom_path
         min_worker_count_key = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/WORKER_COUNT/MIN'
@@ -90,7 +92,7 @@ def lambda_handler(event, context):
         "etl_output_path_key": custom_path,
         "s3_input_bucket": s3['bucket']['name'],
         "s3_input_file_key": s3_object_key,
-        "new_customer": new_customer,
+        "new_customer": partial_load,
         "worker_count": glue_NumberOfWorkers,
         "worker_type": glue_worker_type
     }
