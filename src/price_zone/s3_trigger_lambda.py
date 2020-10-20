@@ -92,7 +92,7 @@ def lambda_handler(event, context):
         "etl_output_path_key": custom_path,
         "s3_input_bucket": s3['bucket']['name'],
         "s3_input_file_key": s3_object_key,
-        "new_customer": partial_load,
+        "partial_load": partial_load,
         "worker_count": glue_NumberOfWorkers,
         "worker_type": glue_worker_type
     }
