@@ -41,7 +41,7 @@ sparkDF = applyMapping1.toDF()
 
 #fetch active opcos
 ssm = boto3.client('ssm')
-opco_list_parameter_key = '/CP/DISCOUNT_SERVICE/' + environment + '/ACTIVE/BUSINESS/UNITS'
+opco_list_parameter_key = '/CP/REF_PRICE_SERVICE/' + environment + '/ACTIVE/BUSINESS/UNITS'
 parameter = ssm.get_parameter(Name=opco_list_parameter_key, WithDecryption=False)
 active_opco_id_list = parameter['Parameter']['Value'].split(",")
 
