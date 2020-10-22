@@ -47,7 +47,7 @@ class TestSparkDataframeValidator(unittest.TestCase):
             self.fail("Should fail. Received ValueError for valid data")
 
     def test_inactive_or_invalid_opcos_in_file(self):
-        """PRCP-2012"""
+        """PRCP-2109"""
 
         data = [['019', '104612', '1234567', 5, '2020-08-06 00:00:00.000000']]
         active_opcos = ['021', '020']
