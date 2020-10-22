@@ -45,9 +45,6 @@ opco_list_parameter_key = '/CP/DISCOUNT_SERVICE/' + environment + '/ACTIVE/BUSIN
 parameter = ssm.get_parameter(Name=opco_list_parameter_key, WithDecryption=False)
 active_opco_id_list = parameter['Parameter']['Value'].split(",")
 
-#validate opcos
-validate_opcos(sparkDF, active_opco_id_list)
-
 # validate data
 validate_column(sparkDF, 'opco_id')
 validate_column(sparkDF, 'customer_id')
@@ -58,6 +55,9 @@ validate_date_format(sparkDF, 'eff_from_dttm', DATE_FORMAT_REGEX, INPUT_DATE_FOR
 validate_column_length_less_than(sparkDF, 'customer_id', CUST_NBR_LENGTH)
 validate_column_length_less_than(sparkDF, 'supc', SUPC_LENGTH)
 validate_column_length_equals(sparkDF, 'opco_id', CO_NBR_LENGTH)
+
+#validate opcos
+validate_opcos(sparkDF, active_opco_id_list)
 
 sparkDF = sparkDF.withColumn("price_zone", sparkDF["price_zone"].cast(IntegerType()))
 validate_data_range(sparkDF, 'price_zone', PRICE_ZONE_MIN_VALUE, PRICE_ZONE_MAX_VALUE)
