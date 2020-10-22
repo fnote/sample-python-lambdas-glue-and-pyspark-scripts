@@ -1,5 +1,11 @@
 from pyspark.sql.functions import isnan, length, to_timestamp
 
+def validate_opcos(df,active_opco_list):
+    opco_ids_from_file = df.select("opco_id").rdd.flatMap(lambda x: x).collect()
+    invalid_opcos = list(set(opco_ids_from_file) - set(active_opco_list))
+    invalid_opcos.sort()
+    if len(invalid_opcos) > 0:
+        raise ValueError("These opcos in file are not either inactive or invalid: " + str(invalid_opcos))
 
 def validate_column(df, column):
     invalidDF = df.filter((df[column] == "") | df[column].isNull() | (df[column].rlike('[^0-9]')) | isnan(df[column]))

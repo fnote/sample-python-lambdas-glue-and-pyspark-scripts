@@ -1,4 +1,5 @@
 import sys
+import boto3
 from awsglue.transforms import *
 from awsglue.utils import getResolvedOptions
 from pyspark.context import SparkContext
@@ -6,13 +7,14 @@ from awsglue.context import GlueContext
 from awsglue.job import Job
 from awsglue.dynamicframe import DynamicFrame
 from pyspark.sql.types import IntegerType
-from validator import validate_column, validate_column_length_less_than, validate_column_length_equals, validate_data_range, validate_date_format, validate_and_get_as_date_time
+from validator import validate_column, validate_column_length_less_than, validate_column_length_equals, validate_data_range, validate_date_format, validate_and_get_as_date_time,validate_opcos
 from constants import CUST_NBR_LENGTH, SUPC_LENGTH, PRICE_ZONE_MIN_VALUE, PRICE_ZONE_MAX_VALUE, DATE_FORMAT_REGEX, OUTPUT_DATE_FORMAT, INPUT_DATE_FORMAT, CO_NBR_LENGTH
 
 ## @params: [JOB_NAME]
-args = getResolvedOptions(sys.argv, ['JOB_NAME', 'decompressed_file_path', 'partitioned_files_path'])
+args = getResolvedOptions(sys.argv, ['JOB_NAME', 'decompressed_file_path', 'partitioned_files_path', 'ENV'])
 decompressed_file_path = args['decompressed_file_path']
 partitioned_files_path = args['partitioned_files_path']
+environment = args['ENV']
 sc = SparkContext()
 glueContext = GlueContext(sc)
 spark = glueContext.spark_session
@@ -36,6 +38,15 @@ applyMapping1 = ApplyMapping.apply(frame=datasource0, mappings=[("co_nbr", "stri
                                                                 ("eff_from_dttm", "string", "eff_from_dttm", "string")],
                                    transformation_ctx="applyMapping1")
 sparkDF = applyMapping1.toDF()
+
+#fetch active opcos
+ssm = boto3.client('ssm')
+opco_list_parameter_key = '/CP/DISCOUNT_SERVICE/' + environment + '/ACTIVE/BUSINESS/UNITS'
+parameter = ssm.get_parameter(Name=opco_list_parameter_key, WithDecryption=False)
+active_opco_id_list = parameter['Parameter']['Value'].split(",")
+
+#validate opcos
+validate_opcos(sparkDF, active_opco_id_list)
 
 # validate data
 validate_column(sparkDF, 'opco_id')
