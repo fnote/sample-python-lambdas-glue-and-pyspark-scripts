@@ -5,9 +5,7 @@ def validate_opcos(df,active_opco_list):
     invalidDF = df.filter(~df[column].isin(active_opco_list))
     if len(invalidDF.head(1)) > 0:
         invalidDF.show(truncate=False)
-        invalid_opco_list = list(set(list(invalidDF.select('opco_id').toPandas()['opco_id'])))
-        invalid_opco_list.sort()
-        raise ValueError("Invalid or inactive opco records found in the file: list given here " + str(invalid_opco_list))
+        raise ValueError("Invalid or inactive opco records found in the file: list given above ")
 
 def validate_column(df, column):
     invalidDF = df.filter((df[column] == "") | df[column].isNull() | (df[column].rlike('[^0-9]')) | isnan(df[column]))

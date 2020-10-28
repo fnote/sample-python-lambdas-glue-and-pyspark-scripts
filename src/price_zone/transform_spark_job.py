@@ -11,15 +11,17 @@ from validator import validate_column, validate_column_length_less_than, validat
 from constants import CUST_NBR_LENGTH, SUPC_LENGTH, PRICE_ZONE_MIN_VALUE, PRICE_ZONE_MAX_VALUE, DATE_FORMAT_REGEX, OUTPUT_DATE_FORMAT, INPUT_DATE_FORMAT, CO_NBR_LENGTH
 
 ## @params: [JOB_NAME]
-args = getResolvedOptions(sys.argv, ['JOB_NAME', 'decompressed_file_path', 'partitioned_files_path', 'ENV'])
+args = getResolvedOptions(sys.argv, ['JOB_NAME', 'decompressed_file_path', 'partitioned_files_path', 'ENV', 'active-opcos'])
 decompressed_file_path = args['decompressed_file_path']
 partitioned_files_path = args['partitioned_files_path']
 environment = args['ENV']
+active_opcos= args['active-opcos']
 sc = SparkContext()
 glueContext = GlueContext(sc)
 spark = glueContext.spark_session
 job = Job(glueContext)
 job.init(args['JOB_NAME'], args)
+
 
 
 datasourceDF = spark.read.format("csv") \
@@ -40,13 +42,9 @@ applyMapping1 = ApplyMapping.apply(frame=datasource0, mappings=[("co_nbr", "stri
 sparkDF = applyMapping1.toDF()
 
 #fetch active opcos
-ssm = boto3.client('ssm')
-opco_list_parameter_key = '/CP/REF_PRICE_SERVICE/' + environment + '/ACTIVE/BUSINESS/UNITS'
-parameter = ssm.get_parameter(Name=opco_list_parameter_key, WithDecryption=False)
-active_opco_id_list = parameter['Parameter']['Value'].split(",")
+active_opco_id_list = active_opcos.split(',')
 
 # validate data
-validate_column(sparkDF, 'opco_id')
 validate_column(sparkDF, 'customer_id')
 validate_column(sparkDF, 'supc')
 validate_column(sparkDF, 'price_zone')
@@ -54,7 +52,6 @@ validate_date_format(sparkDF, 'eff_from_dttm', DATE_FORMAT_REGEX, INPUT_DATE_FOR
 
 validate_column_length_less_than(sparkDF, 'customer_id', CUST_NBR_LENGTH)
 validate_column_length_less_than(sparkDF, 'supc', SUPC_LENGTH)
-validate_column_length_equals(sparkDF, 'opco_id', CO_NBR_LENGTH)
 
 #validate opcos
 validate_opcos(sparkDF, active_opco_id_list)

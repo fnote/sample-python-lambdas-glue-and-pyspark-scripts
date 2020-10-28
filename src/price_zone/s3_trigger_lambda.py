@@ -52,6 +52,11 @@ def lambda_handler(event, context):
     partial_load_prefixes_val = get_values_from_ssm([partial_load_prefixes_key])
     partial_load = is_partial_load(s3_object_key, partial_load_prefixes_val[partial_load_prefixes_key])
 
+    active_opcos_key = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/ACTIVE/BUSINESS/UNITS'
+    ssm_key_value_for_opcos = get_values_from_ssm([active_opcos_key])
+    active_opco_list = ssm_key_value_for_opcos[active_opcos_key]
+
+
     # here file name is not included to the path to prevent errors from filenames containing special characters
     unique_path_prefix = 'etl_output_' + etl_timestamp + '_' \
                          + str(uuid.uuid4())  # generate unique Id to handle concurrent uploads
@@ -94,7 +99,8 @@ def lambda_handler(event, context):
         "s3_input_file_key": s3_object_key,
         "partial_load": partial_load,
         "worker_count": glue_NumberOfWorkers,
-        "worker_type": glue_worker_type
+        "worker_type": glue_worker_type,
+        "active_opcos": active_opco_list
     }
 
     logger.info("Prize Zone data file Path: {}".format(s3_path))
