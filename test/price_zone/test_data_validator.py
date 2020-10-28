@@ -648,7 +648,6 @@ class TestSparkDataframeValidator(unittest.TestCase):
 
     def test_data_with_one_invalid_effective_date_value_and_valid_effective_date_list(self):
 
-        self.spark.sql("set spark.sql.legacy.timeParserPolicy=LEGACY")
         data = [['019', '810622', '9002908', 1, '2020-08-06 00:00:00.000000'],
                 ['019', '666867', '3555349', 1, '2020-08-06 00:00:00.000000'],
                 ['019', '480111', '4518408', 5, '2020-08-06 00:00:00.000000'],
