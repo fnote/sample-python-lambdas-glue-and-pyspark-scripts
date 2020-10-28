@@ -11,11 +11,11 @@ from validator import validate_column, validate_column_length_less_than, validat
 from constants import CUST_NBR_LENGTH, SUPC_LENGTH, PRICE_ZONE_MIN_VALUE, PRICE_ZONE_MAX_VALUE, DATE_FORMAT_REGEX, OUTPUT_DATE_FORMAT, INPUT_DATE_FORMAT, CO_NBR_LENGTH
 
 ## @params: [JOB_NAME]
-args = getResolvedOptions(sys.argv, ['JOB_NAME', 'decompressed_file_path', 'partitioned_files_path', 'ENV', 'active-opcos'])
+args = getResolvedOptions(sys.argv, ['JOB_NAME', 'decompressed_file_path', 'partitioned_files_path', 'ENV', 'active_opcos'])
 decompressed_file_path = args['decompressed_file_path']
 partitioned_files_path = args['partitioned_files_path']
 environment = args['ENV']
-active_opcos= args['active-opcos']
+active_opcos= args['active_opcos']
 sc = SparkContext()
 glueContext = GlueContext(sc)
 spark = glueContext.spark_session
