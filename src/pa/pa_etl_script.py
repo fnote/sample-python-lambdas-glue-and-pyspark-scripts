@@ -49,13 +49,13 @@ def load_data(opco_id, df):
     loadQry = "LOAD DATA FROM S3 '" + s3_output_file_path + "' " \
                                                             "REPLACE INTO TABLE " + table_with_database_name + \
               " FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '\"' LINES TERMINATED BY '\n' " \
-              "IGNORE 1 LINES (@supc,@new_price_effective_date,@new_price,@export_date,@catch_weight_indicator," \
+              "IGNORE 1 LINES (@supc,@effective_date,@price,@export_date,@catch_weight_indicator," \
               "@price_zone_id) SET " \
               "SUPC=@supc," \
               "PRICE_ZONE=@price_zone_id," \
-              "PRICE=@new_price," \
+              "PRICE=@price," \
               "EXPORTED_DATE=@export_date," \
-              "EFFECTIVE_DATE=@new_price_effective_date," \
+              "EFFECTIVE_DATE=@effective_date," \
               "CATCH_WEIGHT_INDICATOR=@catch_weight_indicator," \
               "ARRIVED_TIME=" + data_arrival_timestamp + "," \
               "UPDATED_TIME=" + load_timestamp + ";"
@@ -126,10 +126,10 @@ if __name__ == "__main__":
 
     del df['CURRENT_PRICE']
     del df['REASON']
-    del df['LOCAL_REFERENCE_PRICE']
+    del df['NEW_PRICE']
 
     df = df.rename(columns={'ITEM_ID': 'supc'})
-    df = df.rename(columns={'NEW_PRICE': 'new_price'})
+    df = df.rename(columns={'LOCAL_REFERENCE_PRICE': 'price'})
     df = df.rename(columns={'ITEM_ATTR_5_NM': 'catch_weight_indicator'})
 
     df["EFFECTIVE_DATE"] = df["EFFECTIVE_DATE"].apply(
@@ -138,9 +138,12 @@ if __name__ == "__main__":
     df["opco_id"] = df["PRICE_ZONE_ID"].apply(lambda x: x.split('-')[0])
     df["price_zone_id"] = df["PRICE_ZONE_ID"].apply(lambda x: x.split('-')[1])
 
-    df = df.rename(columns={'EFFECTIVE_DATE': 'new_price_effective_date'})
+    df = df.rename(columns={'EFFECTIVE_DATE': 'effective_date'})
     df = df.rename(columns={'EXPORT_DATE': 'export_date'})
     del df['PRICE_ZONE_ID']
+
+    # finally setting column order
+    df = df[['supc', 'effective_date', 'price', 'export_date', 'catch_weight_indicator', 'price_zone_id', 'opco_id']]
 
     item_zone_prices_for_opco = dict(tuple(df.groupby(df['opco_id'])))  # group data by opco_id
 
