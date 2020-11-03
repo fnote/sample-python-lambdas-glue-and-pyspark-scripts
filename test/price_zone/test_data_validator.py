@@ -27,7 +27,7 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
         try:
-            validator.validate_opcos(df, active_opcos)
+            validator.validate_opcos(df, active_opcos, 'opco_id')
 
             validator.validate_column(df, 'customer_id')
             validator.validate_column(df, 'supc')
@@ -62,7 +62,7 @@ class TestSparkDataframeValidator(unittest.TestCase):
         df = self.spark.createDataFrame(data=data, schema=schema)
 
         with self.assertRaises(ValueError):
-            validator.validate_opcos(df, active_opcos)
+            validator.validate_opcos(df, active_opcos, 'opco_id')
 
     def test_null_data_for_supc(self):
         """PRCP-2012"""
@@ -698,7 +698,7 @@ class TestSparkDataframeValidator(unittest.TestCase):
         df = self.spark.createDataFrame(data=data, schema=schema)
 
         with self.assertRaises(ValueError):
-            validator.validate_opcos(df, active_opcos)
+            validator.validate_opcos(df, active_opcos, 'opco_id')
 
     def test_empty_data_for_opco_id(self):
 
@@ -714,7 +714,7 @@ class TestSparkDataframeValidator(unittest.TestCase):
         df = self.spark.createDataFrame(data=data, schema=schema)
 
         with self.assertRaises(ValueError):
-            validator.validate_opcos(df, active_opcos)
+            validator.validate_opcos(df, active_opcos, 'opco_id')
 
     def test_non_numeric_data_for_opco_id(self):
 
@@ -730,7 +730,7 @@ class TestSparkDataframeValidator(unittest.TestCase):
         df = self.spark.createDataFrame(data=data, schema=schema)
 
         with self.assertRaises(ValueError):
-            validator.validate_opcos(df, active_opcos)
+            validator.validate_opcos(df, active_opcos, 'opco_id')
 
     def test_data_length_for_opco_id_for_when_input_length_is_high(self):
 
@@ -746,7 +746,7 @@ class TestSparkDataframeValidator(unittest.TestCase):
         df = self.spark.createDataFrame(data=data, schema=schema)
 
         with self.assertRaises(ValueError):
-            validator.validate_opcos(df, active_opcos)
+            validator.validate_opcos(df, active_opcos, 'opco_id')
 
     def test_data_length_for_opco_id_for_when_input_length_is_less(self):
 
@@ -762,7 +762,7 @@ class TestSparkDataframeValidator(unittest.TestCase):
         df = self.spark.createDataFrame(data=data, schema=schema)
 
         with self.assertRaises(ValueError):
-            validator.validate_opcos(df, active_opcos)
+            validator.validate_opcos(df, active_opcos, 'opco_id')
 
     def test_data_with_one_invalid_opco_id_and_valid_opco_id_list(self):
 
@@ -782,7 +782,7 @@ class TestSparkDataframeValidator(unittest.TestCase):
         df = self.spark.createDataFrame(data=data, schema=schema)
 
         with self.assertRaises(ValueError):
-            validator.validate_opcos(df, active_opcos)
+            validator.validate_opcos(df, active_opcos, 'opco_id')
 
     def test_1_date_format_regex_for_effective_date(self):
 

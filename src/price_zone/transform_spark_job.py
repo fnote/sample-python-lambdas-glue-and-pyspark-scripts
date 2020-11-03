@@ -51,7 +51,7 @@ validate_column_length_less_than(sparkDF, 'customer_id', CUST_NBR_LENGTH)
 validate_column_length_less_than(sparkDF, 'supc', SUPC_LENGTH)
 
 #validate opcos
-validate_opcos(sparkDF, active_opco_id_list)
+validate_opcos(sparkDF, active_opco_id_list, 'opco_id')
 
 sparkDF = sparkDF.withColumn("price_zone", sparkDF["price_zone"].cast(IntegerType()))
 validate_data_range(sparkDF, 'price_zone', PRICE_ZONE_MIN_VALUE, PRICE_ZONE_MAX_VALUE)
