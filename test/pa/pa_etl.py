@@ -7,7 +7,7 @@ class TestPAETLScriptMethods(unittest.TestCase):
     def test_when_no_negative_prices(self):
 
         input_df = pd.DataFrame.from_dict({
-            'LOCAL_REFERENCE_PRICE': [13.44 , 70.00],
+            'LOCAL_REFERENCE_PRICE': ['13.44' , '70.00'],
             'ITEM_ID': ['001', '002']
         })
 
@@ -16,7 +16,7 @@ class TestPAETLScriptMethods(unittest.TestCase):
     def test_when_negative_prices_present(self):
 
         input_df = pd.DataFrame.from_dict({
-            'LOCAL_REFERENCE_PRICE': [13.44, -70.00],
+            'LOCAL_REFERENCE_PRICE': ['13.44', '-70.00'],
             'ITEM_ID': ['001', '002']
         })
 
@@ -26,7 +26,7 @@ class TestPAETLScriptMethods(unittest.TestCase):
     def test_when_zero_prices_present(self):
 
         input_df = pd.DataFrame.from_dict({
-            'LOCAL_REFERENCE_PRICE': [16, 0.00],
+            'LOCAL_REFERENCE_PRICE': ['16', '0.00'],
             'ITEM_ID': ['001', '002']
         })
 

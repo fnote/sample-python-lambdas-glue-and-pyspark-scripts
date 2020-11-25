@@ -109,6 +109,7 @@ def getNewConnection(host, user, decrypted):
     return pymysql.connect(host=host, user=user, password=decrypted["Plaintext"])
 
 def validate_price(df, column):
+    df[column] = pd.to_numeric(df[column])
     invalid_df = df[df[column] <= 0].dropna()
     if len(invalid_df.head(1)) > 0:
         print(invalid_df)
