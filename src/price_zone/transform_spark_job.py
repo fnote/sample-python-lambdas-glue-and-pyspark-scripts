@@ -6,13 +6,14 @@ from awsglue.context import GlueContext
 from awsglue.job import Job
 from awsglue.dynamicframe import DynamicFrame
 from pyspark.sql.types import IntegerType
-from validator import validate_column, validate_column_length_less_than, validate_column_length_equals, validate_data_range, validate_date_format, validate_and_get_as_date_time
+from validator import validate_column, validate_column_length_less_than, validate_column_length_equals, validate_data_range, validate_date_format, validate_and_get_as_date_time,validate_opcos
 from constants import CUST_NBR_LENGTH, SUPC_LENGTH, PRICE_ZONE_MIN_VALUE, PRICE_ZONE_MAX_VALUE, DATE_FORMAT_REGEX, OUTPUT_DATE_FORMAT, INPUT_DATE_FORMAT, CO_NBR_LENGTH
 
 ## @params: [JOB_NAME]
-args = getResolvedOptions(sys.argv, ['JOB_NAME', 'decompressed_file_path', 'partitioned_files_path'])
+args = getResolvedOptions(sys.argv, ['JOB_NAME', 'decompressed_file_path', 'partitioned_files_path', 'active_opcos'])
 decompressed_file_path = args['decompressed_file_path']
 partitioned_files_path = args['partitioned_files_path']
+active_opcos= args['active_opcos']
 sc = SparkContext()
 glueContext = GlueContext(sc)
 spark = glueContext.spark_session
@@ -37,8 +38,10 @@ applyMapping1 = ApplyMapping.apply(frame=datasource0, mappings=[("co_nbr", "stri
                                    transformation_ctx="applyMapping1")
 sparkDF = applyMapping1.toDF()
 
+#fetch active opcos
+active_opco_id_list = active_opcos.split(',')
+
 # validate data
-validate_column(sparkDF, 'opco_id')
 validate_column(sparkDF, 'customer_id')
 validate_column(sparkDF, 'supc')
 validate_column(sparkDF, 'price_zone')
@@ -46,7 +49,9 @@ validate_date_format(sparkDF, 'eff_from_dttm', DATE_FORMAT_REGEX, INPUT_DATE_FOR
 
 validate_column_length_less_than(sparkDF, 'customer_id', CUST_NBR_LENGTH)
 validate_column_length_less_than(sparkDF, 'supc', SUPC_LENGTH)
-validate_column_length_equals(sparkDF, 'opco_id', CO_NBR_LENGTH)
+
+#validate opcos
+validate_opcos(sparkDF, active_opco_id_list, 'opco_id')
 
 sparkDF = sparkDF.withColumn("price_zone", sparkDF["price_zone"].cast(IntegerType()))
 validate_data_range(sparkDF, 'price_zone', PRICE_ZONE_MIN_VALUE, PRICE_ZONE_MAX_VALUE)

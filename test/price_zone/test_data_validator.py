@@ -17,6 +17,7 @@ class TestSparkDataframeValidator(unittest.TestCase):
 
     def test_with_valid_data(self):
         data = [['019', '104612', '1234567', '5', '2020-08-06 00:00:00.000000']]
+        active_opcos = ['019', '020']
         schema = StructType([
             StructField("opco_id", StringType(), True),
             StructField("customer_id", StringType(), True),
@@ -26,6 +27,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
         try:
+            validator.validate_opcos(df, active_opcos, 'opco_id')
+
             validator.validate_column(df, 'customer_id')
             validator.validate_column(df, 'supc')
             validator.validate_column(df, 'price_zone')
@@ -42,6 +45,24 @@ class TestSparkDataframeValidator(unittest.TestCase):
 
         except ValueError:
             self.fail("Should fail. Received ValueError for valid data")
+
+    def test_inactive_opcos_in_file(self):
+        """PRCP-2109"""
+
+        data = [['019', '104612', '1234567', 5, '2020-08-06 00:00:00.000000']]
+        active_opcos = ['021', '020']
+
+        schema = StructType([
+            StructField("opco_id", StringType(), True),
+            StructField("customer_id", StringType(), True),
+            StructField("supc", StringType(), True),
+            StructField("price_zone", IntegerType(), True),
+            StructField("effective_date", StringType(), True)]
+        )
+        df = self.spark.createDataFrame(data=data, schema=schema)
+
+        with self.assertRaises(ValueError):
+            validator.validate_opcos(df, active_opcos, 'opco_id')
 
     def test_null_data_for_supc(self):
         """PRCP-2012"""
@@ -665,6 +686,7 @@ class TestSparkDataframeValidator(unittest.TestCase):
 
     def test_null_data_for_opco_id(self):
 
+        active_opcos = ['019', '020']
         data = [[None, '104612', '1234567', 5, '2020-08-06 00:00:00.000000']]
         schema = StructType([
             StructField("opco_id", StringType(), True),
@@ -676,10 +698,11 @@ class TestSparkDataframeValidator(unittest.TestCase):
         df = self.spark.createDataFrame(data=data, schema=schema)
 
         with self.assertRaises(ValueError):
-            validator.validate_column(df, 'opco_id')
+            validator.validate_opcos(df, active_opcos, 'opco_id')
 
     def test_empty_data_for_opco_id(self):
 
+        active_opcos = ['019', '020']
         data = [['', '104612', '', 5, '2020-08-06 00:00:00.000000']]
         schema = StructType([
             StructField("opco_id", StringType(), True),
@@ -691,10 +714,11 @@ class TestSparkDataframeValidator(unittest.TestCase):
         df = self.spark.createDataFrame(data=data, schema=schema)
 
         with self.assertRaises(ValueError):
-            validator.validate_column(df, 'opco_id')
+            validator.validate_opcos(df, active_opcos, 'opco_id')
 
     def test_non_numeric_data_for_opco_id(self):
 
+        active_opcos = ['019', '020']
         data = [['abc', '104612', '1234567', 5, '2020-08-06 00:00:00.000000']]
         schema = StructType([
             StructField("opco_id", StringType(), True),
@@ -706,10 +730,11 @@ class TestSparkDataframeValidator(unittest.TestCase):
         df = self.spark.createDataFrame(data=data, schema=schema)
 
         with self.assertRaises(ValueError):
-            validator.validate_column(df, 'opco_id')
+            validator.validate_opcos(df, active_opcos, 'opco_id')
 
     def test_data_length_for_opco_id_for_when_input_length_is_high(self):
 
+        active_opcos = ['019', '020']
         data = [['0190', '104612', '1234567', 5, '2020-08-06 00:00:00.000000']]
         schema = StructType([
             StructField("opco_id", StringType(), True),
@@ -721,10 +746,11 @@ class TestSparkDataframeValidator(unittest.TestCase):
         df = self.spark.createDataFrame(data=data, schema=schema)
 
         with self.assertRaises(ValueError):
-            validator.validate_column_length_equals(df, 'opco_id', CO_NBR_LENGTH)
+            validator.validate_opcos(df, active_opcos, 'opco_id')
 
     def test_data_length_for_opco_id_for_when_input_length_is_less(self):
 
+        active_opcos = ['019', '020']
         data = [['19', '104612', '1234567', 5, '2020-08-06 00:00:00.000000']]
         schema = StructType([
             StructField("opco_id", StringType(), True),
@@ -736,10 +762,11 @@ class TestSparkDataframeValidator(unittest.TestCase):
         df = self.spark.createDataFrame(data=data, schema=schema)
 
         with self.assertRaises(ValueError):
-            validator.validate_column_length_equals(df, 'opco_id', CO_NBR_LENGTH)
+            validator.validate_opcos(df, active_opcos, 'opco_id')
 
     def test_data_with_one_invalid_opco_id_and_valid_opco_id_list(self):
 
+        active_opcos = ['019', '020']
         data = [['', '123456', '4119061', '5', '2020-08-06 00:00:00.000000'],
                 ['019', '118106', '9002908', '1', '2020-08-06 00:00:00.000000'],
                 ['019', '196668', '3555349', '1', '2020-08-06 00:00:00.000000'],
@@ -755,7 +782,7 @@ class TestSparkDataframeValidator(unittest.TestCase):
         df = self.spark.createDataFrame(data=data, schema=schema)
 
         with self.assertRaises(ValueError):
-            validator.validate_column(df, 'opco_id')
+            validator.validate_opcos(df, active_opcos, 'opco_id')
 
     def test_1_date_format_regex_for_effective_date(self):
 
