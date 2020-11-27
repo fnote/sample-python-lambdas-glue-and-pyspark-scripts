@@ -12,6 +12,21 @@ def validate_column(df, column):
         invalid_df.show(truncate=False)
         raise ValueError("Data can not be null/empty/non-numeric of column: " + column)
 
+def get_opco_list(df):
+    return [row.opco_id for row in df.select('opco_id').distinct().collect()]
+
+def get_opcos_having_invalid_values_for_column(df, column):
+    invalidDF = df.filter((df[column] == "") | df[column].isNull() | (df[column].rlike('[^0-9]')) | isnan(df[column]))
+    if len(invalidDF.head(1)) > 0:
+        invalidDF.show(truncate=False)
+        return get_opco_list(invalidDF)
+
+
+def remove_records_of_given_opcos(df, failed_opco_list):
+    if failed_opco_list is None:
+        return df
+    return df.filter(~df.opco_id.isin(failed_opco_list))
+
 
 def validate_column_length_less_than(df, column, col_length):
     invalid_df = df.filter((length(df[column]) > col_length))

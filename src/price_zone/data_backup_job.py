@@ -33,6 +33,7 @@ if __name__ == "__main__":
     decompressed_file_destination_key = archiving_path + decompressed_file_key.split('/')[-1]
     copy_input_file(s3_input_bucket, s3_input_file_key, archiving_s3_bucket, input_file_destination_key)
     copy_input_file(decompressed_file_bucket, decompressed_file_key, archiving_s3_bucket, decompressed_file_destination_key)
+    # // copy the additional info file
     opco_partitioned_path = archiving_path + 'partitioned/'
     copy_objects_with_prefix(intermediate_s3_bucket, partitioned_files_path, archiving_s3_bucket, opco_partitioned_path)
 

@@ -99,7 +99,8 @@ def lambda_handler(event, context):
         "partial_load": partial_load,
         "worker_count": glue_NumberOfWorkers,
         "worker_type": glue_worker_type,
-        "active_opcos": active_opco_list
+        "active_opcos": active_opco_list,
+        "intermediate_directory_path": folder_key
     }
 
     logger.info("Prize Zone data file Path: {}".format(s3_path))
