@@ -69,7 +69,7 @@ validated_records = remove_records_of_given_opcos(sparkDF, invalid_opcos)
 response = lambda_client.invoke(FunctionName='notifierTest2', Payload=json.dumps({
     "intermediate_s3_name": intermediate_s3_name,
     "intermediate_directory_path": intermediate_directory_path,
-    "failedOpcos": invalid_opcos,
+    "failed_opcos": invalid_opcos,
     "decompressed_file_path": decompressed_file_path
 }))
 

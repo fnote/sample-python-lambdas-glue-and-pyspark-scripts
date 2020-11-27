@@ -27,8 +27,8 @@ def lambda_handler(event, context):
     notification_event = event.get("event", "PROCESSOR")
     status = event.get("status", "ERROR")
     message = event.get("message", "NA")
-    bucket_name = event['intermediate_s3_name']
-    s3_path = '{}/additionInfo.txt'.format(event['intermediate_directory_path'])
+    bucket_name = event['additional_info_file_s3']
+    s3_path = '{}/additionInfo.txt'.format(event['additional_info_file_key'])
     current_time = int(time.time())
     logger.info('Sending notification env: %s, time: %s, status: %s, message: %s' % (
         env, current_time, status, message))
