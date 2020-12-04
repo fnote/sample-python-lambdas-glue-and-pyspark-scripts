@@ -1,17 +1,39 @@
+import groovy.json.*
+
 def bucket = 'sysco-us-east-1-prcp-nonprod-codedeploy'
-def pathPrefix = 'DiscountService'
+def pathPrefix = 'ReferencePricingApi'
 def pathSuffix
 def ENV
 def s3Path
 def s3key
 def region =  'us-east-1'
 
-def updateGlueScript(region, jobName, role, scriptLocation, type) {
+def updateGlueScript(region, jobName, scriptLocation) {
+
     echo "Deploying Glue Job ${jobName}"
+    def jobJson = bat (
+            script: "@aws glue get-job --job-name ${jobName} --region ${region}",
+            returnStdout: true
+    ).trim()
+
+    def json = new JsonSlurperClassic().parseText(jobJson)
+    def jobParams = json.Job
+    jobParams.remove('Name')
+    jobParams.remove('CreatedOn')
+    jobParams.remove('LastModifiedOn')
+    jobParams.remove('AllocatedCapacity')
+    if (jobParams.NumberOfWorkers) {
+        jobParams.remove('MaxCapacity')
+    }
+    jobParams.Command.ScriptLocation = scriptLocation
+
+    def escapedStr = StringEscapeUtils.escapeJava(JsonOutput.toJson(jobParams))
+    echo "Escpated Str: ${escapedStr}"
+
     def output = bat (
             script: "aws glue update-job \
         --job-name ${jobName} \
-        --job-update Role=${role},Command=\"{Name=${type},ScriptLocation=${scriptLocation}}\" \
+        --job-update \"${escapedStr}\" \
         --region ${region}",
             returnStdout: true
     ).trim()
@@ -20,6 +42,29 @@ def updateGlueScript(region, jobName, role, scriptLocation, type) {
 
 def updateGlueScriptProd(region, jobName, role, scriptLocation, type) {
     echo "Deploying Glue Job ${jobName}"
+    def jobJson = bat (
+            script:  "@aws sts assume-role --role-arn \"arn:aws:iam::130227353653:role/PRCP-Jenkins-CodeDeploy-Role\" --role-session-name \"Jenkins-CD-Session\">temCredentials.json\n" +
+                    "for /f %%i in ('jq -r .Credentials.AccessKeyId temCredentials.json') do SET AWS_ACCESS_KEY_ID=%%i\n" +
+                    "for /f %%j in ('jq -r .Credentials.SecretAccessKey temCredentials.json') do SET AWS_SECRET_ACCESS_KEY=%%j\n" +
+                    "for /f %%k in ('jq -r .Credentials.SessionToken temCredentials.json') do SET AWS_SESSION_TOKEN=%%k\n" +
+                    "aws glue get-job --job-name ${jobName} --region ${region}",
+            returnStdout: true
+    ).trim()
+
+    def json = new JsonSlurperClassic().parseText(jobJson)
+    def jobParams = json.Job
+    jobParams.remove('Name')
+    jobParams.remove('CreatedOn')
+    jobParams.remove('LastModifiedOn')
+    jobParams.remove('AllocatedCapacity')
+    if (jobParams.NumberOfWorkers) {
+        jobParams.remove('MaxCapacity')
+    }
+    jobParams.Command.ScriptLocation = scriptLocation
+
+    def escapedStr = StringEscapeUtils.escapeJava(JsonOutput.toJson(jobParams))
+    echo "Escpated Str: ${escapedStr}"
+
     def output = bat (
             script: "aws sts assume-role --role-arn \"arn:aws:iam::130227353653:role/PRCP-Jenkins-CodeDeploy-Role\" --role-session-name \"Jenkins-CD-Session\">temCredentials.json\n" +
                     "for /f %%i in ('jq -r .Credentials.AccessKeyId temCredentials.json') do SET AWS_ACCESS_KEY_ID=%%i\n" +
@@ -27,7 +72,7 @@ def updateGlueScriptProd(region, jobName, role, scriptLocation, type) {
                     "for /f %%k in ('jq -r .Credentials.SessionToken temCredentials.json') do SET AWS_SESSION_TOKEN=%%k\n" +
                     "aws glue update-job \
         --job-name ${jobName} \
-        --job-update Role=${role},Command=\"{Name=${type},ScriptLocation=${scriptLocation}}\" \
+        --job-update \"${escapedStr}\" \
         --region ${region}",
             returnStdout: true
     ).trim()
@@ -78,48 +123,54 @@ def copyToS3(sourceFile, destinationPath) {
 }
 
 def copyFileIntoEnv(s3Path) {
+    def paS3Path = "${s3Path}/pa"
+    copyToS3("./src/price_zone/s3_trigger_lambda.py.zip", s3Path)
+    copyToS3("./src/price_zone/analyze_etl_wait_status.py.zip", s3Path)
+    copyToS3("./src/price_zone/decompress_job.py", s3Path)
+    copyToS3("./src/price_zone/transform_spark_job.py", s3Path)
+    copyToS3("./src/price_zone/load_job.py", s3Path)
     copyToS3("./src/Notifier/Notifier.zip", s3Path)
-    copyToS3("./src/customer_eligibility.py", s3Path)
-    copyToS3("./src/customer_eligibility_partitioner.py", s3Path)
-    copyToS3("./src/data_backup_job.py", s3Path)
-    copyToS3("./src/decompress_job.py", s3Path)
-    copyToS3("./src/mdt.py", s3Path)
-    copyToS3("./src/TriggerLambda.py.zip", s3Path)
+    copyToS3("./src/price_zone/data_backup_job.py", s3Path)
+
+//    PA
+    copyToS3("./src/pa/s3_trigger_lambda.py.zip", paS3Path)
+    copyToS3("./src/pa/pa_etl_script.py", paS3Path)
+    copyToS3("./src/pa/data_backup_job.py", paS3Path)
 }
 
 def deployIntoEnv(env, bucket, s3Path, s3key, region) {
     updateLambda(
+            bucket, region, "CP-REF-etl-price-zone-trigger-${env}",
+            "${s3key}/s3_trigger_lambda.py.zip")
+    updateLambda(
+            bucket, region, "CP-REF-etl-price-zone-wait-status-analyzer-${env}",
+            "${s3key}/analyze_etl_wait_status.py.zip")
+    updateGlueScript(
+            region, "CP-REF-etl-prize-zone-decompression-job-${env}",
+            "${s3Path}/decompress_job.py")
+    updateGlueScript(
+            region, "CP-REF-etl-prize-zone-transform-job-${env}",
+            "${s3Path}/transform_spark_job.py")
+    updateGlueScript(
+            region, "CP-REF-etl-prize-zone-load-job-${env}",
+            "${s3Path}/load_job.py")
+    updateLambda(
             bucket, region, "CP-REF-etl-notifier-${env}",
             "${s3key}/Notifier.zip")
-
     updateGlueScript(
-            region, "CP-DISCOUNTS-etl-customer-eligibility-load-job-${env}",
-            "CP-DISCOUNTS-ETLGlueRole-${env}",
-            "${s3Path}/customer_eligibility.py", "pythonshell")
+            region, "CP-REF-etl-prize-zone-backup-job-${env}",
+            "${s3Path}/data_backup_job.py")
 
-    updateGlueScript(
-            region, "CP-DISCOUNTS-etl-customer-eligibility-partition-job-${env}",
-            "CP-DISCOUNTS-ETLGlueRole-${env}",
-            "${s3Path}/customer_eligibility_partitioner.py", "glueetl")
-
-    updateGlueScript(
-            region, "CP-DISCOUNTS-etl-customer-eligibility-partition-job-${env}",
-            "CP-DISCOUNTS-ETLGlueRole-${env}",
-            "${s3Path}/data_backup_job.py", "pythonshell")
-
-    updateGlueScript(
-            region, "CP-DISCOUNTS-etl-customer-eligibility-decompress-job-${env}",
-            "CP-DISCOUNTS-ETLGlueRole-${env}",
-            "${s3Path}/decompress_job.py", "pythonshell")
-
-    updateGlueScript(
-            region, "CP-DISCOUNTS-etl-mdt-load-job-${env}",
-            "CP-DISCOUNTS-ETLGlueRole-${env}",
-            "${s3Path}/mdt.py", "pythonshell")
-
+//    PA
     updateLambda(
-            bucket, region, "CP-DISCOUNTS-etl-trigger-${env}",
-            "${s3key}/TriggerLambda.py.zip")
+            bucket, region, "CP-REF-etl-pa-trigger-${env}",
+            "${s3key}/pa/s3_trigger_lambda.py.zip")
+    updateGlueScript(
+            region, "CP-REF-etl-pa-job-${env}",
+            "${s3Path}/pa/pa_etl_script.py")
+    updateGlueScript(
+            region, "CP-REF-etl-pa-backup-job-${env}",
+            "${s3Path}/pa/data_backup_job.py")
 }
 
 pipeline {
@@ -129,8 +180,11 @@ pipeline {
         stage('Build') {
             steps {
                 script {
+                    zipScript("src/price_zone", "s3_trigger_lambda.py")
+                    zipScript("src/price_zone", "analyze_etl_wait_status.py")
                     zipScript("src/Notifier", "Notifier", true)
-                    zipScript("src", "TriggerLambda.py")
+                    zipScript("src/pa/", "s3_trigger_lambda.py")
+
                 }
             }
         }
@@ -151,6 +205,9 @@ pipeline {
         }
 
         stage('DEV: Approval') {
+            options {
+                timeout(time: 6, unit: 'HOURS')
+            }
             steps {
                 script {
                     input id: 'Deploy', message: 'Do you want to deploy to Dev Environment?', submitter: 'admin'
@@ -179,6 +236,9 @@ pipeline {
         }
 
         stage('EXE: Approval') {
+            options {
+                timeout(time: 6, unit: 'HOURS')
+            }
             steps {
                 script {
                     input id: 'Deploy', message: 'Do you want to deploy to EXE Environment?', submitter: 'admin'
@@ -207,6 +267,9 @@ pipeline {
         }
 
         stage('STG: Approval') {
+            options {
+                timeout(time: 6, unit: 'HOURS')
+            }
             steps {
                 script {
                     input id: 'Deploy', message: 'Do you want to deploy to STG Environment?', submitter: 'admin'
@@ -235,6 +298,9 @@ pipeline {
         }
 
         stage('PROD: Approval') {
+            options {
+                timeout(time: 6, unit: 'HOURS')
+            }
             steps {
                 script {
                     input id: 'Deploy', message: 'Do you want to deploy to PROD Environment?', submitter: 'admin'
