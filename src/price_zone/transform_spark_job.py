@@ -10,7 +10,7 @@ from awsglue.dynamicframe import DynamicFrame
 from pyspark.sql.types import IntegerType
 from validator import validate_column, validate_column_length_less_than, validate_column_length_equals,\
     validate_data_range, validate_date_format, validate_and_get_as_date_time,validate_opcos,\
-    get_opcos_having_invalid_values_for_column, remove_records_of_given_opcos
+    remove_records_of_given_opcos
 from constants import CUST_NBR_LENGTH, SUPC_LENGTH, PRICE_ZONE_MIN_VALUE, PRICE_ZONE_MAX_VALUE, DATE_FORMAT_REGEX, OUTPUT_DATE_FORMAT, INPUT_DATE_FORMAT, CO_NBR_LENGTH
 
 lambda_client = boto3.client('lambda')
@@ -51,13 +51,13 @@ active_opco_id_list = active_opcos.split(',')
 
 # validate data
 invalid_opcos = []
-invalid_opcos.extend(get_opcos_having_invalid_values_for_column(sparkDF, 'customer_id'))
-invalid_opcos.extend(get_opcos_having_invalid_values_for_column(sparkDF, 'supc'))
-invalid_opcos.extend(get_opcos_having_invalid_values_for_column(sparkDF, 'price_zone'))
+invalid_opcos.extend(validate_column(sparkDF, 'customer_id'))
+invalid_opcos.extend(validate_column(sparkDF, 'supc'))
+invalid_opcos.extend(validate_column(sparkDF, 'price_zone'))
 invalid_opcos.extend(validate_date_format(sparkDF, 'eff_from_dttm', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT))
 
-validate_column_length_less_than(sparkDF, 'customer_id', CUST_NBR_LENGTH)
-validate_column_length_less_than(sparkDF, 'supc', SUPC_LENGTH)
+invalid_opcos.extend(validate_column_length_less_than(sparkDF, 'customer_id', CUST_NBR_LENGTH))
+invalid_opcos.extend(validate_column_length_less_than(sparkDF, 'supc', SUPC_LENGTH))
 
 #validate opcos
 validate_opcos(sparkDF, active_opco_id_list, 'opco_id')

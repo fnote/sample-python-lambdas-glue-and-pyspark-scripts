@@ -15,6 +15,28 @@ class TestSparkDataframeValidator(unittest.TestCase):
         cls.sc = pyspark.SparkContext(conf=conf)
         cls.spark = pyspark.SQLContext(cls.sc)
 
+    def test_get_opco_list(self):
+
+        data = [['018', '118101', '4119061', '5', '2020-08-06 00:00:00.000000'],
+                ['020', '118102', '4119062', '5', '2020-08-06 00:00:00.000000'],
+                ['020', '118106', '4119063', '5', '2020-08-06 00:00:00.000000'],
+                ['019', '118106', '9002908', '1', '2020-08-06 00:00:00.000000'],
+                ['019', '196668', '3555349', '1', '2020-08-06 00:00:00.000000'],
+                ['010', '687522', '4518403', '5', '2020-08-06 00:00:00.000000']]
+
+        schema = StructType([
+            StructField("opco_id", StringType(), True),
+            StructField("customer_id", StringType(), True),
+            StructField("supc", StringType(), True),
+            StructField("price_zone", StringType(), True),
+            StructField("effective_date", StringType(), True)]
+        )
+        df = self.spark.createDataFrame(data=data, schema=schema)
+
+        result = validator.get_opco_list(df)
+        self.assertEqual(len(result), 4, "It should contain 3 opcos")
+        self.assertEqual(result, ['019', '020', '018', '010'], "It should contain 3 opcos")
+
     def test_filtration_of_records_of_failed_opcos(self):
 
         data = [['018', '118101', '4119061', '5', '2020-08-06 00:00:00.000000'],
@@ -80,7 +102,7 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        result = validator.get_opcos_having_invalid_values_for_column(df, 'customer_id')
+        result = validator.validate_column(df, 'customer_id')
         self.assertEqual(len(result), 2, "It should only return ['020', '018']")
         self.assertIn('018', result, "It should '018'")
         self.assertIn('020', result, "It should '020'")
@@ -103,8 +125,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        result = validator.get_opcos_having_invalid_values_for_column(df, 'customer_id')
-        self.assertEqual(result, None, "It should not return anything")
+        result = validator.validate_column(df, 'customer_id')
+        self.assertEqual(result, [], "It should not return anything")
 
     @classmethod
     def tearDownClass(cls):

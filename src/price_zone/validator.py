@@ -10,17 +10,11 @@ def validate_column(df, column):
     invalid_df = df.filter((df[column] == "") | df[column].isNull() | (df[column].rlike('[^0-9]')) | isnan(df[column]))
     if len(invalid_df.head(1)) > 0:
         invalid_df.show(truncate=False)
-        raise ValueError("Data can not be null/empty/non-numeric of column: " + column)
+        print("Data can not be null/empty/non-numeric of column: " + column)
+    return get_opco_list(invalid_df)
 
 def get_opco_list(df):
     return [row.opco_id for row in df.select('opco_id').distinct().collect()]
-
-def get_opcos_having_invalid_values_for_column(df, column):
-    invalidDF = df.filter((df[column] == "") | df[column].isNull() | (df[column].rlike('[^0-9]')) | isnan(df[column]))
-    if len(invalidDF.head(1)) > 0:
-        invalidDF.show(truncate=False)
-        return get_opco_list(invalidDF)
-
 
 def remove_records_of_given_opcos(df, failed_opco_list):
     if failed_opco_list is None:
@@ -32,7 +26,8 @@ def validate_column_length_less_than(df, column, col_length):
     invalid_df = df.filter((length(df[column]) > col_length))
     if len(invalid_df.head(1)) > 0:
         invalid_df.show(truncate=False)
-        raise ValueError("Data length can not exceed length: " + str(col_length) + " of column: " + column)
+        print("Data length can not exceed length: " + str(col_length) + " of column: " + column)
+    return get_opco_list(invalid_df)
 
 
 def validate_column_length_equals(df, column, col_length):
@@ -58,7 +53,7 @@ def validate_date_format(df, column, input_date_regex, input_date_format):
         print("Invalid date format for column: " + column
               + ".Accept only format " + input_date_format
               + 'matching date time regex: ' + input_date_regex)
-        return get_opco_list(invalid_df)
+    return get_opco_list(invalid_df)
 
 
 def validate_and_get_as_date_time(df, input_column, output_column, output_format):

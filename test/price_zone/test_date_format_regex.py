@@ -28,7 +28,7 @@ class TestDateRegex(unittest.TestCase):
         df = self.spark.createDataFrame(data=data, schema=schema)
 
         result = validate_date_format(df, 'eff_from_dttm', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
-        self.assertEqual(result, None, "It should not return any OpCo ids")
+        self.assertEqual(result, [], "It should not return any OpCo ids")
 
     def test_date_format_regex_for_valid_format_2(self):
         """Valid input date format """
@@ -41,7 +41,7 @@ class TestDateRegex(unittest.TestCase):
         df = self.spark.createDataFrame(data=data, schema=schema)
 
         result = validate_date_format(df, 'eff_from_dttm', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
-        self.assertEqual(result, None, "It should not return any OpCo ids")
+        self.assertEqual(result, [], "It should not return any OpCo ids")
 
     def test_date_format_regex_for_invalid_format_1(self):
         """Invalid date format with decimal point only"""
