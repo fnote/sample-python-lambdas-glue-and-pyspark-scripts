@@ -4,7 +4,8 @@ def validate_opcos(df,active_opco_list,column):
     invalid_df = df.filter(~df[column].isin(active_opco_list) | df[column].isNull())
     if len(invalid_df.head(1)) > 0:
         invalid_df.show(truncate=False)
-        raise ValueError("Invalid or inactive opco records found in the file: refer dataframe above ")
+        print("Invalid or inactive opco records found in the file: refer dataframe above ")
+    return get_opco_list(invalid_df)
 
 def validate_column(df, column):
     invalid_df = df.filter((df[column] == "") | df[column].isNull() | (df[column].rlike('[^0-9]')) | isnan(df[column]))
@@ -41,9 +42,10 @@ def validate_data_range(df, column, min_val, max_val):
     invalid_df = df.filter((df[column] < min_val) | (df[column] > max_val))
     if len(invalid_df.head(1)) > 0:
         invalid_df.show(truncate=False)
-        raise ValueError("Invalid data-range received for column: "
+        print("Invalid data-range received for column: "
                          + column + ".should be between " + str(min_val)
                          + "and " + str(max_val))
+    return get_opco_list(invalid_df)
 
 
 def validate_date_format(df, column, input_date_regex, input_date_format):

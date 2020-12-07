@@ -60,10 +60,10 @@ invalid_opcos.extend(validate_column_length_less_than(sparkDF, 'customer_id', CU
 invalid_opcos.extend(validate_column_length_less_than(sparkDF, 'supc', SUPC_LENGTH))
 
 #validate opcos
-validate_opcos(sparkDF, active_opco_id_list, 'opco_id')
+invalid_opcos.extend(validate_opcos(sparkDF, active_opco_id_list, 'opco_id'))
 
 sparkDF = sparkDF.withColumn("price_zone", sparkDF["price_zone"].cast(IntegerType()))
-validate_data_range(sparkDF, 'price_zone', PRICE_ZONE_MIN_VALUE, PRICE_ZONE_MAX_VALUE)
+invalid_opcos.extend(validate_data_range(sparkDF, 'price_zone', PRICE_ZONE_MIN_VALUE, PRICE_ZONE_MAX_VALUE))
 validated_records = remove_records_of_given_opcos(sparkDF, invalid_opcos)
 # check whether there are any valid records, if not abort the process
 

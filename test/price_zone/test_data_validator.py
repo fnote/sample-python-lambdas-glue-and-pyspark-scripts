@@ -39,7 +39,7 @@ class TestSparkDataframeValidator(unittest.TestCase):
             invalid_opcos.extend(validator.validate_column_length_less_than(df, 'supc', SUPC_LENGTH))
 
             df = df.withColumn("price_zone", df["price_zone"].cast(IntegerType()))
-            validator.validate_data_range(df, 'price_zone', PRICE_ZONE_MIN_VALUE, PRICE_ZONE_MAX_VALUE)
+            invalid_opcos.extend(validator.validate_data_range(df, 'price_zone', PRICE_ZONE_MIN_VALUE, PRICE_ZONE_MAX_VALUE))
 
             sparkDF = validator.validate_and_get_as_date_time(df, 'eff_from_dttm', 'effective_date', OUTPUT_DATE_FORMAT)
             sparkDF.show(truncate=False)
@@ -63,8 +63,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_opcos(df, active_opcos, 'opco_id')
+        result = validator.validate_opcos(df, active_opcos, 'opco_id')
+        self.assertEqual(result, ['019'], "It should return invalid OpCo ids")
 
     def test_null_data_for_supc(self):
         """PRCP-2012"""
@@ -255,8 +255,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_data_range(df, 'price_zone', PRICE_ZONE_MIN_VALUE, PRICE_ZONE_MAX_VALUE)
+        result = validator.validate_data_range(df, 'price_zone', PRICE_ZONE_MIN_VALUE, PRICE_ZONE_MAX_VALUE)
+        self.assertEqual(result, ['019'], "It should return invalid OpCo ids")
 
     def test_data_range_of_price_zone_with_value_greater_than_max(self):
         """PRCP-2013"""
@@ -271,8 +271,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_data_range(df, 'price_zone', PRICE_ZONE_MIN_VALUE, PRICE_ZONE_MAX_VALUE)
+        result = validator.validate_data_range(df, 'price_zone', PRICE_ZONE_MIN_VALUE, PRICE_ZONE_MAX_VALUE)
+        self.assertEqual(result, ['019'], "It should return invalid OpCo ids")
 
     def test_data_with_one_invalid_customer_id_and_valid_customer_id_list(self):
         """PRCP-2016"""
@@ -350,8 +350,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
 
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_data_range(df, 'price_zone', PRICE_ZONE_MIN_VALUE, PRICE_ZONE_MAX_VALUE)
+        result = validator.validate_data_range(df, 'price_zone', PRICE_ZONE_MIN_VALUE, PRICE_ZONE_MAX_VALUE)
+        self.assertEqual(result, ['019'], "It should return invalid OpCo ids")
 
     def test_data_containing_one_empty_row(self):
         """PRCP-2065"""
@@ -689,8 +689,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_opcos(df, active_opcos, 'opco_id')
+        result = validator.validate_opcos(df, active_opcos, 'opco_id')
+        self.assertEqual(result, [None], "It should return invalid OpCo ids")
 
     def test_empty_data_for_opco_id(self):
 
@@ -705,8 +705,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_opcos(df, active_opcos, 'opco_id')
+        result = validator.validate_opcos(df, active_opcos, 'opco_id')
+        self.assertEqual(result, [''], "It should return invalid OpCo ids")
 
     def test_non_numeric_data_for_opco_id(self):
 
@@ -721,8 +721,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_opcos(df, active_opcos, 'opco_id')
+        result = validator.validate_opcos(df, active_opcos, 'opco_id')
+        self.assertEqual(result, ['abc'], "It should return invalid OpCo ids")
 
     def test_data_length_for_opco_id_for_when_input_length_is_high(self):
 
@@ -737,8 +737,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_opcos(df, active_opcos, 'opco_id')
+        result = validator.validate_opcos(df, active_opcos, 'opco_id')
+        self.assertEqual(result, ['0190'], "It should return invalid OpCo ids")
 
     def test_data_length_for_opco_id_for_when_input_length_is_less(self):
 
@@ -753,8 +753,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_opcos(df, active_opcos, 'opco_id')
+        result = validator.validate_opcos(df, active_opcos, 'opco_id')
+        self.assertEqual(result, ['19'], "It should return invalid OpCo ids")
 
     def test_data_with_one_invalid_opco_id_and_valid_opco_id_list(self):
 
@@ -773,8 +773,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_opcos(df, active_opcos, 'opco_id')
+        result = validator.validate_opcos(df, active_opcos, 'opco_id')
+        self.assertEqual(result, ['0109', ''], "It should return invalid OpCo ids")
 
     def test_1_date_format_regex_for_effective_date(self):
 
