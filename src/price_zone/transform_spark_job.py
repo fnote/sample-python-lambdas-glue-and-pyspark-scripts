@@ -50,10 +50,11 @@ sparkDF = applyMapping1.toDF()
 active_opco_id_list = active_opcos.split(',')
 
 # validate data
-invalid_opcos = get_opcos_having_invalid_values_for_column(sparkDF, 'customer_id')
-validate_column(sparkDF, 'supc')
-validate_column(sparkDF, 'price_zone')
-validate_date_format(sparkDF, 'eff_from_dttm', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+invalid_opcos = []
+invalid_opcos.extend(get_opcos_having_invalid_values_for_column(sparkDF, 'customer_id'))
+invalid_opcos.extend(get_opcos_having_invalid_values_for_column(sparkDF, 'supc'))
+invalid_opcos.extend(get_opcos_having_invalid_values_for_column(sparkDF, 'price_zone'))
+invalid_opcos.extend(validate_date_format(sparkDF, 'eff_from_dttm', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT))
 
 validate_column_length_less_than(sparkDF, 'customer_id', CUST_NBR_LENGTH)
 validate_column_length_less_than(sparkDF, 'supc', SUPC_LENGTH)

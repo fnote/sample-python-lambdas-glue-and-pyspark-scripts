@@ -419,8 +419,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        result = validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        self.assertEqual(result, ['019'], "It should return invalid OpCo ids")
 
     def test_empty_data_for_effective_date(self):
         """PRCP-2015"""
@@ -436,8 +436,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        result = validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        self.assertEqual(result, ['019'], "It should return invalid OpCo ids")
 
     def test_non_numeric_data_for_effective_date(self):
         """PRCP-2015"""
@@ -453,8 +453,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        result = validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        self.assertEqual(result, ['019'], "It should return invalid OpCo ids")
 
     def test_1_invalid_format_data_for_effective_date(self):
         """PRCP-2015 invalid format dd/MM/yyyy"""
@@ -470,8 +470,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        result = validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        self.assertEqual(result, ['019'], "It should return invalid OpCo ids")
 
     def test_2_invalid_format_data_for_effective_date(self):
         """PRCP-2015 invalid format dd/yyyy/MM"""
@@ -487,8 +487,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        result = validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        self.assertEqual(result, ['019'], "It should return invalid OpCo ids")
 
     def test_3_invalid_format_data_for_effective_date(self):
         """PRCP-2015 invalid format MM/yyyy/dd"""
@@ -504,8 +504,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        result = validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        self.assertEqual(result, ['019'], "It should return invalid OpCo ids")
 
     def test_4_invalid_format_data_for_effective_date(self):
         """PRCP-2015 invalid format yyyyy/MM/dd"""
@@ -521,8 +521,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        result = validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        self.assertEqual(result, ['019'], "It should return invalid OpCo ids")
 
     def test_5_invalid_format_data_for_effective_date(self):
         """PRCP-2015 invalid format yyyyy/dd/MM"""
@@ -538,8 +538,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        result = validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        self.assertEqual(result, ['019'], "It should return invalid OpCo ids")
 
     def test_6_invalid_format_data_for_effective_date(self):
         """PRCP-2015 invalid format Month/dd/yyyy"""
@@ -555,8 +555,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        result = validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        self.assertEqual(result, ['019'], "It should return invalid OpCo ids")
 
     def test_7_invalid_format_data_for_effective_date(self):
         """PRCP-2015 invalid format 01 and 1"""
@@ -572,8 +572,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        result = validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        self.assertEqual(result, ['019'], "It should return invalid OpCo ids")
 
     def test_8_invalid_format_data_for_effective_date(self):
         """PRCP-2015 invalid format year as yy"""
@@ -589,8 +589,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        result = validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        self.assertEqual(result, ['019'], "It should return invalid OpCo ids")
 
     def test_9_invalid_format_data_for_effective_date(self):
         """PRCP-2015 invalid format No split"""
@@ -606,8 +606,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        result = validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        self.assertEqual(result, ['019'], "It should return invalid OpCo ids")
 
     def test_10_invalid_format_data_for_effective_date(self):
         """PRCP-2015 invalid format wrong split"""
@@ -623,16 +623,16 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        result = validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        self.assertEqual(result, ['019'], "It should return invalid OpCo ids")
 
     def test_data_with_one_invalid_effective_date_and_valid_effective_date_list(self):
         """PRCP-2020"""
 
         data = [['019', '810622', '9002908', 1, '2020-08-06 00:00:00.000000'],
                 ['019', '666867', '3555349', 1, '2020-08-06 00:00:00.000000'],
-                ['019', '480111', '4518408', 5, '2020-08-06 00:00:00.000000'],
-                ['019', '752267', '4518403', 5, '1-15-2020']]
+                ['018', '480111', '4518408', 5, '2020-08-06 00:00:00.000000'],
+                ['018', '752267', '4518403', 5, '1-15-2020']]
 
         schema = StructType([
             StructField("opco_id", StringType(), True),
@@ -643,8 +643,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        result = validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        self.assertEqual(result, ['018'], "It should return invalid OpCo ids")
 
     def test_data_with_one_invalid_effective_date_value_and_valid_effective_date_list(self):
 
@@ -797,8 +797,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        result = validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        self.assertEqual(result, ['019'], "It should return invalid OpCo ids")
 
     def test_2_date_format_regex_for_effective_date(self):
 
@@ -813,8 +813,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        result = validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        self.assertEqual(result, ['019'], "It should return invalid OpCo ids")
 
     @classmethod
     def tearDownClass(cls):

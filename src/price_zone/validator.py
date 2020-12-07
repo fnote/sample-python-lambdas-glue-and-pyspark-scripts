@@ -55,9 +55,10 @@ def validate_date_format(df, column, input_date_regex, input_date_format):
     invalid_df = df.filter(df[column].isNull() | ~(df[column].rlike(input_date_regex)))
     if len(invalid_df.head(1)) > 0:
         invalid_df.show(truncate=False)
-        raise ValueError("Invalid date format for column: " + column
-                         + ".Accept only format " + input_date_format
-                         + 'matching date time regex: ' + input_date_regex)
+        print("Invalid date format for column: " + column
+              + ".Accept only format " + input_date_format
+              + 'matching date time regex: ' + input_date_regex)
+        return get_opco_list(invalid_df)
 
 
 def validate_and_get_as_date_time(df, input_column, output_column, output_format):
