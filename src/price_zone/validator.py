@@ -18,8 +18,6 @@ def get_opco_list(df):
     return [row.opco_id for row in df.select('opco_id').distinct().collect()]
 
 def remove_records_of_given_opcos(df, failed_opco_list):
-    if failed_opco_list is None:
-        return df
     return df.filter(~df.opco_id.isin(failed_opco_list))
 
 
@@ -58,10 +56,9 @@ def validate_date_format(df, column, input_date_regex, input_date_format):
     return get_opco_list(invalid_df)
 
 
-def validate_and_get_as_date_time(df, input_column, output_column, output_format):
-    df = df.withColumn(output_column, to_timestamp(df[input_column], output_format))
+def validate_date_time_field(df, output_column):
     invalid_df = df.filter(df[output_column].isNull())
     if len(invalid_df.head(1)) > 0:
         invalid_df.show(truncate=False)
-        raise ValueError("Received invalid date value for column: " + input_column)
-    return df
+        print("Received invalid date value for column: " + output_column)
+    return get_opco_list(invalid_df)

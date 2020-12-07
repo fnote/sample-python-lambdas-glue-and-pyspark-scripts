@@ -8,8 +8,9 @@ from awsglue.context import GlueContext
 from awsglue.job import Job
 from awsglue.dynamicframe import DynamicFrame
 from pyspark.sql.types import IntegerType
+from pyspark.sql.functions import to_timestamp
 from validator import validate_column, validate_column_length_less_than, validate_column_length_equals,\
-    validate_data_range, validate_date_format, validate_and_get_as_date_time,validate_opcos,\
+    validate_data_range, validate_date_format, validate_date_time_field,validate_opcos,\
     remove_records_of_given_opcos
 from constants import CUST_NBR_LENGTH, SUPC_LENGTH, PRICE_ZONE_MIN_VALUE, PRICE_ZONE_MAX_VALUE, DATE_FORMAT_REGEX, OUTPUT_DATE_FORMAT, INPUT_DATE_FORMAT, CO_NBR_LENGTH
 
@@ -64,6 +65,10 @@ invalid_opcos.extend(validate_opcos(sparkDF, active_opco_id_list, 'opco_id'))
 
 sparkDF = sparkDF.withColumn("price_zone", sparkDF["price_zone"].cast(IntegerType()))
 invalid_opcos.extend(validate_data_range(sparkDF, 'price_zone', PRICE_ZONE_MIN_VALUE, PRICE_ZONE_MAX_VALUE))
+
+sparkDF = sparkDF.withColumn('effective_date', to_timestamp(sparkDF['eff_from_dttm'], OUTPUT_DATE_FORMAT))
+invalid_opcos.extend(validate_date_time_field(sparkDF, 'effective_date'))
+
 validated_records = remove_records_of_given_opcos(sparkDF, invalid_opcos)
 # check whether there are any valid records, if not abort the process
 
@@ -74,9 +79,7 @@ response = lambda_client.invoke(FunctionName='notifierTest2', Payload=json.dumps
     "decompressed_file_path": decompressed_file_path
 }))
 
-sparkDF2 = validate_and_get_as_date_time(validated_records, 'eff_from_dttm', 'effective_date', OUTPUT_DATE_FORMAT)
-
-convertedDynamicFrame = DynamicFrame.fromDF(sparkDF2, glueContext, "convertedDynamicFrame")
+convertedDynamicFrame = DynamicFrame.fromDF(validated_records, glueContext, "convertedDynamicFrame")
 
 # drop eff_from_dttm
 dropped_dynamicdataframe = DropFields.apply(frame=convertedDynamicFrame, paths=["eff_from_dttm"],

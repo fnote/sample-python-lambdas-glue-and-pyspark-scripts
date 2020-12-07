@@ -78,8 +78,6 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        self.assertEqual(validator.remove_records_of_given_opcos(df, None).count(), 6,
-                         "It should contain all the records")
         self.assertEqual(validator.remove_records_of_given_opcos(df, []).count(), 6,
                          "It should contain all the records")
 

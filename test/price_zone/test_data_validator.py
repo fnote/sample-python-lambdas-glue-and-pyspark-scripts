@@ -1,6 +1,7 @@
 import unittest
 import pyspark
 from pyspark.sql.types import StructType, StructField, IntegerType, StringType
+from pyspark.sql.functions import to_timestamp
 
 from src.price_zone import validator
 from src.price_zone.constants import SUPC_LENGTH, CUST_NBR_LENGTH, PRICE_ZONE_MIN_VALUE, PRICE_ZONE_MAX_VALUE, \
@@ -41,8 +42,9 @@ class TestSparkDataframeValidator(unittest.TestCase):
             df = df.withColumn("price_zone", df["price_zone"].cast(IntegerType()))
             invalid_opcos.extend(validator.validate_data_range(df, 'price_zone', PRICE_ZONE_MIN_VALUE, PRICE_ZONE_MAX_VALUE))
 
-            sparkDF = validator.validate_and_get_as_date_time(df, 'eff_from_dttm', 'effective_date', OUTPUT_DATE_FORMAT)
-            sparkDF.show(truncate=False)
+            df = df.withColumn('effective_date', to_timestamp(df['eff_from_dttm'], OUTPUT_DATE_FORMAT))
+            invalid_opcos.extend(validator.validate_date_time_field(df, 'effective_date'))
+            df.show(truncate=False)
             self.assertEqual(invalid_opcos, [], "It should return invalid OpCo ids")
 
         except ValueError:
@@ -643,7 +645,7 @@ class TestSparkDataframeValidator(unittest.TestCase):
         data = [['019', '810622', '9002908', 1, '2020-08-06 00:00:00.000000'],
                 ['019', '666867', '3555349', 1, '2020-08-06 00:00:00.000000'],
                 ['019', '480111', '4518408', 5, '2020-08-06 00:00:00.000000'],
-                ['019', '752267', '4518403', 5, '2/30/2019']]
+                ['018', '752267', '4518403', 5, '2/30/2019']]
 
         schema = StructType([
             StructField("opco_id", StringType(), True),
@@ -654,10 +656,11 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_and_get_as_date_time(df, 'eff_from_dttm', 'effective_date', OUTPUT_DATE_FORMAT)
+        df = df.withColumn('effective_date', to_timestamp(df['eff_from_dttm'], OUTPUT_DATE_FORMAT))
+        result = validator.validate_date_time_field(df, 'effective_date')
+        self.assertEqual(result, ['018'], "It should return invalid OpCo ids")
 
-    def test_data_with_get_output_date_format(self):
+    def test_validate_date_time_field(self):
 
         data = [['019', '810622', '9002908', 1, '2020-08-06 00:00:00']]
 
@@ -670,11 +673,10 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        try:
-            sparkDf = validator.validate_and_get_as_date_time(df, 'eff_from_dttm', 'effective_date', OUTPUT_DATE_FORMAT)
-            sparkDf.show(truncate=False)
-        except ValueError:
-            self.fail("Should not fail")
+        df = df.withColumn('effective_date', to_timestamp(df['eff_from_dttm'], OUTPUT_DATE_FORMAT))
+        df.show(truncate=False)
+        results = validator.validate_date_time_field(df, 'effective_date')
+        self.assertEqual(results, [], "It should return invalid OpCo ids")
 
     def test_null_data_for_opco_id(self):
 
