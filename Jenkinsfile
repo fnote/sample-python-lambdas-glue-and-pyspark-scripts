@@ -129,13 +129,16 @@ def copyFileIntoEnv(s3Path) {
     copyToS3("./src/price_zone/decompress_job.py", s3Path)
     copyToS3("./src/price_zone/transform_spark_job.py", s3Path)
     copyToS3("./src/price_zone/load_job.py", s3Path)
-    copyToS3("./src/Notifier/Notifier.zip", s3Path)
     copyToS3("./src/price_zone/data_backup_job.py", s3Path)
 
 //    PA
     copyToS3("./src/pa/s3_trigger_lambda.py.zip", paS3Path)
     copyToS3("./src/pa/pa_etl_script.py", paS3Path)
     copyToS3("./src/pa/data_backup_job.py", paS3Path)
+
+//    Common
+    copyToS3("./src/Notifier/Notifier.zip", s3Path)
+    copyToS3("./src/common/metadata_aggregator.py.zip", s3Path)
 }
 
 def deployIntoEnv(env, bucket, s3Path, s3key, region) {
@@ -154,9 +157,6 @@ def deployIntoEnv(env, bucket, s3Path, s3key, region) {
     updateGlueScript(
             region, "CP-REF-etl-prize-zone-load-job-${env}",
             "${s3Path}/load_job.py")
-    updateLambda(
-            bucket, region, "CP-REF-etl-notifier-${env}",
-            "${s3key}/Notifier.zip")
     updateGlueScript(
             region, "CP-REF-etl-prize-zone-backup-job-${env}",
             "${s3Path}/data_backup_job.py")
@@ -171,6 +171,14 @@ def deployIntoEnv(env, bucket, s3Path, s3key, region) {
     updateGlueScript(
             region, "CP-REF-etl-pa-backup-job-${env}",
             "${s3Path}/pa/data_backup_job.py")
+
+//    Common
+    updateLambda(
+            bucket, region, "CP-REF-etl-notifier-${env}",
+            "${s3key}/Notifier.zip")
+    updateLambda(
+            bucket, region, "CP-REF-ETL-metadata-aggregator-${env}",
+            "${s3key}/metadata_aggregator.py.zip")
 }
 
 pipeline {
@@ -184,7 +192,7 @@ pipeline {
                     zipScript("src/price_zone", "analyze_etl_wait_status.py")
                     zipScript("src/Notifier", "Notifier", true)
                     zipScript("src/pa/", "s3_trigger_lambda.py")
-
+                    zipScript("src/common/", "metadata_aggregator.py")
                 }
             }
         }
@@ -324,37 +332,42 @@ pipeline {
             steps {
                 script {
                     updateLambdaProd(
+                            bucket, region, "CP-REF-etl-price-zone-trigger-${ENV}",
+                            "${s3key}/s3_trigger_lambda.py.zip")
+                    updateLambdaProd(
+                            bucket, region, "CP-REF-etl-price-zone-wait-status-analyzer-${ENV}",
+                            "${s3key}/analyze_etl_wait_status.py.zip")
+                    updateGlueScriptProd(
+                            region, "CP-REF-etl-prize-zone-decompression-job-${ENV}",
+                            "${s3Path}/decompress_job.py")
+                    updateGlueScriptProd(
+                            region, "CP-REF-etl-prize-zone-transform-job-${ENV}",
+                            "${s3Path}/transform_spark_job.py")
+                    updateGlueScriptProd(
+                            region, "CP-REF-etl-prize-zone-load-job-${ENV}",
+                            "${s3Path}/load_job.py")
+                    updateGlueScriptProd(
+                            region, "CP-REF-etl-prize-zone-backup-job-${ENV}",
+                            "${s3Path}/data_backup_job.py")
+
+                    //    PA
+                    updateLambdaProd(
+                            bucket, region, "CP-REF-etl-pa-trigger-${ENV}",
+                            "${s3key}/pa/s3_trigger_lambda.py.zip")
+                    updateGlueScriptProd(
+                            region, "CP-REF-etl-pa-job-${ENV}",
+                            "${s3Path}/pa/pa_etl_script.py")
+                    updateGlueScriptProd(
+                            region, "CP-REF-etl-pa-backup-job-${ENV}",
+                            "${s3Path}/pa/data_backup_job.py")
+
+                    //    Common
+                    updateLambdaProd(
                             bucket, region, "CP-REF-etl-notifier-${ENV}",
                             "${s3key}/Notifier.zip")
-
-                    updateGlueScriptProd(
-                            region, "CP-DISCOUNTS-etl-customer-eligibility-load-job-${ENV}",
-                            "CP-DISCOUNTS-ETLGlueRole-${ENV}",
-                            "${s3Path}/customer_eligibility.py", "pythonshell")
-
-                    updateGlueScriptProd(
-                            region, "CP-DISCOUNTS-etl-customer-eligibility-partition-job-${ENV}",
-                            "CP-DISCOUNTS-ETLGlueRole-${ENV}",
-                            "${s3Path}/customer_eligibility_partitioner.py", "glueetl")
-
-                    updateGlueScriptProd(
-                            region, "CP-DISCOUNTS-etl-customer-eligibility-partition-job-${ENV}",
-                            "CP-DISCOUNTS-ETLGlueRole-${ENV}",
-                            "${s3Path}/data_backup_job.py", "pythonshell")
-
-                    updateGlueScriptProd(
-                            region, "CP-DISCOUNTS-etl-customer-eligibility-decompress-job-${env}",
-                            "CP-DISCOUNTS-ETLGlueRole-${ENV}",
-                            "${s3Path}/decompress_job.py", "pythonshell")
-
-                    updateGlueScriptProd(
-                            region, "CP-DISCOUNTS-etl-mdt-load-job-${ENV}",
-                            "CP-DISCOUNTS-ETLGlueRole-${ENV}",
-                            "${s3Path}/mdt.py", "pythonshell")
-
                     updateLambdaProd(
-                            bucket, region, "CP-DISCOUNTS-etl-trigger-${ENV}",
-                            "${s3key}/TriggerLambda.py.zip")
+                            bucket, region, "CP-REF-ETL-metadata-aggregator-${ENV}",
+                            "${s3key}/metadata_aggregator.py.zip")
                 }
             }
         }
