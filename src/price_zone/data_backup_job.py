@@ -9,7 +9,7 @@ if __name__ == "__main__":
     print("started Price Zone data moving for archival and cleaning\n")
     args = getResolvedOptions(sys.argv, ['s3_input_bucket', 's3_input_file_key', 'partitioned_files_key',
                                          'decompressed_file_path', 'etl_timestamp', 'etl_output_path_key',
-                                         'INTERMEDIATE_S3_BUCKET', 'ARCHIVING_S3_BUCKET'])
+                                         'INTERMEDIATE_S3_BUCKET', 'ARCHIVING_S3_BUCKET', 'backup_file_path'])
 
     s3_input_bucket = args['s3_input_bucket']
     s3_input_file_key = args['s3_input_file_key']
@@ -19,6 +19,7 @@ if __name__ == "__main__":
     decompressed_file_path = args['decompressed_file_path']
     intermediate_s3_bucket = args['INTERMEDIATE_S3_BUCKET']
     archiving_s3_bucket = args['ARCHIVING_S3_BUCKET']
+    backup_file_path = args['backup_file_path']
 
     etl_time_object = datetime.fromtimestamp(int(etl_timestamp))
 
