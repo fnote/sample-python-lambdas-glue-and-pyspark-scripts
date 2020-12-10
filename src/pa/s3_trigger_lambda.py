@@ -22,11 +22,13 @@ def lambda_handler(event, context):
     etl_timestamp = str(int(time.time()))
     folder_key = 'pa/etl_output_' + etl_timestamp
     s3_path = "s3://" + s3['bucket']['name'] + "/" + s3_object_key
+    intermediate_directory_path = "/" + s3_object_key
     logger.info("File Path: %s" % s3_path)
 
     step_function_input_params = {
         "s3_path": s3_path,
         "etl_timestamp": etl_timestamp,
+        "intermediate_directory_path": "/" + s3_object_key,
         "etl_output_path_key": folder_key,
         "s3_input_bucket": s3['bucket']['name'],
         "s3_input_file_key": s3_object_key

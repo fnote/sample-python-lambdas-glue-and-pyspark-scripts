@@ -1,4 +1,6 @@
 import sys
+import boto3
+import json
 from awsglue.transforms import *
 from awsglue.utils import getResolvedOptions
 from pyspark.context import SparkContext
@@ -9,11 +11,16 @@ from pyspark.sql.types import IntegerType
 from validator import validate_column, validate_column_length_less_than, validate_column_length_equals, validate_data_range, validate_date_format, validate_and_get_as_date_time,validate_opcos
 from constants import CUST_NBR_LENGTH, SUPC_LENGTH, PRICE_ZONE_MIN_VALUE, PRICE_ZONE_MAX_VALUE, DATE_FORMAT_REGEX, OUTPUT_DATE_FORMAT, INPUT_DATE_FORMAT, CO_NBR_LENGTH
 
+
+lambda_client = boto3.client('lambda')
 ## @params: [JOB_NAME]
-args = getResolvedOptions(sys.argv, ['JOB_NAME', 'decompressed_file_path', 'partitioned_files_path', 'active_opcos'])
+args = getResolvedOptions(sys.argv, ['JOB_NAME', 'decompressed_file_path', 'partitioned_files_path', 'active_opcos',  'intermediate_s3_name', 'intermediate_directory_path', 'METADATA_LAMBDA'])
 decompressed_file_path = args['decompressed_file_path']
 partitioned_files_path = args['partitioned_files_path']
 active_opcos= args['active_opcos']
+intermediate_s3_name= args['intermediate_s3_name']
+intermediate_directory_path= args['intermediate_directory_path']
+metadata_lambda = args['METADATA_LAMBDA']
 sc = SparkContext()
 glueContext = GlueContext(sc)
 spark = glueContext.spark_session
@@ -52,6 +59,13 @@ validate_column_length_less_than(sparkDF, 'supc', SUPC_LENGTH)
 
 #validate opcos
 validate_opcos(sparkDF, active_opco_id_list, 'opco_id')
+
+response = lambda_client.invoke(FunctionName=intermediate_directory_path, Payload=json.dumps({
+    "intermediate_s3_name": intermediate_s3_name,
+    "intermediate_directory_path": intermediate_directory_path,
+    "total_records_from_price_zone_file": sparkDF.count(),
+    "decompressed_file_path": decompressed_file_path
+}))
 
 sparkDF = sparkDF.withColumn("price_zone", sparkDF["price_zone"].cast(IntegerType()))
 validate_data_range(sparkDF, 'price_zone', PRICE_ZONE_MIN_VALUE, PRICE_ZONE_MAX_VALUE)
