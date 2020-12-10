@@ -2,6 +2,7 @@ import logging
 import os
 import uuid
 from urllib.parse import unquote_plus
+from datetime import datetime
 
 import boto3
 import json
@@ -87,6 +88,11 @@ def lambda_handler(event, context):
     partitioned_files_key = folder_key + "/partitioned"
     partitioned_files_path = intermediate_directory_path + "/partitioned/"
 
+    etl_time_object = datetime.fromtimestamp(int(etl_timestamp))
+
+    archiving_path = 'price_zone/' + str(etl_time_object.year) + '/' + etl_time_object.strftime("%B") + '/' + str(
+        etl_time_object.day) + '/' + custom_path + '/'
+
     params = {
         "s3_path": s3_path,
         "intermediate_s3_name": intermediate_s3_storage,
@@ -101,7 +107,9 @@ def lambda_handler(event, context):
         "partial_load": partial_load,
         "worker_count": glue_NumberOfWorkers,
         "worker_type": glue_worker_type,
-        "active_opcos": active_opco_list
+        "active_opcos": active_opco_list,
+        "backup_bucket": 'cp-ref-etl-data-backup-storage-{}'.format(env.lower()),
+        "backup_file_path": archiving_path
     }
 
     logger.info("Prize Zone data file Path: {}".format(s3_path))
