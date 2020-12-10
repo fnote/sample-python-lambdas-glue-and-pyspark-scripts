@@ -17,12 +17,14 @@ from constants import CUST_NBR_LENGTH, SUPC_LENGTH, PRICE_ZONE_MIN_VALUE, PRICE_
 lambda_client = boto3.client('lambda')
 
 ## @params: [JOB_NAME]
-args = getResolvedOptions(sys.argv, ['JOB_NAME', 'decompressed_file_path', 'partitioned_files_path', 'active_opcos', 'intermediate_s3_name', 'intermediate_directory_path'])
+args = getResolvedOptions(sys.argv, ['JOB_NAME', 'decompressed_file_path', 'partitioned_files_path', 'active_opcos',
+                                     'intermediate_s3_name', 'intermediate_directory_path', 'metadata_aggregator'])
 decompressed_file_path = args['decompressed_file_path']
 partitioned_files_path = args['partitioned_files_path']
 active_opcos= args['active_opcos']
 intermediate_s3_name= args['intermediate_s3_name']
 intermediate_directory_path= args['intermediate_directory_path']
+metadata_aggregator_fn= args['metadata_aggregator']
 sc = SparkContext()
 glueContext = GlueContext(sc)
 spark = glueContext.spark_session
@@ -70,14 +72,18 @@ sparkDF = sparkDF.withColumn('effective_date', to_timestamp(sparkDF['eff_from_dt
 invalid_opcos.extend(validate_date_time_field(sparkDF, 'effective_date'))
 
 validated_records = remove_records_of_given_opcos(sparkDF, invalid_opcos)
-# check whether there are any valid records, if not abort the process
 
-response = lambda_client.invoke(FunctionName='notifierTest2', Payload=json.dumps({
+# implement notifierTest2 function
+response = lambda_client.invoke(FunctionName=metadata_aggregator_fn, Payload=json.dumps({
     "intermediate_s3_name": intermediate_s3_name,
     "intermediate_directory_path": intermediate_directory_path,
     "failed_opcos": invalid_opcos,
-    "decompressed_file_path": decompressed_file_path
+    "received_records_count": sparkDF.count(),
+    "valid_records_count": validated_records.count()
 }))
+
+if validated_records.count() == 0:
+    raise ValueError("There are no valid records to process")
 
 convertedDynamicFrame = DynamicFrame.fromDF(validated_records, glueContext, "convertedDynamicFrame")
 

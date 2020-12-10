@@ -25,9 +25,9 @@ def lambda_handler(event, context):
 
     encoded_string = newString.encode("utf-8")
 
-    s3_client.put_object(Bucket=bucket_name, Key=s3_path, Body=encoded_string)
-    # TODO complete
+    response_from_s3_put = s3_client.put_object(Bucket=bucket_name, Key=s3_path, Body=encoded_string)
+
     return {
         'statusCode': 200,
-        'body': json.dumps('Hello from Lambda!')
+        'body': json.dumps(response_from_s3_put)
     }
