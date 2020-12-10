@@ -60,7 +60,7 @@ validate_column_length_less_than(sparkDF, 'supc', SUPC_LENGTH)
 #validate opcos
 validate_opcos(sparkDF, active_opco_id_list, 'opco_id')
 
-response = lambda_client.invoke(FunctionName=intermediate_directory_path, Payload=json.dumps({
+response = lambda_client.invoke(FunctionName=metadata_lambda, Payload=json.dumps({
     "intermediate_s3_name": intermediate_s3_name,
     "intermediate_directory_path": intermediate_directory_path,
     "total_records_from_price_zone_file": sparkDF.count(),
