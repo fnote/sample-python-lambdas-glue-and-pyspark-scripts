@@ -73,7 +73,6 @@ invalid_opcos.extend(validate_date_time_field(sparkDF, 'effective_date'))
 
 validated_records = remove_records_of_given_opcos(sparkDF, invalid_opcos)
 
-# implement notifierTest2 function
 response = lambda_client.invoke(FunctionName=metadata_aggregator_fn, Payload=json.dumps({
     "intermediate_s3_name": intermediate_s3_name,
     "intermediate_directory_path": intermediate_directory_path,
