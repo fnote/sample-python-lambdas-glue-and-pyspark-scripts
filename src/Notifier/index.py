@@ -20,7 +20,7 @@ def read_additional_info(bucket_name, backup_completed, event):
     else:
         file_path = event['additional_info_file_key']
 
-    s3_path = '{}/additionInfo.txt'.format(file_path)
+    s3_path = '{}/additionalInfo.txt'.format(file_path)
     s3_client = boto3.client('s3')
     try:
         response = s3_client.get_object(Bucket=bucket_name, Key=s3_path)

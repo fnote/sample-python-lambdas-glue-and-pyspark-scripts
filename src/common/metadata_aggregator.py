@@ -5,7 +5,7 @@ import copy
 def lambda_handler(event, context):
     s3_client = boto3.client('s3')
     bucket_name = event['intermediate_s3_name']
-    s3_path = '{}/additionInfo.txt'.format(event['intermediate_directory_path'])
+    s3_path = '{}/additionalInfo.txt'.format(event['intermediate_directory_path'])
     additional_info = copy.deepcopy(event)
     additional_info.pop('intermediate_s3_name', None)
     additional_info.pop('intermediate_directory_path', None)

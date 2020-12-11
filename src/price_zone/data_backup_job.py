@@ -36,7 +36,7 @@ if __name__ == "__main__":
     copy_input_file(s3_input_bucket, s3_input_file_key, archiving_s3_bucket, input_file_destination_key)
     copy_input_file(decompressed_file_bucket, decompressed_file_key, archiving_s3_bucket, decompressed_file_destination_key)
 
-    metadata_file = '{}/additionInfo.txt'.format(intermediate_directory_path)
+    metadata_file = '{}/additionalInfo.txt'.format(intermediate_directory_path)
     copy_input_file(decompressed_file_bucket, metadata_file, archiving_s3_bucket, archiving_path + 'additionalInfo.txt')
 
     opco_partitioned_path = archiving_path + 'partitioned/'
