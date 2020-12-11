@@ -16,7 +16,7 @@ def read_additional_info(bucket_name, backup_completed, event):
         etl_time_object = datetime.fromtimestamp(int(etl_timestamp))
 
         file_path = 'price_zone/' + str(etl_time_object.year) + '/' + etl_time_object.strftime("%B") + '/'\
-            + str(etl_time_object.day) + '/' + etl_output_path_key + '/'
+            + str(etl_time_object.day) + '/' + etl_output_path_key
     else:
         file_path = event['additional_info_file_key']
 
