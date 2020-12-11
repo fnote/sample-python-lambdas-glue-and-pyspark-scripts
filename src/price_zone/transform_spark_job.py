@@ -1,4 +1,6 @@
 import sys
+import boto3
+import json
 from awsglue.transforms import *
 from awsglue.utils import getResolvedOptions
 from pyspark.context import SparkContext
@@ -6,14 +8,23 @@ from awsglue.context import GlueContext
 from awsglue.job import Job
 from awsglue.dynamicframe import DynamicFrame
 from pyspark.sql.types import IntegerType
-from validator import validate_column, validate_column_length_less_than, validate_column_length_equals, validate_data_range, validate_date_format, validate_and_get_as_date_time,validate_opcos
+from pyspark.sql.functions import to_timestamp
+from validator import validate_column, validate_column_length_less_than, validate_column_length_equals,\
+    validate_data_range, validate_date_format, validate_date_time_field,validate_opcos,\
+    remove_records_of_given_opcos
 from constants import CUST_NBR_LENGTH, SUPC_LENGTH, PRICE_ZONE_MIN_VALUE, PRICE_ZONE_MAX_VALUE, DATE_FORMAT_REGEX, OUTPUT_DATE_FORMAT, INPUT_DATE_FORMAT, CO_NBR_LENGTH
 
+lambda_client = boto3.client('lambda')
+
 ## @params: [JOB_NAME]
-args = getResolvedOptions(sys.argv, ['JOB_NAME', 'decompressed_file_path', 'partitioned_files_path', 'active_opcos'])
+args = getResolvedOptions(sys.argv, ['JOB_NAME', 'decompressed_file_path', 'partitioned_files_path', 'active_opcos',
+                                     'intermediate_s3_name', 'intermediate_directory_path', 'metadata_aggregator'])
 decompressed_file_path = args['decompressed_file_path']
 partitioned_files_path = args['partitioned_files_path']
 active_opcos= args['active_opcos']
+intermediate_s3_name= args['intermediate_s3_name']
+intermediate_directory_path= args['intermediate_directory_path']
+metadata_aggregator_fn= args['metadata_aggregator']
 sc = SparkContext()
 glueContext = GlueContext(sc)
 spark = glueContext.spark_session
@@ -42,23 +53,38 @@ sparkDF = applyMapping1.toDF()
 active_opco_id_list = active_opcos.split(',')
 
 # validate data
-validate_column(sparkDF, 'customer_id')
-validate_column(sparkDF, 'supc')
-validate_column(sparkDF, 'price_zone')
-validate_date_format(sparkDF, 'eff_from_dttm', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+invalid_opcos = []
+invalid_opcos.extend(validate_column(sparkDF, 'customer_id'))
+invalid_opcos.extend(validate_column(sparkDF, 'supc'))
+invalid_opcos.extend(validate_column(sparkDF, 'price_zone'))
+invalid_opcos.extend(validate_date_format(sparkDF, 'eff_from_dttm', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT))
 
-validate_column_length_less_than(sparkDF, 'customer_id', CUST_NBR_LENGTH)
-validate_column_length_less_than(sparkDF, 'supc', SUPC_LENGTH)
+invalid_opcos.extend(validate_column_length_less_than(sparkDF, 'customer_id', CUST_NBR_LENGTH))
+invalid_opcos.extend(validate_column_length_less_than(sparkDF, 'supc', SUPC_LENGTH))
 
 #validate opcos
-validate_opcos(sparkDF, active_opco_id_list, 'opco_id')
+invalid_opcos.extend(validate_opcos(sparkDF, active_opco_id_list, 'opco_id'))
 
 sparkDF = sparkDF.withColumn("price_zone", sparkDF["price_zone"].cast(IntegerType()))
-validate_data_range(sparkDF, 'price_zone', PRICE_ZONE_MIN_VALUE, PRICE_ZONE_MAX_VALUE)
+invalid_opcos.extend(validate_data_range(sparkDF, 'price_zone', PRICE_ZONE_MIN_VALUE, PRICE_ZONE_MAX_VALUE))
 
-sparkDF = validate_and_get_as_date_time(sparkDF, 'eff_from_dttm', 'effective_date', OUTPUT_DATE_FORMAT)
+sparkDF = sparkDF.withColumn('effective_date', to_timestamp(sparkDF['eff_from_dttm'], OUTPUT_DATE_FORMAT))
+invalid_opcos.extend(validate_date_time_field(sparkDF, 'effective_date'))
 
-convertedDynamicFrame = DynamicFrame.fromDF(sparkDF, glueContext, "convertedDynamicFrame")
+validated_records = remove_records_of_given_opcos(sparkDF, invalid_opcos)
+
+response = lambda_client.invoke(FunctionName=metadata_aggregator_fn, Payload=json.dumps({
+    "intermediate_s3_name": intermediate_s3_name,
+    "intermediate_directory_path": intermediate_directory_path,
+    "failed_opcos": invalid_opcos,
+    "received_records_count": sparkDF.count(),
+    "valid_records_count": validated_records.count()
+}))
+
+if validated_records.count() == 0:
+    raise ValueError("There are no valid records to process")
+
+convertedDynamicFrame = DynamicFrame.fromDF(validated_records, glueContext, "convertedDynamicFrame")
 
 # drop eff_from_dttm
 dropped_dynamicdataframe = DropFields.apply(frame=convertedDynamicFrame, paths=["eff_from_dttm"],
