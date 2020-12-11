@@ -33,12 +33,13 @@ def lambda_handler(event, context):
     opco_id = event.get("opco_id", "NA")
     step_function_execution_id = event.get("stepFunctionExecutionId", "")
     current_time = int(time.time())
+    additional_info = "NA"
     logger.info('Sending notification env: %s, time: %s, opco: %s, status: %s, message: %s' % (
         env, current_time, opco_id, status, message))
 
-
-    metadata_file_path = '{}/additionInfo.txt'.format(backup_file_path)
-    additional_info = read_additional_info(backup_bucket, metadata_file_path)
+    if status == "SUCCEEDED":
+        metadata_file_path = '{}/additionInfo.txt'.format(backup_file_path)
+        additional_info = read_additional_info(backup_bucket, metadata_file_path)
 
     data = {
         "messageAttributes": {

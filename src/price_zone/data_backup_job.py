@@ -23,8 +23,7 @@ if __name__ == "__main__":
 
     etl_time_object = datetime.fromtimestamp(int(etl_timestamp))
 
-    archiving_path = 'price_zone/' + str(etl_time_object.year) + '/' + etl_time_object.strftime("%B") + '/' + str(
-        etl_time_object.day) + '/' + etl_output_path_key + '/'
+    archiving_path = backup_file_path
 
     decompressed_file_parsed_path = urlparse(decompressed_file_path, allow_fragments=False)
     decompressed_file_bucket = decompressed_file_parsed_path.netloc

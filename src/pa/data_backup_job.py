@@ -20,8 +20,7 @@ if __name__ == "__main__":
 
     etl_time_object = datetime.fromtimestamp(int(etl_timestamp))
 
-    archiving_path = 'pa/' + str(etl_time_object.year) + '/' + etl_time_object.strftime("%B") + '/' + str(
-        etl_time_object.day) + '/etl_output_' + etl_timestamp + '/'
+    archiving_path = backup_file_path
 
     input_file_destination_key = archiving_path + s3_input_file_key
     copy_input_file(s3_input_bucket, s3_input_file_key, archiving_s3_bucket, input_file_destination_key)
