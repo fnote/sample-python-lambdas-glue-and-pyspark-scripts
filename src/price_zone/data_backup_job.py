@@ -9,6 +9,7 @@ if __name__ == "__main__":
     print("started Price Zone data moving for archival and cleaning\n")
     args = getResolvedOptions(sys.argv, ['s3_input_bucket', 's3_input_file_key', 'partitioned_files_key',
                                          'decompressed_file_path', 'etl_timestamp', 'etl_output_path_key',
+                                         'intermediate_directory_path',
                                          'INTERMEDIATE_S3_BUCKET', 'ARCHIVING_S3_BUCKET'])
 
     s3_input_bucket = args['s3_input_bucket']
@@ -18,6 +19,7 @@ if __name__ == "__main__":
     partitioned_files_path = args['partitioned_files_key']
     decompressed_file_path = args['decompressed_file_path']
     intermediate_s3_bucket = args['INTERMEDIATE_S3_BUCKET']
+    intermediate_directory_path = args['intermediate_directory_path']
     archiving_s3_bucket = args['ARCHIVING_S3_BUCKET']
 
     etl_time_object = datetime.fromtimestamp(int(etl_timestamp))
@@ -33,7 +35,10 @@ if __name__ == "__main__":
     decompressed_file_destination_key = archiving_path + decompressed_file_key.split('/')[-1]
     copy_input_file(s3_input_bucket, s3_input_file_key, archiving_s3_bucket, input_file_destination_key)
     copy_input_file(decompressed_file_bucket, decompressed_file_key, archiving_s3_bucket, decompressed_file_destination_key)
-    # // copy the additional info file
+
+    metadata_file = '{}/additionInfo.txt'.format(intermediate_directory_path)
+    copy_input_file(decompressed_file_bucket, metadata_file, archiving_s3_bucket, archiving_path + 'additionalInfo.txt')
+
     opco_partitioned_path = archiving_path + 'partitioned/'
     copy_objects_with_prefix(intermediate_s3_bucket, partitioned_files_path, archiving_s3_bucket, opco_partitioned_path)
 
