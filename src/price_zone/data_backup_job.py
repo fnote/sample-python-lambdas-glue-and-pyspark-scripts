@@ -46,3 +46,4 @@ if __name__ == "__main__":
     delete_object(s3_input_bucket, s3_input_file_key)
     delete_object(decompressed_file_bucket, decompressed_file_key)
     delete_directory(source_bucket=intermediate_s3_bucket, prefix=partitioned_files_path)
+    delete_directory(source_bucket=intermediate_s3_bucket, prefix=intermediate_directory_path)
