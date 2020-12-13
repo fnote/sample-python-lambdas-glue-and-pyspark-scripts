@@ -180,4 +180,8 @@ if __name__ == "__main__":
 
     load_data(dbconfigs, opco_id, intermediate_s3, partitioned_files_key)
     record_count_from_price_zone_dbs = get_record_count(dbconfigs, opco_id)
-    metadata_response = write_metadata(metadata_lambda, intermediate_s3, record_count_from_price_zone_dbs)
+
+    opco_record_count_dict = {}
+    opco_record_count_dict[opco_id] = record_count_from_price_zone_dbs
+
+    metadata_response = write_metadata(metadata_lambda, intermediate_s3, opco_record_count_dict)

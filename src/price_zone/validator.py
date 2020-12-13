@@ -4,20 +4,29 @@ def validate_opcos(df,active_opco_list,column):
     invalid_df = df.filter(~df[column].isin(active_opco_list) | df[column].isNull())
     if len(invalid_df.head(1)) > 0:
         invalid_df.show(truncate=False)
-        raise ValueError("Invalid or inactive opco records found in the file: refer dataframe above ")
+        print("Invalid or inactive opco records found in the file: refer dataframe above ")
+    return get_opco_list(invalid_df)
 
 def validate_column(df, column):
     invalid_df = df.filter((df[column] == "") | df[column].isNull() | (df[column].rlike('[^0-9]')) | isnan(df[column]))
     if len(invalid_df.head(1)) > 0:
         invalid_df.show(truncate=False)
-        raise ValueError("Data can not be null/empty/non-numeric of column: " + column)
+        print("Data can not be null/empty/non-numeric of column: " + column)
+    return get_opco_list(invalid_df)
+
+def get_opco_list(df):
+    return [row.opco_id for row in df.select('opco_id').distinct().collect()]
+
+def remove_records_of_given_opcos(df, failed_opco_list):
+    return df.filter(~df.opco_id.isin(failed_opco_list))
 
 
 def validate_column_length_less_than(df, column, col_length):
     invalid_df = df.filter((length(df[column]) > col_length))
     if len(invalid_df.head(1)) > 0:
         invalid_df.show(truncate=False)
-        raise ValueError("Data length can not exceed length: " + str(col_length) + " of column: " + column)
+        print("Data length can not exceed length: " + str(col_length) + " of column: " + column)
+    return get_opco_list(invalid_df)
 
 
 def validate_column_length_equals(df, column, col_length):
@@ -31,24 +40,25 @@ def validate_data_range(df, column, min_val, max_val):
     invalid_df = df.filter((df[column] < min_val) | (df[column] > max_val))
     if len(invalid_df.head(1)) > 0:
         invalid_df.show(truncate=False)
-        raise ValueError("Invalid data-range received for column: "
+        print("Invalid data-range received for column: "
                          + column + ".should be between " + str(min_val)
                          + "and " + str(max_val))
+    return get_opco_list(invalid_df)
 
 
 def validate_date_format(df, column, input_date_regex, input_date_format):
     invalid_df = df.filter(df[column].isNull() | ~(df[column].rlike(input_date_regex)))
     if len(invalid_df.head(1)) > 0:
         invalid_df.show(truncate=False)
-        raise ValueError("Invalid date format for column: " + column
-                         + ".Accept only format " + input_date_format
-                         + 'matching date time regex: ' + input_date_regex)
+        print("Invalid date format for column: " + column
+              + ".Accept only format " + input_date_format
+              + 'matching date time regex: ' + input_date_regex)
+    return get_opco_list(invalid_df)
 
 
-def validate_and_get_as_date_time(df, input_column, output_column, output_format):
-    df = df.withColumn(output_column, to_timestamp(df[input_column], output_format))
+def validate_date_time_field(df, output_column):
     invalid_df = df.filter(df[output_column].isNull())
     if len(invalid_df.head(1)) > 0:
         invalid_df.show(truncate=False)
-        raise ValueError("Received invalid date value for column: " + input_column)
-    return df
+        print("Received invalid date value for column: " + output_column)
+    return get_opco_list(invalid_df)

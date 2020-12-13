@@ -1,6 +1,7 @@
 import unittest
 import pyspark
 from pyspark.sql.types import StructType, StructField, IntegerType, StringType
+from pyspark.sql.functions import to_timestamp
 
 from src.price_zone import validator
 from src.price_zone.constants import SUPC_LENGTH, CUST_NBR_LENGTH, PRICE_ZONE_MIN_VALUE, PRICE_ZONE_MAX_VALUE, \
@@ -14,7 +15,7 @@ class TestSparkDataframeValidator(unittest.TestCase):
         conf = pyspark.SparkConf().setMaster("local").setAppName("testing")
         cls.sc = pyspark.SparkContext(conf=conf)
         cls.spark = pyspark.SQLContext(cls.sc)
-
+    # todo change this
     def test_with_valid_data(self):
         data = [['019', '104612', '1234567', '5', '2020-08-06 00:00:00.000000']]
         active_opcos = ['019', '020']
@@ -27,21 +28,24 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
         try:
+            invalid_opcos = []
             validator.validate_opcos(df, active_opcos, 'opco_id')
 
-            validator.validate_column(df, 'customer_id')
-            validator.validate_column(df, 'supc')
-            validator.validate_column(df, 'price_zone')
-            validator.validate_date_format(df, 'eff_from_dttm', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+            invalid_opcos.extend(validator.validate_column(df, 'customer_id'))
+            invalid_opcos.extend(validator.validate_column(df, 'supc'))
+            invalid_opcos.extend(validator.validate_column(df, 'price_zone'))
+            invalid_opcos.extend(validator.validate_date_format(df, 'eff_from_dttm', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT))
 
-            validator.validate_column_length_less_than(df, 'customer_id', CUST_NBR_LENGTH)
-            validator.validate_column_length_less_than(df, 'supc', SUPC_LENGTH)
+            invalid_opcos.extend(validator.validate_column_length_less_than(df, 'customer_id', CUST_NBR_LENGTH))
+            invalid_opcos.extend(validator.validate_column_length_less_than(df, 'supc', SUPC_LENGTH))
 
             df = df.withColumn("price_zone", df["price_zone"].cast(IntegerType()))
-            validator.validate_data_range(df, 'price_zone', PRICE_ZONE_MIN_VALUE, PRICE_ZONE_MAX_VALUE)
+            invalid_opcos.extend(validator.validate_data_range(df, 'price_zone', PRICE_ZONE_MIN_VALUE, PRICE_ZONE_MAX_VALUE))
 
-            sparkDF = validator.validate_and_get_as_date_time(df, 'eff_from_dttm', 'effective_date', OUTPUT_DATE_FORMAT)
-            sparkDF.show(truncate=False)
+            df = df.withColumn('effective_date', to_timestamp(df['eff_from_dttm'], OUTPUT_DATE_FORMAT))
+            invalid_opcos.extend(validator.validate_date_time_field(df, 'effective_date'))
+            df.show(truncate=False)
+            self.assertEqual(invalid_opcos, [], "It should return invalid OpCo ids")
 
         except ValueError:
             self.fail("Should fail. Received ValueError for valid data")
@@ -61,8 +65,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_opcos(df, active_opcos, 'opco_id')
+        result = validator.validate_opcos(df, active_opcos, 'opco_id')
+        self.assertEqual(result, ['019'], "It should return invalid OpCo ids")
 
     def test_null_data_for_supc(self):
         """PRCP-2012"""
@@ -77,8 +81,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_column(df, 'supc')
+        result = validator.validate_column(df, 'supc')
+        self.assertEqual(result, ['019'], "It should return invalid OpCo ids")
 
     def test_empty_data_for_supc(self):
         """PRCP-2012"""
@@ -93,8 +97,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_column(df, 'supc')
+        result = validator.validate_column(df, 'supc')
+        self.assertEqual(result, ['019'], "It should return invalid OpCo ids")
 
     def test_non_numeric_data_for_supc(self):
         """PRCP-2012"""
@@ -109,8 +113,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_column(df, 'supc')
+        result = validator.validate_column(df, 'supc')
+        self.assertEqual(result, ['019'], "It should return invalid OpCo ids")
 
     def test_data_length_for_supc(self):
         """PRCP-2012"""
@@ -125,8 +129,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_column_length_less_than(df, 'supc', SUPC_LENGTH)
+        result = validator.validate_column_length_less_than(df, 'supc', SUPC_LENGTH)
+        self.assertEqual(result, ['019'], "It should return invalid OpCo ids")
 
     def test_null_data_for_customer_id(self):
         """PRCP-2011"""
@@ -141,8 +145,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_column(df, 'customer_id')
+        result = validator.validate_column(df, 'customer_id')
+        self.assertEqual(result, ['019'], "It should return invalid OpCo ids")
 
     def test_empty_data_for_customer_id(self):
         """PRCP-2011"""
@@ -157,8 +161,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_column(df, 'customer_id')
+        result = validator.validate_column(df, 'customer_id')
+        self.assertEqual(result, ['019'], "It should return invalid OpCo ids")
 
     def test_non_numeric_data_for_customer_id(self):
         """PRCP-2011"""
@@ -173,8 +177,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_column(df, 'customer_id')
+        result = validator.validate_column(df, 'customer_id')
+        self.assertEqual(result, ['019'], "It should return invalid OpCo ids")
 
     def test_data_length_for_customer_id(self):
         """PRCP-2011"""
@@ -189,8 +193,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_column_length_less_than(df, 'customer_id', CUST_NBR_LENGTH)
+        result = validator.validate_column_length_less_than(df, 'customer_id', CUST_NBR_LENGTH)
+        self.assertEqual(result, ['019'], "It should return invalid OpCo ids")
 
     def test_null_data_for_price_zone(self):
         """PRCP-2013"""
@@ -205,8 +209,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_column(df, 'price_zone')
+        result = validator.validate_column(df, 'price_zone')
+        self.assertEqual(result, ['019'], "It should return invalid OpCo ids")
 
     def test_empty_data_for_price_zone(self):
         """PRCP-2013"""
@@ -221,8 +225,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_column(df, 'price_zone')
+        result = validator.validate_column(df, 'price_zone')
+        self.assertEqual(result, ['019'], "It should return invalid OpCo ids")
 
     def test_non_numeric_data_for_price_zone(self):
         """PRCP-2013"""
@@ -237,8 +241,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_column(df, 'price_zone')
+        result = validator.validate_column(df, 'price_zone')
+        self.assertEqual(result, ['019'], "It should return invalid OpCo ids")
 
     def test_data_range_of_price_zone_with_value_less_than_min(self):
         """PRCP-2013"""
@@ -253,8 +257,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_data_range(df, 'price_zone', PRICE_ZONE_MIN_VALUE, PRICE_ZONE_MAX_VALUE)
+        result = validator.validate_data_range(df, 'price_zone', PRICE_ZONE_MIN_VALUE, PRICE_ZONE_MAX_VALUE)
+        self.assertEqual(result, ['019'], "It should return invalid OpCo ids")
 
     def test_data_range_of_price_zone_with_value_greater_than_max(self):
         """PRCP-2013"""
@@ -269,8 +273,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_data_range(df, 'price_zone', PRICE_ZONE_MIN_VALUE, PRICE_ZONE_MAX_VALUE)
+        result = validator.validate_data_range(df, 'price_zone', PRICE_ZONE_MIN_VALUE, PRICE_ZONE_MAX_VALUE)
+        self.assertEqual(result, ['019'], "It should return invalid OpCo ids")
 
     def test_data_with_one_invalid_customer_id_and_valid_customer_id_list(self):
         """PRCP-2016"""
@@ -288,8 +292,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_column(df, 'customer_id')
+        result = validator.validate_column(df, 'customer_id')
+        self.assertEqual(result, ['019'], "It should return invalid OpCo ids")
 
     def test_data_with_one_invalid_supc_and_valid_supc_list(self):
         """PRCP-2017"""
@@ -308,8 +312,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_column(df, 'supc')
+        result = validator.validate_column(df, 'supc')
+        self.assertEqual(result, ['019'], "It should return invalid OpCo ids")
 
     def test_data_with_one_invalid_price_zone_and_valid_price_zone_list(self):
         """PRCP-2018"""
@@ -328,8 +332,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_column(df, 'price_zone')
+        result = validator.validate_column(df, 'price_zone')
+        self.assertEqual(result, ['019'], "It should return invalid OpCo ids")
 
     def test_data_with_one_invalid_price_zone_out_of_range_and_valid_price_zone_list(self):
         """PRCP-2018"""
@@ -348,8 +352,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
 
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_data_range(df, 'price_zone', PRICE_ZONE_MIN_VALUE, PRICE_ZONE_MAX_VALUE)
+        result = validator.validate_data_range(df, 'price_zone', PRICE_ZONE_MIN_VALUE, PRICE_ZONE_MAX_VALUE)
+        self.assertEqual(result, ['019'], "It should return invalid OpCo ids")
 
     def test_data_containing_one_empty_row(self):
         """PRCP-2065"""
@@ -369,14 +373,9 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_column(df, 'customer_id')
-
-        with self.assertRaises(ValueError):
-            validator.validate_column(df, 'supc')
-
-        with self.assertRaises(ValueError):
-            validator.validate_column(df, 'price_zone')
+        self.assertEqual(validator.validate_column(df, 'customer_id'), [''], "It should return invalid OpCo ids")
+        self.assertEqual(validator.validate_column(df, 'supc'), [''], "It should return invalid OpCo ids")
+        self.assertEqual(validator.validate_column(df, 'price_zone'), [''], "It should return invalid OpCo ids")
 
     def test_data_containing_one_null_row(self):
         """PRCP-2065"""
@@ -396,14 +395,9 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_column(df, 'customer_id')
-
-        with self.assertRaises(ValueError):
-            validator.validate_column(df, 'supc')
-
-        with self.assertRaises(ValueError):
-            validator.validate_column(df, 'price_zone')
+        self.assertEqual(validator.validate_column(df, 'customer_id'), [None], "It should return invalid OpCo ids")
+        self.assertEqual(validator.validate_column(df, 'supc'), [None], "It should return invalid OpCo ids")
+        self.assertEqual(validator.validate_column(df, 'price_zone'), [None], "It should return invalid OpCo ids")
 
     def test_null_data_for_effective_date(self):
         """PRCP-2015"""
@@ -419,8 +413,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        result = validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        self.assertEqual(result, ['019'], "It should return invalid OpCo ids")
 
     def test_empty_data_for_effective_date(self):
         """PRCP-2015"""
@@ -436,8 +430,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        result = validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        self.assertEqual(result, ['019'], "It should return invalid OpCo ids")
 
     def test_non_numeric_data_for_effective_date(self):
         """PRCP-2015"""
@@ -453,8 +447,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        result = validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        self.assertEqual(result, ['019'], "It should return invalid OpCo ids")
 
     def test_1_invalid_format_data_for_effective_date(self):
         """PRCP-2015 invalid format dd/MM/yyyy"""
@@ -470,8 +464,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        result = validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        self.assertEqual(result, ['019'], "It should return invalid OpCo ids")
 
     def test_2_invalid_format_data_for_effective_date(self):
         """PRCP-2015 invalid format dd/yyyy/MM"""
@@ -487,8 +481,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        result = validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        self.assertEqual(result, ['019'], "It should return invalid OpCo ids")
 
     def test_3_invalid_format_data_for_effective_date(self):
         """PRCP-2015 invalid format MM/yyyy/dd"""
@@ -504,8 +498,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        result = validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        self.assertEqual(result, ['019'], "It should return invalid OpCo ids")
 
     def test_4_invalid_format_data_for_effective_date(self):
         """PRCP-2015 invalid format yyyyy/MM/dd"""
@@ -521,8 +515,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        result = validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        self.assertEqual(result, ['019'], "It should return invalid OpCo ids")
 
     def test_5_invalid_format_data_for_effective_date(self):
         """PRCP-2015 invalid format yyyyy/dd/MM"""
@@ -538,8 +532,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        result = validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        self.assertEqual(result, ['019'], "It should return invalid OpCo ids")
 
     def test_6_invalid_format_data_for_effective_date(self):
         """PRCP-2015 invalid format Month/dd/yyyy"""
@@ -555,8 +549,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        result = validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        self.assertEqual(result, ['019'], "It should return invalid OpCo ids")
 
     def test_7_invalid_format_data_for_effective_date(self):
         """PRCP-2015 invalid format 01 and 1"""
@@ -572,8 +566,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        result = validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        self.assertEqual(result, ['019'], "It should return invalid OpCo ids")
 
     def test_8_invalid_format_data_for_effective_date(self):
         """PRCP-2015 invalid format year as yy"""
@@ -589,8 +583,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        result = validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        self.assertEqual(result, ['019'], "It should return invalid OpCo ids")
 
     def test_9_invalid_format_data_for_effective_date(self):
         """PRCP-2015 invalid format No split"""
@@ -606,8 +600,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        result = validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        self.assertEqual(result, ['019'], "It should return invalid OpCo ids")
 
     def test_10_invalid_format_data_for_effective_date(self):
         """PRCP-2015 invalid format wrong split"""
@@ -623,16 +617,16 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        result = validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        self.assertEqual(result, ['019'], "It should return invalid OpCo ids")
 
     def test_data_with_one_invalid_effective_date_and_valid_effective_date_list(self):
         """PRCP-2020"""
 
         data = [['019', '810622', '9002908', 1, '2020-08-06 00:00:00.000000'],
                 ['019', '666867', '3555349', 1, '2020-08-06 00:00:00.000000'],
-                ['019', '480111', '4518408', 5, '2020-08-06 00:00:00.000000'],
-                ['019', '752267', '4518403', 5, '1-15-2020']]
+                ['018', '480111', '4518408', 5, '2020-08-06 00:00:00.000000'],
+                ['018', '752267', '4518403', 5, '1-15-2020']]
 
         schema = StructType([
             StructField("opco_id", StringType(), True),
@@ -643,15 +637,15 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        result = validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        self.assertEqual(result, ['018'], "It should return invalid OpCo ids")
 
     def test_data_with_one_invalid_effective_date_value_and_valid_effective_date_list(self):
 
         data = [['019', '810622', '9002908', 1, '2020-08-06 00:00:00.000000'],
                 ['019', '666867', '3555349', 1, '2020-08-06 00:00:00.000000'],
                 ['019', '480111', '4518408', 5, '2020-08-06 00:00:00.000000'],
-                ['019', '752267', '4518403', 5, '2/30/2019']]
+                ['018', '752267', '4518403', 5, '2/30/2019']]
 
         schema = StructType([
             StructField("opco_id", StringType(), True),
@@ -662,10 +656,11 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_and_get_as_date_time(df, 'eff_from_dttm', 'effective_date', OUTPUT_DATE_FORMAT)
+        df = df.withColumn('effective_date', to_timestamp(df['eff_from_dttm'], OUTPUT_DATE_FORMAT))
+        result = validator.validate_date_time_field(df, 'effective_date')
+        self.assertEqual(result, ['018'], "It should return invalid OpCo ids")
 
-    def test_data_with_get_output_date_format(self):
+    def test_validate_date_time_field(self):
 
         data = [['019', '810622', '9002908', 1, '2020-08-06 00:00:00']]
 
@@ -678,11 +673,10 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        try:
-            sparkDf = validator.validate_and_get_as_date_time(df, 'eff_from_dttm', 'effective_date', OUTPUT_DATE_FORMAT)
-            sparkDf.show(truncate=False)
-        except ValueError:
-            self.fail("Should not fail")
+        df = df.withColumn('effective_date', to_timestamp(df['eff_from_dttm'], OUTPUT_DATE_FORMAT))
+        df.show(truncate=False)
+        results = validator.validate_date_time_field(df, 'effective_date')
+        self.assertEqual(results, [], "It should return invalid OpCo ids")
 
     def test_null_data_for_opco_id(self):
 
@@ -697,8 +691,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_opcos(df, active_opcos, 'opco_id')
+        result = validator.validate_opcos(df, active_opcos, 'opco_id')
+        self.assertEqual(result, [None], "It should return invalid OpCo ids")
 
     def test_empty_data_for_opco_id(self):
 
@@ -713,8 +707,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_opcos(df, active_opcos, 'opco_id')
+        result = validator.validate_opcos(df, active_opcos, 'opco_id')
+        self.assertEqual(result, [''], "It should return invalid OpCo ids")
 
     def test_non_numeric_data_for_opco_id(self):
 
@@ -729,8 +723,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_opcos(df, active_opcos, 'opco_id')
+        result = validator.validate_opcos(df, active_opcos, 'opco_id')
+        self.assertEqual(result, ['abc'], "It should return invalid OpCo ids")
 
     def test_data_length_for_opco_id_for_when_input_length_is_high(self):
 
@@ -745,8 +739,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_opcos(df, active_opcos, 'opco_id')
+        result = validator.validate_opcos(df, active_opcos, 'opco_id')
+        self.assertEqual(result, ['0190'], "It should return invalid OpCo ids")
 
     def test_data_length_for_opco_id_for_when_input_length_is_less(self):
 
@@ -761,8 +755,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_opcos(df, active_opcos, 'opco_id')
+        result = validator.validate_opcos(df, active_opcos, 'opco_id')
+        self.assertEqual(result, ['19'], "It should return invalid OpCo ids")
 
     def test_data_with_one_invalid_opco_id_and_valid_opco_id_list(self):
 
@@ -781,8 +775,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_opcos(df, active_opcos, 'opco_id')
+        result = validator.validate_opcos(df, active_opcos, 'opco_id')
+        self.assertEqual(result, ['0109', ''], "It should return invalid OpCo ids")
 
     def test_1_date_format_regex_for_effective_date(self):
 
@@ -797,8 +791,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        result = validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        self.assertEqual(result, ['019'], "It should return invalid OpCo ids")
 
     def test_2_date_format_regex_for_effective_date(self):
 
@@ -813,8 +807,8 @@ class TestSparkDataframeValidator(unittest.TestCase):
         )
         df = self.spark.createDataFrame(data=data, schema=schema)
 
-        with self.assertRaises(ValueError):
-            validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        result = validator.validate_date_format(df, 'effective_date', DATE_FORMAT_REGEX, INPUT_DATE_FORMAT)
+        self.assertEqual(result, ['019'], "It should return invalid OpCo ids")
 
     @classmethod
     def tearDownClass(cls):

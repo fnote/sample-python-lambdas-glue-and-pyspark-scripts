@@ -36,7 +36,17 @@ or
 ##### Executing unit tests
 
 `python -W ignore -m unittest discover -s test/  -v`
-or `python3 -W ignore -m unittest discover -s test/  -v` 
+or `python3 -W ignore -m unittest discover -s test/  -v`
+
+If you receive any errors due to python version mismatches (Exception: Python in worker has different version 2.7 than that in driver 3.6) try doing the following
+
+`export PYSPARK_PYTHON=the_python_location`
+
+ `export PYSPARK_DRIVER_PYTHON=the_python_location` 
+
+If you receive the error "Unsupported class file major version 55, you need export the path of Java 8 as JAVA_HOME
+
+`export JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk1.8.0_144.jdk/Contents/Home`
 
 ##### Test execution with coverage
 
