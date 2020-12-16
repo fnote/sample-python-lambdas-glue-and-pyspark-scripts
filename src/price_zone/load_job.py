@@ -155,10 +155,10 @@ def get_record_count(dbconfigs, opco_id):
     conn.close()
     return db_count
 
-def write_metadata(metadata_lambda, intermediate_s3_name, count_from_db ):
+def write_metadata(metadata_lambda, intermediate_s3_name, count_from_db, intermediate_directory_path):
     response = lambda_client.invoke(FunctionName=metadata_lambda, Payload=json.dumps({
         "intermediate_s3_name": intermediate_s3_name,
-        "intermediate_directory_path": 'price_zone/' + data_arrival_timestamp,
+        "intermediate_directory_path": intermediate_directory_path,
         "record_count_from_price_zone_dbs": count_from_db,
     }))
 
@@ -166,13 +166,14 @@ def write_metadata(metadata_lambda, intermediate_s3_name, count_from_db ):
 
 if __name__ == "__main__":
     args = getResolvedOptions(sys.argv, ['opco_id', 'partitioned_files_key', 'etl_timestamp',
-                                         'intermediate_s3_name', 'GLUE_CONNECTION_NAME', 'METADATA_LAMBDA'])
+                                         'intermediate_s3_name', 'intermediate_directory_path', 'GLUE_CONNECTION_NAME', 'METADATA_LAMBDA'])
     glue_connection_name = args['GLUE_CONNECTION_NAME']
     opco_id = args['opco_id']  # opco_id validation
     partitioned_files_key = args['partitioned_files_key']
     intermediate_s3 = args['intermediate_s3_name']
     data_arrival_timestamp = args['etl_timestamp']
     metadata_lambda = args['METADATA_LAMBDA']
+    intermediate_directory_path = args['intermediate_directory_path']
 
     print(
         "Started data loading job for Opco: %s, file path: %s/%s\n" % (opco_id, intermediate_s3, partitioned_files_key))
@@ -184,4 +185,4 @@ if __name__ == "__main__":
     opco_record_count_dict = {}
     opco_record_count_dict[opco_id] = record_count_from_price_zone_dbs
 
-    metadata_response = write_metadata(metadata_lambda, intermediate_s3, opco_record_count_dict)
+    metadata_response = write_metadata(metadata_lambda, intermediate_s3, opco_record_count_dict, intermediate_directory_path)
