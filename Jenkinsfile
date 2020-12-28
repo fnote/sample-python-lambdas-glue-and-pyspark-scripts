@@ -366,7 +366,7 @@ pipeline {
                             bucket, region, "CP-REF-etl-notifier-${ENV}",
                             "${s3key}/Notifier.zip")
                     updateLambdaProd(
-                            bucket, region, "CP-REF-ETL-metadata-aggregator-${ENV}",
+                            bucket, region, "CP-REF-PRICE-etl-metadata-aggregator-${ENV}",
                             "${s3key}/metadata_aggregator.py.zip")
                 }
             }
