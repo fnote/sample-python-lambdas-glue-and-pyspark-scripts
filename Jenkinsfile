@@ -177,7 +177,7 @@ def deployIntoEnv(env, bucket, s3Path, s3key, region) {
             bucket, region, "CP-REF-etl-notifier-${env}",
             "${s3key}/Notifier.zip")
     updateLambda(
-            bucket, region, "CP-REF-ETL-metadata-aggregator-${env}",
+            bucket, region, "CP-REF-PRICE-etl-metadata-aggregator-${env}",
             "${s3key}/metadata_aggregator.py.zip")
 }
 
@@ -190,7 +190,7 @@ pipeline {
                 script {
                     zipScript("src/price_zone", "s3_trigger_lambda.py")
                     zipScript("src/price_zone", "analyze_etl_wait_status.py")
-                    zipScript("src/Notifier", "Notifier", true)
+                    bat script: "cd src/Notifier & pip3 install --target . -r requirements.txt & D:/winrar/winrar a -r Notifier.zip & dir"
                     zipScript("src/pa/", "s3_trigger_lambda.py")
                     zipScript("src/common/", "metadata_aggregator.py")
                 }
@@ -366,7 +366,7 @@ pipeline {
                             bucket, region, "CP-REF-etl-notifier-${ENV}",
                             "${s3key}/Notifier.zip")
                     updateLambdaProd(
-                            bucket, region, "CP-REF-ETL-metadata-aggregator-${ENV}",
+                            bucket, region, "CP-REF-PRICE-etl-metadata-aggregator-${ENV}",
                             "${s3key}/metadata_aggregator.py.zip")
                 }
             }
