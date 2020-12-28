@@ -177,7 +177,7 @@ def deployIntoEnv(env, bucket, s3Path, s3key, region) {
             bucket, region, "CP-REF-etl-notifier-${env}",
             "${s3key}/Notifier.zip")
     updateLambda(
-            bucket, region, "CP-REF-ETL-metadata-aggregator-${env}",
+            bucket, region, "CP-REF-PRICE-etl-metadata-aggregator-${env}",
             "${s3key}/metadata_aggregator.py.zip")
 }
 
