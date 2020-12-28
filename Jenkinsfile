@@ -190,7 +190,7 @@ pipeline {
                 script {
                     zipScript("src/price_zone", "s3_trigger_lambda.py")
                     zipScript("src/price_zone", "analyze_etl_wait_status.py")
-                    zipScript("src/Notifier", "Notifier", true)
+                    bat script: "cd src/Notifier & pip3 install --target . -r requirements.txt & D:/winrar/winrar a -r Notifier.zip & dir"
                     zipScript("src/pa/", "s3_trigger_lambda.py")
                     zipScript("src/common/", "metadata_aggregator.py")
                 }
