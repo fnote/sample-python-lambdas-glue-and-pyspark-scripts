@@ -2,6 +2,7 @@ import sys
 import time
 
 import boto3
+import json
 import pandas as pd
 import numpy as np
 import base64
@@ -9,6 +10,8 @@ from datetime import datetime
 
 import pymysql
 from awsglue.utils import getResolvedOptions
+
+lambda_client = boto3.client('lambda')
 
 
 def read_data_from_s3(bucketname, key):
@@ -116,14 +119,47 @@ def validate_price(df, column):
         raise ValueError("price cannot be negative or zero : " + column)
 
 
+def get_total_record_count(opco_id):
+
+    connectionDetails = getConnectionDetails()
+    conn = getNewConnection(connectionDetails["host"], connectionDetails["user"],
+                            connectionDetails["decrypted"])
+
+    table_with_database_name = Configuration.DATABASE_PREFIX + format(int(opco_id),
+                                                                      '03') + Configuration.DOT + Configuration.TABLE_NAME
+    cur = conn.cursor()
+
+    countqry = "select count(*) from " + table_with_database_name + " WHERE ARRIVED_TIME=" + etl_timestamp
+    cur.execute(countqry)
+    db_count, = cur.fetchone()
+    print("db count in opco %s for the file received at %s  : %s\n" % (
+        opco_id, etl_timestamp, db_count))
+
+    conn.close()
+    return db_count
+
+def write_metadata(metadata_lambda, intermediate_s3_name, intermediate_directory_path, count_from_file , count_from_db ):
+    response = lambda_client.invoke(FunctionName=metadata_lambda, Payload=json.dumps({
+        "intermediate_s3_name": intermediate_s3_name,
+        "intermediate_directory_path": intermediate_directory_path,
+        "total_record_count_from_pa_file": count_from_file,
+        "total_record_count_from_pa_dbs": count_from_db,
+    }))
+
+    return response
+
+
 if __name__ == "__main__":
     args = getResolvedOptions(sys.argv, ['s3_input_bucket', 's3_input_file_key', 'etl_timestamp', 'etl_output_path_key',
-                                         'INTERMEDIATE_S3_BUCKET', 'GLUE_CONNECTION_NAME'])
+                                         'INTERMEDIATE_S3_BUCKET', 'GLUE_CONNECTION_NAME', 'METADATA_LAMBDA', 'intermediate_directory_path'])
     s3_input_bucket = args['s3_input_bucket']
     s3_input_file_key = args['s3_input_file_key']
     intermediate_s3_bucket = args['INTERMEDIATE_S3_BUCKET']
     glue_connection_name = args['GLUE_CONNECTION_NAME']
     data_arrival_timestamp = args['etl_timestamp']
+    etl_timestamp = args['etl_timestamp']
+    metadata_lambda = args['METADATA_LAMBDA']
+    intermediate_directory_path = args['intermediate_directory_path']
 
     output_file_path = args['etl_output_path_key'] + "/"
 
@@ -154,8 +190,15 @@ if __name__ == "__main__":
     # finally setting column order
     df = df[['supc', 'effective_date', 'price', 'export_date', 'catch_weight_indicator', 'price_zone_id', 'opco_id']]
 
+    total_record_count_from_pa_file = len(df.index)
+
     item_zone_prices_for_opco = dict(tuple(df.groupby(df['opco_id'])))  # group data by opco_id
 
     # opco_id validation
+    total_count_from_pa_dbs = 0
+
     for opco in item_zone_prices_for_opco:
         load_data(opco, item_zone_prices_for_opco[opco])
+        total_count_from_pa_dbs = total_count_from_pa_dbs + get_total_record_count(opco)
+
+    write_metadata(metadata_lambda, intermediate_s3_bucket, intermediate_directory_path, total_record_count_from_pa_file, total_count_from_pa_dbs)

@@ -14,17 +14,16 @@ from validator import validate_column, validate_column_length_less_than, validat
     remove_records_of_given_opcos
 from constants import CUST_NBR_LENGTH, SUPC_LENGTH, PRICE_ZONE_MIN_VALUE, PRICE_ZONE_MAX_VALUE, DATE_FORMAT_REGEX, OUTPUT_DATE_FORMAT, INPUT_DATE_FORMAT, CO_NBR_LENGTH
 
-lambda_client = boto3.client('lambda')
 
+lambda_client = boto3.client('lambda')
 ## @params: [JOB_NAME]
-args = getResolvedOptions(sys.argv, ['JOB_NAME', 'decompressed_file_path', 'partitioned_files_path', 'active_opcos',
-                                     'intermediate_s3_name', 'intermediate_directory_path', 'metadata_aggregator'])
+args = getResolvedOptions(sys.argv, ['JOB_NAME', 'decompressed_file_path', 'partitioned_files_path', 'active_opcos',  'intermediate_s3_name', 'intermediate_directory_path', 'METADATA_LAMBDA'])
 decompressed_file_path = args['decompressed_file_path']
 partitioned_files_path = args['partitioned_files_path']
 active_opcos= args['active_opcos']
+metadata_lambda = args['METADATA_LAMBDA']
 intermediate_s3_name= args['intermediate_s3_name']
 intermediate_directory_path= args['intermediate_directory_path']
-metadata_aggregator_fn= args['metadata_aggregator']
 sc = SparkContext()
 glueContext = GlueContext(sc)
 spark = glueContext.spark_session
@@ -65,6 +64,7 @@ invalid_opcos.extend(validate_column_length_less_than(sparkDF, 'supc', SUPC_LENG
 #validate opcos
 invalid_opcos.extend(validate_opcos(sparkDF, active_opco_id_list, 'opco_id'))
 
+
 sparkDF = sparkDF.withColumn("price_zone", sparkDF["price_zone"].cast(IntegerType()))
 invalid_opcos.extend(validate_data_range(sparkDF, 'price_zone', PRICE_ZONE_MIN_VALUE, PRICE_ZONE_MAX_VALUE))
 
@@ -73,11 +73,12 @@ invalid_opcos.extend(validate_date_time_field(sparkDF, 'effective_date'))
 
 validated_records = remove_records_of_given_opcos(sparkDF, invalid_opcos)
 
-response = lambda_client.invoke(FunctionName=metadata_aggregator_fn, Payload=json.dumps({
+response = lambda_client.invoke(FunctionName=metadata_lambda, Payload=json.dumps({
     "intermediate_s3_name": intermediate_s3_name,
     "intermediate_directory_path": intermediate_directory_path,
     "failed_opcos": invalid_opcos,
     "received_records_count": sparkDF.count(),
+    "received_valid_records_count" : validated_records.count(),
     "valid_records_count": validated_records.count()
 }))
 

@@ -1,14 +1,18 @@
 import sys
 import threading
 import time
+import json
 
 import boto3
 import base64
+import pymysql
 
 import sqlalchemy as sqlalchemy
 from queue import Queue
 from sqlalchemy.pool import QueuePool
 from awsglue.utils import getResolvedOptions
+
+lambda_client = boto3.client('lambda')
 
 
 def list_files_in_s3(bucketname, prefix):
@@ -125,20 +129,60 @@ def _retrieve_conection_details():
         'password': decrypted['Plaintext'].decode("utf-8"),
         'host': host,
         'port': int(port),
-        'table': Configuration.TABLE_NAME
+        'table': Configuration.TABLE_NAME,
+        "decrypted": decrypted
     }
 
+def getNewConnection(host, user, decrypted):
+    return pymysql.connect(host=host, user=user, password=decrypted["Plaintext"])
+
+def get_record_count(dbconfigs, opco_id):
+    dbconfigs['database'] = Configuration.DATABASE_PREFIX + opco_id
+    connectionDetails = _retrieve_conection_details()
+    conn = getNewConnection(connectionDetails["host"], connectionDetails["username"],
+                            connectionDetails["decrypted"])
+
+    table_with_database_name = Configuration.DATABASE_PREFIX + format(int(opco_id),
+                                                                      '03') + Configuration.DOT + Configuration.TABLE_NAME
+    cur = conn.cursor()
+
+    countqry = "select count(*) from " + table_with_database_name + " WHERE ARRIVED_TIME=" + data_arrival_timestamp
+    cur.execute(countqry)
+    db_count, = cur.fetchone()
+    print("db count in opco %s for the file received at %s  : %s\n" % (
+        opco_id, data_arrival_timestamp, db_count))
+
+    conn.close()
+    return db_count
+
+def write_metadata(metadata_lambda, intermediate_s3_name, count_from_db, intermediate_directory_path):
+    response = lambda_client.invoke(FunctionName=metadata_lambda, Payload=json.dumps({
+        "intermediate_s3_name": intermediate_s3_name,
+        "intermediate_directory_path": intermediate_directory_path,
+        "record_count_from_price_zone_dbs": count_from_db,
+    }))
+
+    return response
 
 if __name__ == "__main__":
     args = getResolvedOptions(sys.argv, ['opco_id', 'partitioned_files_key', 'etl_timestamp',
-                                         'intermediate_s3_name', 'GLUE_CONNECTION_NAME'])
+                                         'intermediate_s3_name', 'intermediate_directory_path', 'GLUE_CONNECTION_NAME', 'METADATA_LAMBDA'])
     glue_connection_name = args['GLUE_CONNECTION_NAME']
     opco_id = args['opco_id']  # opco_id validation
     partitioned_files_key = args['partitioned_files_key']
     intermediate_s3 = args['intermediate_s3_name']
     data_arrival_timestamp = args['etl_timestamp']
+    metadata_lambda = args['METADATA_LAMBDA']
+    intermediate_directory_path = args['intermediate_directory_path']
+
     print(
         "Started data loading job for Opco: %s, file path: %s/%s\n" % (opco_id, intermediate_s3, partitioned_files_key))
     dbconfigs = _retrieve_conection_details()
 
     load_data(dbconfigs, opco_id, intermediate_s3, partitioned_files_key)
+    record_count_from_price_zone_dbs = get_record_count(dbconfigs, opco_id)
+
+    opco_record_count_dict = {}
+    opco_record_count_dict[opco_id] = record_count_from_price_zone_dbs
+
+    metadata_response = write_metadata(metadata_lambda, intermediate_s3, opco_record_count_dict, intermediate_directory_path)

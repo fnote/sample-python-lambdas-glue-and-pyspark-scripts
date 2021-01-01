@@ -4,24 +4,20 @@ import os
 import logging
 import boto3
 import json
-from datetime import datetime
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 def read_additional_info(bucket_name, backup_completed, event):
+    logger.info('bucket name: %s' % (bucket_name))
     if backup_completed:
-        etl_timestamp = event['etl_timestamp']
-        etl_output_path_key = event['etl_output_path_key']
-        etl_time_object = datetime.fromtimestamp(int(etl_timestamp))
-
-        file_path = 'price_zone/' + str(etl_time_object.year) + '/' + etl_time_object.strftime("%B") + '/'\
-            + str(etl_time_object.day) + '/' + etl_output_path_key
+        file_path = event['backup_file_path']
     else:
-        file_path = event['additional_info_file_key']
+        file_path = event['etl_output_path_key'] + '/'
 
-    s3_path = '{}/additionalInfo.txt'.format(file_path)
+    s3_path = '{}additionalInfo.txt'.format(file_path)
     s3_client = boto3.client('s3')
+    logger.info('s3 path: %s , bucket name : %s' % (s3_path, bucket_name))
     try:
         response = s3_client.get_object(Bucket=bucket_name, Key=s3_path)
         additional_info = response['Body'].read().decode('utf-8')
@@ -44,6 +40,9 @@ def lambda_handler(event, context):
     logger.info('Sending notification env: %s, time: %s, status: %s, message: %s' % (
         env, current_time, status, message))
     additional_info = read_additional_info(bucket_name, status == 'SUCCEEDED', event)
+
+    logger.info('Sending notification env: %s, time: %s, status: %s, message: %s' % (
+        env, current_time, status, message))
 
     data = {
         "messageAttributes": {

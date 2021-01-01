@@ -10,7 +10,8 @@ if __name__ == "__main__":
     args = getResolvedOptions(sys.argv, ['s3_input_bucket', 's3_input_file_key', 'partitioned_files_key',
                                          'decompressed_file_path', 'etl_timestamp', 'etl_output_path_key',
                                          'intermediate_directory_path',
-                                         'INTERMEDIATE_S3_BUCKET', 'ARCHIVING_S3_BUCKET'])
+                                         'INTERMEDIATE_S3_BUCKET', 'ARCHIVING_S3_BUCKET', 'backup_file_path'])
+
 
     s3_input_bucket = args['s3_input_bucket']
     s3_input_file_key = args['s3_input_file_key']
@@ -21,11 +22,11 @@ if __name__ == "__main__":
     intermediate_s3_bucket = args['INTERMEDIATE_S3_BUCKET']
     intermediate_directory_path = args['intermediate_directory_path']
     archiving_s3_bucket = args['ARCHIVING_S3_BUCKET']
+    backup_file_path = args['backup_file_path']
 
     etl_time_object = datetime.fromtimestamp(int(etl_timestamp))
 
-    archiving_path = 'price_zone/' + str(etl_time_object.year) + '/' + etl_time_object.strftime("%B") + '/' + str(
-        etl_time_object.day) + '/' + etl_output_path_key + '/'
+    archiving_path = backup_file_path
 
     decompressed_file_parsed_path = urlparse(decompressed_file_path, allow_fragments=False)
     decompressed_file_bucket = decompressed_file_parsed_path.netloc
