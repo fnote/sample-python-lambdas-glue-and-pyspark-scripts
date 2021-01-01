@@ -4,9 +4,18 @@ import os
 import logging
 import boto3
 import json
+import anticrlf
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
+
+# Using a handler with anticrlf log formatter to avoid CRLF injections
+# https://www.veracode.com/blog/secure-development/fixing-crlf-injection-logging-issues-python
+
+formatter = anticrlf.LogFormatter('[%(levelname)s]\t%(asctime)s.%(msecs)dZ\t%(aws_request_id)s\t%(message)s\n', '%Y-%m-%dT%H:%M:%S')
+
+for handler in logger.handlers:
+    handler.setFormatter(formatter)
 
 def read_additional_info(bucket_name, backup_completed, event):
     logger.info('bucket name: %s' % (bucket_name))
