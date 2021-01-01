@@ -1,4 +1,3 @@
 requests==2.25.0
-smart_open==3.0.0
 boto3==1.16.16
 logging-formatter-anticrlf==1.2
