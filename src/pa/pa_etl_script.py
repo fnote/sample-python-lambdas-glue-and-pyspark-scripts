@@ -111,6 +111,7 @@ class Configuration:
 def getNewConnection(host, user, decrypted):
     return pymysql.connect(host=host, user=user, password=decrypted["Plaintext"])
 
+
 def validate_price(df, column):
     df[column] = pd.to_numeric(df[column])
     invalid_df = df[df[column] <= 0].dropna()
@@ -119,31 +120,11 @@ def validate_price(df, column):
         raise ValueError("price cannot be negative or zero : " + column)
 
 
-def get_total_record_count(opco_id):
-
-    connectionDetails = getConnectionDetails()
-    conn = getNewConnection(connectionDetails["host"], connectionDetails["user"],
-                            connectionDetails["decrypted"])
-
-    table_with_database_name = Configuration.DATABASE_PREFIX + format(int(opco_id),
-                                                                      '03') + Configuration.DOT + Configuration.TABLE_NAME
-    cur = conn.cursor()
-
-    countqry = "select count(*) from " + table_with_database_name + " WHERE ARRIVED_TIME=" + etl_timestamp
-    cur.execute(countqry)
-    db_count, = cur.fetchone()
-    print("db count in opco %s for the file received at %s  : %s\n" % (
-        opco_id, etl_timestamp, db_count))
-
-    conn.close()
-    return db_count
-
-def write_metadata(metadata_lambda, intermediate_s3_name, intermediate_directory_path, count_from_file , count_from_db ):
+def write_metadata(metadata_lambda, intermediate_s3_name, intermediate_directory_path, count_from_file):
     response = lambda_client.invoke(FunctionName=metadata_lambda, Payload=json.dumps({
         "intermediate_s3_name": intermediate_s3_name,
         "intermediate_directory_path": intermediate_directory_path,
         "total_record_count_from_pa_file": count_from_file,
-        "total_record_count_from_pa_dbs": count_from_db,
     }))
 
     return response
@@ -194,11 +175,7 @@ if __name__ == "__main__":
 
     item_zone_prices_for_opco = dict(tuple(df.groupby(df['opco_id'])))  # group data by opco_id
 
-    # opco_id validation
-    total_count_from_pa_dbs = 0
-
     for opco in item_zone_prices_for_opco:
         load_data(opco, item_zone_prices_for_opco[opco])
-        total_count_from_pa_dbs = total_count_from_pa_dbs + get_total_record_count(opco)
 
-    write_metadata(metadata_lambda, intermediate_s3_bucket, intermediate_directory_path, total_record_count_from_pa_file, total_count_from_pa_dbs)
+    write_metadata(metadata_lambda, intermediate_s3_bucket, intermediate_directory_path, total_record_count_from_pa_file)

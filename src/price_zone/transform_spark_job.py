@@ -78,8 +78,7 @@ response = lambda_client.invoke(FunctionName=metadata_lambda, Payload=json.dumps
     "intermediate_directory_path": intermediate_directory_path,
     "failed_opcos": invalid_opcos,
     "received_records_count": sparkDF.count(),
-    "received_valid_records_count" : validated_records.count(),
-    "valid_records_count": validated_records.count()
+    "received_valid_records_count": validated_records.count(),
 }))
 
 if validated_records.count() == 0:
