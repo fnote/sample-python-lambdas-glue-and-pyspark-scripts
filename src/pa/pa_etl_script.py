@@ -138,12 +138,11 @@ def get_total_record_count(opco_id):
     conn.close()
     return db_count
 
-def write_metadata(metadata_lambda, intermediate_s3_name, intermediate_directory_path, count_from_file , count_from_db ):
+def write_metadata(metadata_lambda, intermediate_s3_name, intermediate_directory_path, count_from_file):
     response = lambda_client.invoke(FunctionName=metadata_lambda, Payload=json.dumps({
         "intermediate_s3_name": intermediate_s3_name,
         "intermediate_directory_path": intermediate_directory_path,
         "total_record_count_from_pa_file": count_from_file,
-        "total_record_count_from_pa_dbs": count_from_db,
     }))
 
     return response
@@ -194,11 +193,7 @@ if __name__ == "__main__":
 
     item_zone_prices_for_opco = dict(tuple(df.groupby(df['opco_id'])))  # group data by opco_id
 
-    # opco_id validation
-    total_count_from_pa_dbs = 0
-
     for opco in item_zone_prices_for_opco:
         load_data(opco, item_zone_prices_for_opco[opco])
-        total_count_from_pa_dbs = total_count_from_pa_dbs + get_total_record_count(opco)
 
-    write_metadata(metadata_lambda, intermediate_s3_bucket, intermediate_directory_path, total_record_count_from_pa_file, total_count_from_pa_dbs)
+    write_metadata(metadata_lambda, intermediate_s3_bucket, intermediate_directory_path, total_record_count_from_pa_file)
