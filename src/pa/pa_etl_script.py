@@ -117,7 +117,7 @@ def validate_price(df, column):
     invalid_df = df[df[column] <= 0].dropna()
     if len(invalid_df.head(1)) > 0:
         print(invalid_df)
-        raise ValueError("price cannot be negative or zero : " + column)
+        print("price cannot be negative or zero : ", column)
 
 
 def write_metadata(metadata_lambda, intermediate_s3_name, intermediate_directory_path, count_from_file):
