@@ -118,13 +118,17 @@ def validate_price(df, column):
     if len(invalid_df.head(1)) > 0:
         print(invalid_df)
         print("price cannot be negative or zero : ", column)
+        return len(invalid_df)
+    else:
+        return 0
 
 
-def write_metadata(metadata_lambda, intermediate_s3_name, intermediate_directory_path, count_from_file):
+def write_metadata(metadata_lambda, intermediate_s3_name, intermediate_directory_path, count_from_file, invalid_price_record_count):
     response = lambda_client.invoke(FunctionName=metadata_lambda, Payload=json.dumps({
         "intermediate_s3_name": intermediate_s3_name,
         "intermediate_directory_path": intermediate_directory_path,
         "total_record_count_from_pa_file": count_from_file,
+        "invalid_price_record_count": invalid_price_record_count,
     }))
 
     return response
@@ -152,7 +156,7 @@ if __name__ == "__main__":
     del df['REASON']
     del df['NEW_PRICE']
 
-    validate_price(df, 'LOCAL_REFERENCE_PRICE')
+    invalid_price_record_count = validate_price(df, 'LOCAL_REFERENCE_PRICE')
 
     df = df.rename(columns={'ITEM_ID': 'supc'})
     df = df.rename(columns={'LOCAL_REFERENCE_PRICE': 'price'})
@@ -178,4 +182,4 @@ if __name__ == "__main__":
     for opco in item_zone_prices_for_opco:
         load_data(opco, item_zone_prices_for_opco[opco])
 
-    write_metadata(metadata_lambda, intermediate_s3_bucket, intermediate_directory_path, total_record_count_from_pa_file)
+    write_metadata(metadata_lambda, intermediate_s3_bucket, intermediate_directory_path, total_record_count_from_pa_file ,invalid_price_record_count)
