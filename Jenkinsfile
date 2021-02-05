@@ -373,5 +373,3 @@ pipeline {
         }
     }
 }
-
-// Triggering pipeline
