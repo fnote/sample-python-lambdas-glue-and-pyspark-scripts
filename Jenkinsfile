@@ -47,11 +47,18 @@ def updateGlueScriptProd(region, jobName, role, scriptLocation, type) {
                     "for /f %%i in ('jq -r .Credentials.AccessKeyId temCredentials.json') do SET AWS_ACCESS_KEY_ID=%%i\n" +
                     "for /f %%j in ('jq -r .Credentials.SecretAccessKey temCredentials.json') do SET AWS_SECRET_ACCESS_KEY=%%j\n" +
                     "for /f %%k in ('jq -r .Credentials.SessionToken temCredentials.json') do SET AWS_SESSION_TOKEN=%%k\n" +
-                    "aws glue get-job --job-name ${jobName} --region ${region}",
+                    "aws glue get-job --job-name ${jobName} --region ${region} > jobOutput.json",
             returnStdout: true
     ).trim()
 
-    def json = new JsonSlurperClassic().parseText(jobJson)
+    def pwd = bat (
+            script: "@chdir",
+            returnStdout: true
+    ).trim()
+
+    def jobOutputFileName = "${pwd}\\jobOutput.json"
+    File jobOutputFile = new File(jobOutputFileName)
+    def json = new JsonSlurperClassic().parse(jobOutputFile, 'utf-8')
     def jobParams = json.Job
     jobParams.remove('Name')
     jobParams.remove('CreatedOn')
