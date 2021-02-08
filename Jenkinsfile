@@ -40,7 +40,7 @@ def updateGlueScript(region, jobName, scriptLocation) {
     echo "Output: ${output}"
 }
 
-def updateGlueScriptProd(region, jobName, role, scriptLocation, type) {
+def updateGlueScriptProd(region, jobName, scriptLocation) {
     echo "Deploying Glue Job ${jobName}"
     def jobJson = bat (
             script:  "@aws sts assume-role --role-arn \"arn:aws:iam::130227353653:role/PRCP-Jenkins-CodeDeploy-Role\" --role-session-name \"Jenkins-CD-Session\">temCredentials.json\n" +
