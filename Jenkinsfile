@@ -345,16 +345,16 @@ pipeline {
                             bucket, region, "CP-REF-etl-price-zone-wait-status-analyzer-${ENV}",
                             "${s3key}/analyze_etl_wait_status.py.zip")
                     updateGlueScriptProd(
-                            region, "CP-REF-etl-prize-zone-decompression-job-${ENV}",
+                            region, "CP-REF-etl-price-zone-decompression-job-${ENV}",
                             "${s3Path}/decompress_job.py")
                     updateGlueScriptProd(
-                            region, "CP-REF-etl-prize-zone-transform-job-${ENV}",
+                            region, "CP-REF-etl-price-zone-transform-job-${ENV}",
                             "${s3Path}/transform_spark_job.py")
                     updateGlueScriptProd(
-                            region, "CP-REF-etl-prize-zone-load-job-${ENV}",
+                            region, "CP-REF-etl-price-zone-load-job-${ENV}",
                             "${s3Path}/load_job.py")
                     updateGlueScriptProd(
-                            region, "CP-REF-etl-prize-zone-backup-job-${ENV}",
+                            region, "CP-REF-etl-price-zone-backup-job-${ENV}",
                             "${s3Path}/data_backup_job.py")
 
                     //    PA
