@@ -156,16 +156,16 @@ def deployIntoEnv(env, bucket, s3Path, s3key, region) {
             bucket, region, "CP-REF-etl-price-zone-wait-status-analyzer-${env}",
             "${s3key}/analyze_etl_wait_status.py.zip")
     updateGlueScript(
-            region, "CP-REF-etl-prize-zone-decompression-job-${env}",
+            region, "CP-REF-etl-price-zone-decompression-job-${env}",
             "${s3Path}/decompress_job.py")
     updateGlueScript(
-            region, "CP-REF-etl-prize-zone-transform-job-${env}",
+            region, "CP-REF-etl-price-zone-transform-job-${env}",
             "${s3Path}/transform_spark_job.py")
     updateGlueScript(
-            region, "CP-REF-etl-prize-zone-load-job-${env}",
+            region, "CP-REF-etl-price-zone-load-job-${env}",
             "${s3Path}/load_job.py")
     updateGlueScript(
-            region, "CP-REF-etl-prize-zone-backup-job-${env}",
+            region, "CP-REF-etl-price-zone-backup-job-${env}",
             "${s3Path}/data_backup_job.py")
 
 //    PA
