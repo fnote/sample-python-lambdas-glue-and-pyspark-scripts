@@ -17,10 +17,12 @@ from constants import CUST_NBR_LENGTH, SUPC_LENGTH, PRICE_ZONE_MIN_VALUE, PRICE_
 
 lambda_client = boto3.client('lambda')
 ## @params: [JOB_NAME]
-args = getResolvedOptions(sys.argv, ['JOB_NAME', 'decompressed_file_path', 'partitioned_files_path', 'active_opcos',  'intermediate_s3_name', 'intermediate_directory_path', 'METADATA_LAMBDA'])
+args = getResolvedOptions(sys.argv, ['JOB_NAME', 's3_path', 'decompressed_file_path', 'partitioned_files_path', 'active_opcos',  'intermediate_s3_name', 'intermediate_directory_path', 'METADATA_LAMBDA','file_type'])
+input_file_path = args['s3_path']
 decompressed_file_path = args['decompressed_file_path']
 partitioned_files_path = args['partitioned_files_path']
 active_opcos= args['active_opcos']
+file_type= args['file_type']
 metadata_lambda = args['METADATA_LAMBDA']
 intermediate_s3_name= args['intermediate_s3_name']
 intermediate_directory_path= args['intermediate_directory_path']
@@ -30,12 +32,16 @@ spark = glueContext.spark_session
 job = Job(glueContext)
 job.init(args['JOB_NAME'], args)
 
+if file_type == 'gz':
+    file_location = decompressed_file_path
+else:
+    file_location = input_file_path
 
 datasourceDF = spark.read.format("csv") \
-    .option("header", "true") \
-    .option("inferSchema", "false") \
-    .option("sep", ",") \
-    .load(decompressed_file_path)
+        .option("header", "true") \
+        .option("inferSchema", "false") \
+        .option("sep", ",") \
+        .load(file_location)
 
 datasource0 = DynamicFrame.fromDF(datasourceDF, glueContext, "datasource0")
 

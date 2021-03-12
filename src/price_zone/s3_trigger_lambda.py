@@ -92,6 +92,9 @@ def lambda_handler(event, context):
     archiving_path = 'price_zone/' + str(etl_time_object.year) + '/' + etl_time_object.strftime("%B") + '/' + str(
         etl_time_object.day) + '/' + custom_path + '/'
 
+    file_name_split = s3_object_key.split(".")
+    file_extension = file_name_split[-1]
+
     params = {
         "s3_path": s3_path,
         "intermediate_s3_name": intermediate_s3_storage,
@@ -102,13 +105,15 @@ def lambda_handler(event, context):
         "etl_output_path_key": custom_path,
         "s3_input_bucket": s3['bucket']['name'],
         "s3_input_file_key": s3_object_key,
-        "partial_load": partial_load,
+        "partial_load": str(partial_load),
         "worker_count": glue_NumberOfWorkers,
         "worker_type": glue_worker_type,
         "active_opcos": active_opco_list,
         "backup_bucket": 'cp-ref-etl-data-backup-storage-{}'.format(env.lower()),
         "backup_file_path": archiving_path,
-        "intermediate_directory_path": folder_key
+        "intermediate_directory_path": folder_key,
+        "env": env,
+        "file_type": file_extension
     }
 
     logger.info("Prize Zone data file Path: {}".format(s3_path))
