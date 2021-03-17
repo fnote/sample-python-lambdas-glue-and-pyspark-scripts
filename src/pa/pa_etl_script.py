@@ -119,6 +119,7 @@ def load_data(opco_id, df ,cluster_id):
     write_dataframe_to_s3(opco_id, output_file_name)
 
     connectionDetails = getConnectionDetails(cluster_id)
+
     conn = getNewConnection(connectionDetails["host"], connectionDetails["user"],
                             connectionDetails["decrypted"])
 
@@ -155,7 +156,7 @@ def load_data(opco_id, df ,cluster_id):
 def getConnectionDetails(cluster_id):
     glue = boto3.client('glue', region_name='us-east-1')
 
-    response = glue.get_connection(Name=glue_connection_name.format(cluster_id))
+    response = glue.get_connection(Name=glue_connection_name.format(environment, cluster_id))
 
     connection_properties = response['Connection']['ConnectionProperties']
     URL = connection_properties['JDBC_CONNECTION_URL']
