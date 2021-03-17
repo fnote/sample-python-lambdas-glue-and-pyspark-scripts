@@ -90,7 +90,7 @@ def load_data(dbconfigs, opco_id, bucketname, partitioned_files_path):
 
     threadErrors = []
     threads = []
-    for i in range(0, 4):
+    for i in range(0, 1):
         threads.append(threading.Thread(target=_execute_load,
                                         args=(pool, queue, dbconfigs['database'], dbconfigs['table'], threadErrors)))
 
