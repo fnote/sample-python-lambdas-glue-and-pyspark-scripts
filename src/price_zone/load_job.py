@@ -15,6 +15,7 @@ from awsglue.utils import getResolvedOptions
 lambda_client = boto3.client('lambda')
 
 query_for_tables = 'SELECT * FROM settings WHERE setting = (%s)'
+glue_connection_name = 'cp-ref-etl-common-connection-{}-cluster-{}'
 
 charset = 'utf8'
 cursor_type = pymysql.cursors.DictCursor
@@ -83,10 +84,10 @@ def getNewConnection(host, user, decrypted ,db):
     return pymysql.connect(host=host, user=user, password=decrypted, db=db)
 
 
-def _retrieve_conection_details():
+def _retrieve_conection_details(cluster_id):
     glue = boto3.client('glue', region_name='us-east-1')
 
-    response = glue.get_connection(Name=glue_connection_name)
+    response = glue.get_connection(Name=glue_connection_name.format(cluster_id))
 
     connection_properties = response['Connection']['ConnectionProperties']
     URL = connection_properties['JDBC_CONNECTION_URL']
@@ -184,7 +185,7 @@ def check_table_is_empty(table,db_configs):
         database_connection.close()
 
 def find_tables_to_load(partial_load ,env ,opco_id, intermediate_s3, partitioned_files_key):
-    db_configs = _retrieve_conection_details()
+    db_configs = _retrieve_conection_details(cluster_id)
 
     if partial_load:
         active_table = get_active_and_future_tables(env, "ACTIVE_TABLE")
@@ -255,8 +256,7 @@ def __create_db_engine(credentials):
 
 
 if __name__ == "__main__":
-    args = getResolvedOptions(sys.argv, ['opco_id', 'partitioned_files_key', 'etl_timestamp', 'partial_load', 'intermediate_s3_name', 'intermediate_directory_path', 'GLUE_CONNECTION_NAME', 'METADATA_LAMBDA'])
-    glue_connection_name = args['GLUE_CONNECTION_NAME']
+    args = getResolvedOptions(sys.argv, ['opco_id', 'cluster', 'partitioned_files_key', 'etl_timestamp', 'partial_load', 'ENV', 'intermediate_s3_name', 'intermediate_directory_path', 'METADATA_LAMBDA'])
     opco_id = args['opco_id']  # opco_id validation
     partitioned_files_key = args['partitioned_files_key']
     intermediate_s3 = args['intermediate_s3_name']
@@ -264,8 +264,10 @@ if __name__ == "__main__":
     metadata_lambda = args['METADATA_LAMBDA']
     intermediate_directory_path = args['intermediate_directory_path']
     partial_load = args['partial_load']
+    environment = args['ENV']
+    cluster_id = args['cluster']
 
     print(
         "Started data loading job for Opco: %s, file path: %s/%s\n" % (opco_id, intermediate_s3, partitioned_files_key))
 
-    find_tables_to_load(bool(partial_load), "DEV", opco_id, intermediate_s3, partitioned_files_key)
+    find_tables_to_load(bool(partial_load), environment, opco_id, intermediate_s3, partitioned_files_key)
