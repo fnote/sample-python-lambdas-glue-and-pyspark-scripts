@@ -53,7 +53,25 @@ def lambda_handler(event, context):
     partial_load_prefixes_val = get_values_from_ssm([partial_load_prefixes_key])
     partial_load = is_partial_load(s3_object_key, partial_load_prefixes_val[partial_load_prefixes_key])
 
+    size = boto3.resource('s3').Bucket(s3['bucket']['name']).Object(s3_object_key).content_length
+    logger.info('Input file size in GBs:' + str(size))
+    # 1 Bytes = 9.31×10 Gigabytes
+    input_file_size_in_gb =  (int(size) * 9.31)/10**10
+    logger.info('Input file size in GBs:' + str(input_file_size_in_gb))
+
+    file_size_upper_bound_key = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/PARTIAL_LOAD_FILE_SIZE_UPPER_BOUND'
     active_opcos_key = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/ACTIVE/BUSINESS/UNITS'
+
+    ssm_key_set = [file_size_upper_bound_key]
+    ssm_key_set_values = get_values_from_ssm(ssm_key_set)
+    partial_load_file_size_upper_bound = ssm_key_set_values[file_size_upper_bound_key]
+
+    #if partial load prefix is present in the file name or file size is less than the min size of a full export
+    if partial_load or int(partial_load_file_size_upper_bound) > input_file_size_in_gb:
+        partial_load = True
+    else:
+        partial_load = False
+
 
     # here file name is not included to the path to prevent errors from filenames containing special characters
     unique_path_prefix = 'etl_output_' + etl_timestamp + '_' \

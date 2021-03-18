@@ -6,6 +6,7 @@ import json
 import boto3
 import base64
 import pymysql
+import datetime
 
 import sqlalchemy as sqlalchemy
 from queue import Queue
@@ -147,33 +148,15 @@ def get_db_connection(env):
     return pymysql.connect(
         host=connection_params['db_url'], user=connection_params['username'], password=connection_params['password'], db=connection_params['db_name'], charset=charset, cursorclass=cursor_type)
 
-def get_active_and_future_tables(env ,table):
+def get_active_and_future_tables(env ,table ,db_configs):
     #from common db
-    database_connection = get_db_connection(env)
-    try:
-        cursor_object = database_connection.cursor()
-
-        sql = "SELECT Value FROM settings WHERE setting = '%s'"%table
-        print(sql)
-        cursor_object.execute(sql)
-        result = cursor_object.fetchall()
-        print(result)
-        print(result[0]['Value'])
-        return result[0]['Value']
-    except Exception as e:
-        print(e)
-    finally:
-        database_connection.close()
-
-def check_table_is_empty(table,db_configs):
-    print('check if tables are empty')
-    # here not common db connection ,connection to ref dbs has to be taken here
-    #use the passed db config since it contains whch table
+    # database_connection = get_db_connection(env)
     database_connection = getNewConnection(db_configs['host'], db_configs['username'], db_configs['password'], db_configs['database'])
 
     try:
         cursor_object = database_connection.cursor()
-        sql = "SELECT * FROM " + table + " LIMIT 1"
+
+        sql = "SELECT TABLE_NAMES FROM PRICE_ZONE_MASTER_DATA WHERE TABLE_TYPE= '%s'"%table
         print(sql)
         cursor_object.execute(sql)
         result = cursor_object.fetchall()
@@ -184,44 +167,93 @@ def check_table_is_empty(table,db_configs):
     finally:
         database_connection.close()
 
+def check_table_is_empty(table, db_configs):
+    print('check if tables are empty')
+    # here not common db connection ,connection to ref dbs has to be taken here
+    #use the passed db config since it contains whch table
+    database_connection = getNewConnection(db_configs['host'], db_configs['username'], db_configs['password'], db_configs['database'])
+
+    try:
+        cursor_object = database_connection.cursor()
+        sql = "SELECT * FROM %s LIMIT 1"% table
+        print(sql)
+        cursor_object.execute(sql)
+        result = cursor_object.fetchall()
+        print(result)
+        return result
+    except Exception as e:
+        print(e)
+    finally:
+        database_connection.close()
+
+def update_table_effective_dates(db_configs):
+    print('check if tables are empty')
+
+    database_connection = getNewConnection(db_configs['host'], db_configs['username'], db_configs['password'],
+                                           db_configs['database'])
+
+    try:
+        cursor_object = database_connection.cursor()
+        print("comes")
+        date = datetime.datetime.now().date()
+        datenow = date.strftime('%Y-%m-%d %H:%M:%S')
+        sql = "UPDATE PRICE_ZONE_MASTER_DATA SET EFFECTIVE_DATE ='%s' WHERE TABLE_TYPE = '%s'"% (datenow, 'FUTURE')
+        print(sql)
+        cursor_object.execute(sql)
+        result = cursor_object.fetchall()
+
+        print(result)
+        return result
+    except Exception as e:
+        print(e)
+    finally:
+        database_connection.commit()
+        database_connection.close()
+
 def find_tables_to_load(partial_load ,env ,opco_id, intermediate_s3, partitioned_files_key):
     db_configs = _retrieve_conection_details(cluster_id)
 
     if partial_load:
-        active_table = get_active_and_future_tables(env, "ACTIVE_TABLE")
-        future_table = get_active_and_future_tables(env, "FUTURE_TABLE")
-        print(active_table, future_table)
+        active_table = get_active_and_future_tables(env, "ACTIVE" ,db_configs)
+        future_table = get_active_and_future_tables(env, "FUTURE" ,db_configs)
+
         #find active table from db
+        active_table_name = active_table[0][0]
+        future_table_name = future_table[0][0]
 
         #load data to active table
-        db_configs['table'] = active_table
+        db_configs['table'] = active_table_name
         load_data(db_configs, opco_id, intermediate_s3, partitioned_files_key)
 
         #check whether future table is empty
-        db_configs['table'] = future_table
-        future_table_query_result = check_table_is_empty(future_table, db_configs)
+        db_configs['table'] = future_table_name
+        future_table_query_result = check_table_is_empty(future_table_name, db_configs)
         print(future_table_query_result)
 
         if len(future_table_query_result) == 0:
             #future table empty stop
-            print('future table is empty , therefore stop the process')
+            print('partial load and the future table is empty , therefore stop the loading process')
         else:
             #load future table
-            db_configs['table'] = future_table
-            print('future table is not empty, therefore load the future table')
+            db_configs['table'] = future_table_name
+            print('partial load and the future table is not empty, therefore load the future table')
             load_data(db_configs, opco_id, intermediate_s3, partitioned_files_key)
 
     else:
-        future_table = get_active_and_future_tables(env, "FUTURE_TABLE")
-        future_table_query_result = check_table_is_empty(future_table, db_configs)
+        future_table = get_active_and_future_tables(env, "FUTURE", db_configs)
+        future_table_name = future_table[0][0]
+        future_table_query_result = check_table_is_empty(future_table_name, db_configs)
         if len(future_table_query_result) == 0:
-            print('future table empty, therefore load to future table ')
+            print('full load and future table empty, therefore load to future table ')
             #load future table
-            db_configs['table'] = future_table
+            db_configs['table'] = future_table_name
             load_data(db_configs, opco_id, intermediate_s3, partitioned_files_key)
+
+            # update master db with future table effective date
+            update_table_effective_dates(db_configs)
         else:
-            print('future table is non empty')
-            raise Exception("Sorry, future table is not empty")
+            print('full load and future table is non empty')
+            raise Exception("full load and future table is not empty")
 
 
 def list_files_in_s3(bucketname, prefix):
