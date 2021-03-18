@@ -112,7 +112,7 @@ def lambda_handler(event, context):
         "backup_bucket": 'cp-ref-etl-data-backup-storage-{}'.format(env.lower()),
         "backup_file_path": archiving_path,
         "intermediate_directory_path": folder_key,
-        "env": env,
+        "ENV": env,
         "file_type": file_extension
     }
 
