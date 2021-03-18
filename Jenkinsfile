@@ -166,7 +166,7 @@ def deployIntoEnv(env, bucket, s3Path, s3key, region) {
             region, "CP-REF-etl-price-zone-transform-job-${env}",
             "${s3Path}/transform_spark_job.py")
 
-    updateLambda(bucket, region, "cp-discount-fetch-file-list-${env}", "${s3key}/FetchFileListLambda.zip")
+    updateLambda(bucket, region, "CP-REF-etl-price-zone-opco-files-fetch-${env}", "${s3key}/FetchFileListLambda.zip")
     updateLambda(bucket, region, "CP-REF-etl-price-zone-Analyse-Load-or-wait-${env}", "${s3key}/AnalyzeWaitOrLoadClusterLambda.zip")
     updateLambda(bucket, region, "CP-REF-etl-price-zone-job-status-analyzer-${env}", "${s3key}/TakeBackupDecisionLambda.zip")
 
