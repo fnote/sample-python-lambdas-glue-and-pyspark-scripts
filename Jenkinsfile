@@ -138,8 +138,8 @@ def copyFileIntoEnv(s3Path) {
     copyToS3("./src/price_zone/load_job.py", s3Path)
     copyToS3("./src/price_zone/data_backup_job.py", s3Path)
     copyToS3("./src/FetchFileListLambda/FetchFileListLambda.zip", s3Path)
-    copyToS3("./src/FetchFileListLambda/AnalyzeWaitOrLoadClusterLambda.zip", s3Path)
-    copyToS3("./src/FetchFileListLambda/TakeBackupDecisionLambda.zip", s3Path)
+    copyToS3("./src/AnalyzeWaitOrLoadClusterLambda/AnalyzeWaitOrLoadClusterLambda.zip", s3Path)
+    copyToS3("./src/TakeBackupDecisionLambda/TakeBackupDecisionLambda.zip", s3Path)
 
 //    PA
     copyToS3("./src/pa/s3_trigger_lambda.py.zip", paS3Path)
