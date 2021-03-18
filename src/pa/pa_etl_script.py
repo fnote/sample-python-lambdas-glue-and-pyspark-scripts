@@ -36,10 +36,10 @@ def get_values_from_ssm(keys):
 
 
 def get_common_db_connection_details(env):
-    db_url = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/DB_URL'
-    password = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/PASSWORD'
-    username = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/USERNAME'
-    db_name = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/DB_NAME'
+    db_url = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/COMMON/DB_URL'
+    password = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/COMMON/PASSWORD'
+    username = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/COMMON/USERNAME'
+    db_name = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/COMMON/DB_NAME'
     ssm_keys = [db_url, db_name, username, password]
     ssm_key_values = get_values_from_ssm(ssm_keys)
     print(ssm_key_values)

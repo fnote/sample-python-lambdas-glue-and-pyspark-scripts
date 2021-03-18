@@ -127,30 +127,29 @@ def get_values_from_ssm(keys):
 
     return parameter_dictionary
 
-def get_connection_details(env):
-    db_url = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/DB_URL'
-    password = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/PASSWORD'
-    username = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/USERNAME'
-    db_name = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/DB_NAME'
-    print(db_url, password, username, db_name)
-    ssm_keys = [db_url, password, username, db_name]
-    ssm_key_values = get_values_from_ssm(ssm_keys)
-    print(ssm_key_values)
-    return {
-        "db_url": ssm_key_values[db_url],
-        "password": ssm_key_values[password],
-        "username": ssm_key_values[username],
-        "db_name": ssm_key_values[db_name]
-    }
+# def get_connection_details(env):
+#     db_url = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/COMMON/DB_URL'
+#     password = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/COMMON/PASSWORD'
+#     username = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/COMMON/USERNAME'
+#     db_name = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/COMMON/DB_NAME'
+#     print(db_url, password, username, db_name)
+#     ssm_keys = [db_url, password, username, db_name]
+#     ssm_key_values = get_values_from_ssm(ssm_keys)
+#     print(ssm_key_values)
+#     return {
+#         "db_url": ssm_key_values[db_url],
+#         "password": ssm_key_values[password],
+#         "username": ssm_key_values[username],
+#         "db_name": ssm_key_values[db_name]
+#     }
 
-def get_db_connection(env):
-    connection_params = get_connection_details(env)
-    return pymysql.connect(
-        host=connection_params['db_url'], user=connection_params['username'], password=connection_params['password'], db=connection_params['db_name'], charset=charset, cursorclass=cursor_type)
+# def get_db_connection(env):
+#     connection_params = get_connection_details(env)
+#     return pymysql.connect(
+#         host=connection_params['db_url'], user=connection_params['username'], password=connection_params['password'], db=connection_params['db_name'], charset=charset, cursorclass=cursor_type)
 
 def get_active_and_future_tables(env ,table ,db_configs):
     #from common db
-    # database_connection = get_db_connection(env)
     database_connection = getNewConnection(db_configs['host'], db_configs['username'], db_configs['password'], db_configs['database'])
 
     try:

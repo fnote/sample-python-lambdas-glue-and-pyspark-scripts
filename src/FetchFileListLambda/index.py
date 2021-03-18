@@ -48,10 +48,10 @@ def get_values_from_ssm(keys):
     return parameter_dictionary
 
 def get_connection_details(env):
-    db_url = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/DB_URL'
-    password = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/PASSWORD'
-    username = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/USERNAME'
-    db_name = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/DB_NAME'
+    db_url = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/COMMON/DB_URL'
+    password = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/COMMON/PASSWORD'
+    username = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/COMMON/USERNAME'
+    db_name = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/COMMON/DB_NAME'
     print(db_url, password, username, db_name)
     ssm_keys = [db_url, password, username, db_name]
     ssm_key_values = get_values_from_ssm(ssm_keys)
