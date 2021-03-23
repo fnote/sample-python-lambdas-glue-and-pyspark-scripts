@@ -66,7 +66,7 @@ def load_data(dbconfigs, opco_id, bucketname, partitioned_files_path):
 
     threadErrors = []
     threads = []
-    for i in range(0, 4):
+    for i in range(0, 1):
         threads.append(threading.Thread(target=_execute_load,
                                         args=(pool, queue, dbconfigs['database'], dbconfigs['table'], threadErrors)))
 
@@ -165,7 +165,7 @@ def check_table_is_empty(table, db_configs):
     finally:
         database_connection.close()
 
-def update_table_effective_dates(db_configs):
+def update_table_effective_dates(db_configs, effective_date):
     print('check if tables are empty')
 
     database_connection = getNewConnection(db_configs['host'], db_configs['username'], db_configs['password'],
@@ -173,12 +173,10 @@ def update_table_effective_dates(db_configs):
 
     try:
         cursor_object = database_connection.cursor()
-        print("comes")
-        date = datetime.datetime.now().date()
-        datenow = date.strftime('%Y-%m-%d %H:%M:%S')
-        sql = "UPDATE PRICE_ZONE_MASTER_DATA SET EFFECTIVE_DATE ='%s' WHERE TABLE_TYPE = '%s'"% (datenow, 'FUTURE')
-        print(sql)
-        cursor_object.execute(sql)
+        datenow = effective_date.strftime('%Y-%m-%d %H:%M:%S')
+        update_sql = "UPDATE PRICE_ZONE_MASTER_DATA SET EFFECTIVE_DATE ='%s' WHERE TABLE_TYPE = '%s'"% (datenow, 'FUTURE')
+        print(update_sql)
+        cursor_object.execute(update_sql)
         result = cursor_object.fetchall()
 
         print(result)
@@ -187,6 +185,23 @@ def update_table_effective_dates(db_configs):
         print(e)
     finally:
         database_connection.commit()
+        database_connection.close()
+
+def get_effective_date(table, db_configs):
+
+    database_connection = getNewConnection(db_configs['host'], db_configs['username'], db_configs['password'], db_configs['database'])
+    try:
+        cursor_object = database_connection.cursor()
+        sql = "SELECT EFFECTIVE_DATE FROM %s LIMIT 1"% table
+        print(sql)
+        cursor_object.execute(sql)
+        result = cursor_object.fetchall()
+        print(result)
+        print(result[0][0])
+        return result
+    except Exception as e:
+        print(e)
+    finally:
         database_connection.close()
 
 def str_to_bool(s):
@@ -230,6 +245,7 @@ def find_tables_to_load(partial_load ,env ,opco_id, intermediate_s3, partitioned
     else:
         future_table = get_active_and_future_tables(env, "FUTURE", db_configs)
         future_table_name = future_table[0][0]
+
         future_table_query_result = check_table_is_empty(future_table_name, db_configs)
         if len(future_table_query_result) == 0:
             print('full load and future table empty, therefore load to future table ')
@@ -238,9 +254,12 @@ def find_tables_to_load(partial_load ,env ,opco_id, intermediate_s3, partitioned
             load_data(db_configs, opco_id, intermediate_s3, partitioned_files_key)
 
             # update master db with future table effective date
-            update_table_effective_dates(db_configs)
+            effective_date_result  = get_effective_date(future_table_name, db_configs)
+            update_table_effective_dates(db_configs, effective_date_result[0][0])
         else:
-            print('full load and future table is non empty')
+            #soft valida -> we just print skip that opco return opco id metadataa
+            #hard ->error
+            #proceeed -> load irrespective of
             raise Exception("full load and future table is not empty")
 
 

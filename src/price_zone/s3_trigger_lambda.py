@@ -76,12 +76,17 @@ def lambda_handler(event, context):
     partial_load_file_size_upper_bound = ssm_key_set_values[file_size_upper_bound_key]
 
     #if partial load prefix is present in the file name or file size is less than the min size of a full export
-    if partial_load or int(partial_load_file_size_upper_bound) > input_file_size_in_gb:
+
+    # ctt itt big file
+    #small file but not ctt itt
+    if partial_load:
         partial_load = True
     elif full_load:
         partial_load = False
-    else:
+    elif int(partial_load_file_size_upper_bound) < input_file_size_in_gb:
         partial_load = False
+    else:
+        partial_load = True
 
 
     # here file name is not included to the path to prevent errors from filenames containing special characters
@@ -121,8 +126,7 @@ def lambda_handler(event, context):
     archiving_path = 'price_zone/' + str(etl_time_object.year) + '/' + etl_time_object.strftime("%B") + '/' + str(
         etl_time_object.day) + '/' + custom_path + '/'
 
-    file_name_split = s3_object_key.split(".")
-    file_extension = file_name_split[-1]
+    file_extension = s3_object_key.split(".")[-1]
 
     params = {
         "s3_path": s3_path,

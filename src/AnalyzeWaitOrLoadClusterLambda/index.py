@@ -19,6 +19,7 @@ OPCO_LIST_KEY = 'opcos_cluster_{}'
 CLUSTER_LOAD_JOB_COUNT_QUERY = 'SELECT MAX_LOAD_JOB_COUNT, RUNNING_LOAD_JOB_COUNT FROM PRICE_ZONE_CLUSTER_LOAD_JOB_SETTINGS WHERE CLUSTER_ID = {}'
 CLUSTER_JOB_COUNT_UPDATE_QUERY = 'UPDATE PRICE_ZONE_CLUSTER_LOAD_JOB_SETTINGS SET RUNNING_LOAD_JOB_COUNT = RUNNING_LOAD_JOB_COUNT + {} WHERE CLUSTER_ID  = {}'
 JOB_COUNT_AFTER_UPDATE_QUERY = 'SELECT RUNNING_LOAD_JOB_COUNT FROM PRICE_ZONE_CLUSTER_LOAD_JOB_SETTINGS WHERE CLUSTER_ID={}'
+CLUSTER_LOAD_JOB_COUNT_UPDATE_QUERY = 'UPDATE PRICE_ZONE_CLUSTER_LOAD_JOB_SETTINGS SET RUNNING_LOAD_JOB_COUNT = RUNNING_LOAD_JOB_COUNT + {} WHERE CLUSTER_ID  = {}'
 
 
 def get_values_from_ssm(keys):
@@ -60,15 +61,10 @@ def get_db_connection(env):
 
 
 def lambda_handler(event, context):
-    # cluster = os.environ[CLUSTER_ENV_VAR_NAME]
-    # opco_list_for_cluster = event[OPCO_LIST_KEY.format(cluster)]
-    # print(opco_list_for_cluster)
-    # print(opco_list_for_cluster[0])
-    # print(opco_list_for_cluster[1])
-    # print(opco_list_for_cluster[2])
-    # print(opco_list_for_cluster[3])
+
     opco_list_for_cluster = event['Input']
     cluster = int(event['cluster'])
+
 
     if len(opco_list_for_cluster) == 0:
         return {'nextStep': 'terminate'}
@@ -86,17 +82,33 @@ def lambda_handler(event, context):
             print('Available count: {}'.format(available_count))
             print('Currently running count: {}'.format(running_count))
 
+            max_load_job_concurrency = 2
+
             if available_count == 0:
+                cursor_object.execute(CLUSTER_LOAD_JOB_COUNT_UPDATE_QUERY.format(0, cluster))
+                database_connection.commit()
                 return {'nextStep': 'Wait'}
 
             update_count = 0
 
-            if available_count >= required_job_count:
+            #more jobs available
+            if available_count >= max_load_job_concurrency:
+                #if no of opcos less than max update by number opco
+                if required_job_count < max_load_job_concurrency:
+                    update_count = required_job_count
+                else:
+                    #else update by max count
+                    update_count = max_load_job_concurrency
+            elif available_count == required_job_count:
                 update_count = required_job_count
-            else:
-                update_count = available_count
 
-            cursor_object.execute(CLUSTER_JOB_COUNT_UPDATE_QUERY.format(update_count, cluster))
+            if update_count == 0:
+                cursor_object.execute(CLUSTER_LOAD_JOB_COUNT_UPDATE_QUERY.format(0, cluster))
+                database_connection.commit()
+                return {'nextStep': 'wait'}
+
+            #update table
+            cursor_object.execute(CLUSTER_LOAD_JOB_COUNT_UPDATE_QUERY.format(update_count, cluster))
             database_connection.commit()
 
             cursor_object.execute(JOB_COUNT_AFTER_UPDATE_QUERY.format(cluster))

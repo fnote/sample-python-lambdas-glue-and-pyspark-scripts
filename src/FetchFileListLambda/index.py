@@ -155,11 +155,11 @@ def lambda_handler(event, context):
 
     print(list(opco_id_set))
     opco_list = list(opco_id_set)
-    joined_string = ",".join(opco_list)
-    opco_cluster_mappings = get_opco_cluster_mapping(joined_string, environment)
-    print(opco_cluster_mappings)
+    joined_opco_list_string = ",".join(opco_list)
+
+    opco_cluster_mappings = get_opco_cluster_mapping(joined_opco_list_string, environment)
+
     separated_opcos = separate_opcos_by_cluster(opco_cluster_mappings, active_opco_id_list)
-    print(separated_opcos)
 
     separated_opco_result = return_results(separated_opcos)
 
