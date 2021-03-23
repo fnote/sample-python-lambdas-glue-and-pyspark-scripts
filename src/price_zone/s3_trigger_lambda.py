@@ -36,6 +36,11 @@ def is_partial_load(file_name, prefixes_str):
             return True
     return False
 
+def is_full_load(file_name, prefixes_str):
+    if file_name.startswith(prefixes_str):
+            return True
+    return False
+
 
 def lambda_handler(event, context):
     client_step_function = boto3.client('stepfunctions')
@@ -50,8 +55,12 @@ def lambda_handler(event, context):
     s3_path = "s3://" + s3['bucket']['name'] + "/" + s3_object_key
     etl_timestamp = str(int(time.time()))
     partial_load_prefixes_key = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/PARTIAL_LOAD_PREFIXES'
-    partial_load_prefixes_val = get_values_from_ssm([partial_load_prefixes_key])
-    partial_load = is_partial_load(s3_object_key, partial_load_prefixes_val[partial_load_prefixes_key])
+    full_load_prefixes_key = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/FULL_LOAD_PREFIXES'
+
+    ssm_key_set = [ partial_load_prefixes_key, full_load_prefixes_key]
+    prefixes_values = get_values_from_ssm(ssm_key_set)
+    partial_load = is_partial_load(s3_object_key, prefixes_values[partial_load_prefixes_key])
+    full_load = is_full_load(s3_object_key, prefixes_values[full_load_prefixes_key])
 
     size = boto3.resource('s3').Bucket(s3['bucket']['name']).Object(s3_object_key).content_length
     logger.info('Input file size in GBs:' + str(size))
@@ -69,6 +78,8 @@ def lambda_handler(event, context):
     #if partial load prefix is present in the file name or file size is less than the min size of a full export
     if partial_load or int(partial_load_file_size_upper_bound) > input_file_size_in_gb:
         partial_load = True
+    elif full_load:
+        partial_load = False
     else:
         partial_load = False
 

@@ -78,7 +78,6 @@ sparkDF = sparkDF.withColumn('effective_date', to_timestamp(sparkDF['eff_from_dt
 invalid_opcos.extend(validate_date_time_field(sparkDF, 'effective_date'))
 
 validated_records = remove_records_of_given_opcos(sparkDF, invalid_opcos)
-opco_ids_in_file = validated_records['opco_id'].unique()
 
 response = lambda_client.invoke(FunctionName=metadata_lambda, Payload=json.dumps({
     "intermediate_s3_name": intermediate_s3_name,
@@ -86,7 +85,6 @@ response = lambda_client.invoke(FunctionName=metadata_lambda, Payload=json.dumps
     "failed_opcos": invalid_opcos,
     "received_records_count": sparkDF.count(),
     "received_valid_records_count": validated_records.count(),
-    "opco_ids_in_file": opco_ids_in_file,
 }))
 
 if validated_records.count() == 0:
