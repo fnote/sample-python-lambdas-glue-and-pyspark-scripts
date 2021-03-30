@@ -6,7 +6,7 @@ import os
 
 OPCO_CLUSTER_MAPPINGS_QUERY = 'SELECT * FROM OPCO_CLUSTER_MAPPINGS WHERE BUSINESS_UNIT_NUMBER IN ({})'
 # file name , etl, total bbusiness unit count , success count, failed count , file type ,  failed opco ids, success opco ids , status, record count ,start time ,end time,partial load
-EXECUTION_STATUS_UPDATE_QUERY = 'INSERT INTO PRICE_ZONE_LOAD_JOB_EXECUTION_STATUS VALUES ("{}", {}, {}, 0, 0 ,"{}",0,0,"{}",0,{},0,{})'
+EXECUTION_STATUS_UPDATE_QUERY = 'INSERT INTO PRICE_ZONE_LOAD_JOB_EXECUTION_STATUS VALUES ("{}", {}, {}, 0, 0 ,"{}",0,0,"{}",0,{},{},{})'
 CLUSTER_ID_COLUMN_NAME = 'CLUSTER_ID'
 OPCO_ID_COLUMN_NAME = 'BUSINESS_UNIT_NUMBER'
 ENVIRONMENT_PARAM_NAME = 'ENV'
@@ -19,13 +19,13 @@ charset = 'utf8'
 cursor_type = pymysql.cursors.DictCursor
 
 
-def update_job_execution_status(env, file_name, etl_timestamp, opco_count, file_type, status, start_time, partial_load):
+def update_job_execution_status(env, file_name, etl_timestamp, opco_count, file_type, status, start_time, end_time, partial_load):
     print('update job execution status')
     database_connection = get_db_connection(env)
     try:
         cursor_object = database_connection.cursor()
-        print(EXECUTION_STATUS_UPDATE_QUERY.format(file_name, etl_timestamp, opco_count, file_type, status,start_time, partial_load))
-        cursor_object.execute(EXECUTION_STATUS_UPDATE_QUERY.format(file_name, etl_timestamp, opco_count, file_type, status, start_time, partial_load))
+        print(EXECUTION_STATUS_UPDATE_QUERY.format(file_name, etl_timestamp, opco_count, file_type, status,start_time, end_time, partial_load))
+        cursor_object.execute(EXECUTION_STATUS_UPDATE_QUERY.format(file_name, etl_timestamp, opco_count, file_type, status, start_time, end_time, partial_load))
         result = cursor_object.fetchall()
         print(result)
         database_connection.commit()
@@ -176,7 +176,7 @@ def lambda_handler(event, context):
     status = "IN PROGRESS"
 
     date_time_now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    update_job_execution_status(environment, file_name, etl_timestamp, valid_opco_count, file_type, status , date_time_now, partial_load)
+    update_job_execution_status(environment, file_name, etl_timestamp, valid_opco_count, file_type, status , date_time_now,date_time_now, partial_load)
 
     return separated_opco_result
 
