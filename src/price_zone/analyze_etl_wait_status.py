@@ -3,10 +3,17 @@ import os
 from collections import Counter
 
 import boto3
+from botocore.config import Config
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
+config = Config(
+   retries={
+      'max_attempts': 5,
+      'mode': 'adaptive'
+   }
+)
 
 def get_value_from_ssm(key):
     client_ssm = boto3.client('ssm')
@@ -18,7 +25,7 @@ def get_value_from_ssm(key):
 def lambda_handler(event, context):
     logger.info("Received event:")
     logger.info(event)
-    step_function = boto3.client('stepfunctions')
+    step_function = boto3.client('stepfunctions', config=config)
 
     step_functionArn = event['stepFunctionArn']
     step_function_execution_id = event['stepFunctionExecutionId']

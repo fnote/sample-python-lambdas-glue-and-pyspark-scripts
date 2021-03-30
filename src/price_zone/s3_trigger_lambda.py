@@ -29,10 +29,12 @@ def get_values_from_ssm(keys):
     return parameter_dictionary
 
 
-def is_partial_or_full_load(file_name, prefixes_str):
+
+def is_partial_or_full_load(file_name, prefixes_str ,file_prefix):
     prefix_list = prefixes_str.split(",")
     for prefix in prefix_list:
         if file_name.startswith(prefix):
+            file_prefix = prefix
             return True
     return False
 
@@ -52,10 +54,11 @@ def lambda_handler(event, context):
     partial_load_prefixes_key = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/PARTIAL_LOAD_PREFIXES'
     full_load_prefixes_key = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/FULL_LOAD_PREFIXES'
 
+    file_prefix = ''
     ssm_key_set = [ partial_load_prefixes_key, full_load_prefixes_key]
     prefixes_values = get_values_from_ssm(ssm_key_set)
     partial_load = is_partial_or_full_load(s3_object_key, prefixes_values[partial_load_prefixes_key])
-    full_load = is_partial_or_full_load(s3_object_key, prefixes_values[full_load_prefixes_key])
+    full_load = is_partial_or_full_load(s3_object_key, prefixes_values[full_load_prefixes_key],file_prefix)
 
     size = boto3.resource('s3').Bucket(s3['bucket']['name']).Object(s3_object_key).content_length
     logger.info('Input file size in GBs:' + str(size))
@@ -141,7 +144,8 @@ def lambda_handler(event, context):
         "backup_file_path": archiving_path,
         "intermediate_directory_path": folder_key,
         "ENV": env,
-        "file_type": file_extension
+        "file_type": file_extension,
+        "file_prefix": file_prefix
     }
 
     logger.info("Prize Zone data file Path: {}".format(s3_path))

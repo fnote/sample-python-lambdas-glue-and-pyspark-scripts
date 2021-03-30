@@ -71,6 +71,8 @@ def lambda_handler(event, context):
         }
     }
 
+    print(additional_info)
+    #update the status table with total record count
     headers = {'host': host, 'Content-Type': 'application/json'}
     response = requests.post(url, json=data, headers=headers)
     logger.info('Response: %s' % response.json())

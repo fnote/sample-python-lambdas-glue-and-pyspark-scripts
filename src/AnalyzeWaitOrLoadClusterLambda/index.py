@@ -15,6 +15,7 @@ cursor_type = pymysql.cursors.DictCursor
 CLUSTER_ENV_VAR_NAME = 'CLUSTER'
 MAX_LOAD_JOB_COUNT_KEY = 'MAX_LOAD_JOB_COUNT'
 RUNNING_LOAD_JOB_COUNT_KEY = 'RUNNING_LOAD_JOB_COUNT'
+LOAD_JOB_MAXIMUM_CONCURRENCY_SSM_KEY = '/CP/{}/ETL/REF_PRICE/PRICE_ZONE/LOAD_JOB/CLUSTER_{}/MAX_CONCURRENCY'
 OPCO_LIST_KEY = 'opcos_cluster_{}'
 CLUSTER_LOAD_JOB_COUNT_QUERY = 'SELECT MAX_LOAD_JOB_COUNT, RUNNING_LOAD_JOB_COUNT FROM PRICE_ZONE_CLUSTER_LOAD_JOB_SETTINGS WHERE CLUSTER_ID = {}'
 CLUSTER_JOB_COUNT_UPDATE_QUERY = 'UPDATE PRICE_ZONE_CLUSTER_LOAD_JOB_SETTINGS SET RUNNING_LOAD_JOB_COUNT = RUNNING_LOAD_JOB_COUNT + {} WHERE CLUSTER_ID  = {}'
@@ -59,6 +60,9 @@ def get_db_connection(env):
     return pymysql.connect(
         host=connection_params['db_url'], user=connection_params['username'], password=connection_params['password'], db=connection_params['db_name'], charset=charset, cursorclass=cursor_type)
 
+def get_value_from_ssm(key):
+    params_response = get_values_from_ssm([key])
+    return params_response[key]
 
 def lambda_handler(event, context):
 
@@ -82,7 +86,9 @@ def lambda_handler(event, context):
             print('Available count: {}'.format(available_count))
             print('Currently running count: {}'.format(running_count))
 
-            max_load_job_concurrency = 2
+            max_load_job_concurrency = int(
+                get_value_from_ssm(LOAD_JOB_MAXIMUM_CONCURRENCY_SSM_KEY.format("DEV", cluster)))
+            # max_load_job_concurrency = 2
 
             if available_count == 0:
                 cursor_object.execute(CLUSTER_LOAD_JOB_COUNT_UPDATE_QUERY.format(0, cluster))

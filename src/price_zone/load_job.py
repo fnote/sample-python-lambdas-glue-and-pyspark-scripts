@@ -235,7 +235,8 @@ def find_tables_to_load(partial_load ,env ,opco_id, intermediate_s3, partitioned
 
         if len(future_table_query_result) == 0:
             #future table empty stop
-            print('partial load and the future table is empty , therefore stop the loading process')
+            #check if full export is in progress if so load to future too
+            print('partial load and the future table is empty and no full export is in progress, therefore stop the loading process')
         else:
             #load future table
             db_configs['table'] = future_table_name
