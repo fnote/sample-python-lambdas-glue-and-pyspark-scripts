@@ -343,7 +343,7 @@ def __create_db_engine(credentials):
 
 
 if __name__ == "__main__":
-    args = getResolvedOptions(sys.argv, ['opco_id','filename', 'cluster', 'partitioned_files_key', 'etl_timestamp', 'partial_load', 'ENV', 'intermediate_s3_name', 'intermediate_directory_path', 'METADATA_LAMBDA'])
+    args = getResolvedOptions(sys.argv, ['opco_id', 'cluster', 'partitioned_files_key', 'etl_timestamp', 'partial_load', 'ENV', 'intermediate_s3_name', 'intermediate_directory_path', 'METADATA_LAMBDA'])
     opco_id = args['opco_id']  # opco_id validation
     partitioned_files_key = args['partitioned_files_key']
     intermediate_s3 = args['intermediate_s3_name']
@@ -354,7 +354,6 @@ if __name__ == "__main__":
     environment = args['ENV']
     cluster_id = args['cluster']
     etl_timestamp = args['etl_timestamp']
-    filename = args['filename']
 
     print(
         "Started data loading job for Opco: %s, file path: %s/%s\n" % (opco_id, intermediate_s3, partitioned_files_key))
