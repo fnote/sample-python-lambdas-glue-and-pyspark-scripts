@@ -17,9 +17,46 @@ lambda_client = boto3.client('lambda')
 
 query_for_tables = 'SELECT * FROM settings WHERE setting = (%s)'
 glue_connection_name = 'cp-ref-etl-common-connection-{}-cluster-{}'
+JOB_EXECUTION_STATUS_FETCH_QUERY = 'SELECT STATUS FROM PRICE_ZONE_LOAD_JOB_EXECUTION_STATUS WHERE PARTIAL_LOAD={} AND STATUS="{}" FOR UPDATE'
 
 charset = 'utf8'
 cursor_type = pymysql.cursors.DictCursor
+
+def get_values_from_ssm(keys):
+    client_ssm = boto3.client('ssm')
+    response = client_ssm.get_parameters(Names=keys, WithDecryption=True)
+    # print(response)
+    parameters = response['Parameters']
+    invalid_parameters = response['InvalidParameters']
+    if invalid_parameters:
+        raise KeyError('Found invalid ssm parameter keys:' + ','.join(invalid_parameters))
+    parameter_dictionary = {}
+    for parameter in parameters:
+        parameter_dictionary[parameter['Name']] = parameter['Value']
+    print(parameter_dictionary)
+    return parameter_dictionary
+
+
+def get_common_db_connection_details(env):
+    db_url = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/COMMON/DB_URL'
+    password = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/COMMON/PASSWORD'
+    username = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/COMMON/USERNAME'
+    db_name = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/COMMON/DB_NAME'
+    ssm_keys = [db_url, db_name, username, password]
+    ssm_key_values = get_values_from_ssm(ssm_keys)
+    print(ssm_key_values)
+    return {
+        "db_endpoint": ssm_key_values[db_url],
+        "password": ssm_key_values[password],
+        "username": ssm_key_values[username],
+        "db_name": ssm_key_values[db_name]
+    }
+
+
+def get_common_db_connection(env):
+    connection_params = get_common_db_connection_details(env)
+    return pymysql.connect(
+        host=connection_params['db_endpoint'], user=connection_params['username'], password=connection_params['password'], db=connection_params['db_name'], charset=charset, cursorclass=cursor_type)
 
 def _execute_load(pool, queue, database, table, threadErrors):
     while not queue.empty():
@@ -236,7 +273,17 @@ def find_tables_to_load(partial_load ,env ,opco_id, intermediate_s3, partitioned
         if len(future_table_query_result) == 0:
             #future table empty stop
             #check if full export is in progress if so load to future too
-            print('partial load and the future table is empty and no full export is in progress, therefore stop the loading process')
+            database_connection = get_common_db_connection(env)
+            cursor_object = database_connection.cursor()
+
+            cursor_object.execute(JOB_EXECUTION_STATUS_FETCH_QUERY.format(0, "IN PROGRESS"))
+            result = cursor_object.fetchall()
+            if len(result) == 0:
+                print('partial load and the future table is empty and no full export is in progress, therefore stop the loading process')
+            else:
+                # if full export is in progress load the partial export also to future table
+                db_configs['table'] = future_table_name
+                load_data(db_configs, opco_id, intermediate_s3, partitioned_files_key)
         else:
             #load future table
             db_configs['table'] = future_table_name
@@ -296,7 +343,7 @@ def __create_db_engine(credentials):
 
 
 if __name__ == "__main__":
-    args = getResolvedOptions(sys.argv, ['opco_id', 'cluster', 'partitioned_files_key', 'etl_timestamp', 'partial_load', 'ENV', 'intermediate_s3_name', 'intermediate_directory_path', 'METADATA_LAMBDA'])
+    args = getResolvedOptions(sys.argv, ['opco_id','filename', 'cluster', 'partitioned_files_key', 'etl_timestamp', 'partial_load', 'ENV', 'intermediate_s3_name', 'intermediate_directory_path', 'METADATA_LAMBDA'])
     opco_id = args['opco_id']  # opco_id validation
     partitioned_files_key = args['partitioned_files_key']
     intermediate_s3 = args['intermediate_s3_name']
@@ -306,6 +353,8 @@ if __name__ == "__main__":
     partial_load = args['partial_load']
     environment = args['ENV']
     cluster_id = args['cluster']
+    etl_timestamp = args['etl_timestamp']
+    filename = args['filename']
 
     print(
         "Started data loading job for Opco: %s, file path: %s/%s\n" % (opco_id, intermediate_s3, partitioned_files_key))
