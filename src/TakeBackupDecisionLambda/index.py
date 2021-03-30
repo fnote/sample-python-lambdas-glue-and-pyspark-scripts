@@ -117,10 +117,12 @@ def lambda_handler(event, context):
 
         # read success load job count from input and write to DB
         # add file type , success opco ids failed opco ids status record count start time and end time
-        status = "COMPLETE"
+        successful_opcos_joined_string = ",".join(successful_opcos)
+        failed_opcos_joined_string =  ",".join(failed_opco_list)
+        status = "COMPLETED"
         date_time_now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         cursor_object.execute(JOB_EXECUTION_STATUS_UPDATE_QUERY.format(successful_opco_count + success_job_count,
-                                                                       failed_opco_count + failed_job_count, failed_opco_list, successful_opcos, date_time_now, status, file_name,
+                                                                       failed_opco_count + failed_job_count, failed_opcos_joined_string, successful_opcos_joined_string, date_time_now, status, file_name,
                                                                        etl_timestamp))
 
         # fetch the load job count
