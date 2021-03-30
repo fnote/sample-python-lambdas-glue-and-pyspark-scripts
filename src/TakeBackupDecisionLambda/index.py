@@ -1,5 +1,6 @@
 import boto3
 import pymysql
+from datetime import datetime
 
 ENV_PARAM_NAME = 'ENV'
 CLUSTER_PARAM_NAME = 'cluster'
@@ -8,7 +9,7 @@ FILE_NAME_PARAM_NAME = 's3_object_key'
 ETL_TIMESTAMP_PARAM_NAME = 'etl_timestamp'
 ALLOCATED_JOB_COUNT_PARAM_NAME = 'allocated_job_count'
 JOB_EXECUTION_STATUS_FETCH_QUERY = 'SELECT * FROM PRICE_ZONE_LOAD_JOB_EXECUTION_STATUS WHERE FILE_NAME="{}" AND ETL_TIMESTAMP={} FOR UPDATE'
-JOB_EXECUTION_STATUS_UPDATE_QUERY = 'UPDATE PRICE_ZONE_LOAD_JOB_EXECUTION_STATUS SET SUCCESSFUL_BUSINESS_UNITS = {}, FAILED_BUSINESS_UNITS = {}, FAILED_OPCO_IDS ={} , SUCCESSFUL_OPCO_IDS ={}, STATUS ={} WHERE FILE_NAME="{}" AND ETL_TIMESTAMP={}'
+JOB_EXECUTION_STATUS_UPDATE_QUERY = 'UPDATE PRICE_ZONE_LOAD_JOB_EXECUTION_STATUS SET SUCCESSFUL_BUSINESS_UNITS = {}, FAILED_BUSINESS_UNITS = {}, FAILED_OPCO_IDS ="{}" , SUCCESSFUL_OPCO_IDS ="{}", END_TIME = {}, STATUS ="{}" WHERE FILE_NAME="{}" AND ETL_TIMESTAMP={}'
 CLUSTER_LOAD_JOB_COUNT_FETCH_QUERY = 'SELECT RUNNING_LOAD_JOB_COUNT FROM PRICE_ZONE_CLUSTER_LOAD_JOB_SETTINGS WHERE CLUSTER_ID = {} FOR UPDATE'
 CLUSTER_LOAD_JOB_COUNT_UPDATE_QUERY = 'UPDATE PRICE_ZONE_CLUSTER_LOAD_JOB_SETTINGS SET RUNNING_LOAD_JOB_COUNT = RUNNING_LOAD_JOB_COUNT - {} WHERE CLUSTER_ID  = {}'
 TOTAL_BUSINESS_UNITS_COLUMN_NAME = 'TOTAL_BUSINESS_UNITS'
@@ -67,7 +68,7 @@ def get_job_count_by_status(job_statuses, cluster_opco_count ,successful_opco_li
                     success_count = success_count + 1
                     successful_opco_list.append(opco_id)
 
-    return {'success_count': success_count, 'failure_count': cluster_opco_count - success_count , 'successful_opco_count': successful_opco_list}
+    return {'success_count': success_count, 'failure_count': cluster_opco_count - success_count , 'successful_opco_list': successful_opco_list}
 
 def lambda_handler(event, context):
     #read file type also from here
@@ -117,8 +118,9 @@ def lambda_handler(event, context):
         # read success load job count from input and write to DB
         # add file type , success opco ids failed opco ids status record count start time and end time
         status = "COMPLETE"
+        date_time_now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         cursor_object.execute(JOB_EXECUTION_STATUS_UPDATE_QUERY.format(successful_opco_count + success_job_count,
-                                                                       failed_opco_count + failed_job_count, failed_opco_list, successful_opcos, status, file_name,
+                                                                       failed_opco_count + failed_job_count, failed_opco_list, successful_opcos, date_time_now, status, file_name,
                                                                        etl_timestamp))
 
         # fetch the load job count
@@ -461,5 +463,5 @@ input = {
   ]
 }
 
-g = lambda_handler(input,{})
-print(g)
+# g = lambda_handler(input,{})
+# print(g)

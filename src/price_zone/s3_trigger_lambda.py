@@ -57,8 +57,8 @@ def lambda_handler(event, context):
     file_prefix = ''
     ssm_key_set = [ partial_load_prefixes_key, full_load_prefixes_key]
     prefixes_values = get_values_from_ssm(ssm_key_set)
-    partial_load = is_partial_or_full_load(s3_object_key, prefixes_values[partial_load_prefixes_key])
-    full_load = is_partial_or_full_load(s3_object_key, prefixes_values[full_load_prefixes_key],file_prefix)
+    partial_load = is_partial_or_full_load(s3_object_key, prefixes_values[partial_load_prefixes_key], file_prefix)
+    full_load = is_partial_or_full_load(s3_object_key, prefixes_values[full_load_prefixes_key], file_prefix)
 
     size = boto3.resource('s3').Bucket(s3['bucket']['name']).Object(s3_object_key).content_length
     logger.info('Input file size in GBs:' + str(size))
