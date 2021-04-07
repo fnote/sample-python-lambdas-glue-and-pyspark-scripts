@@ -214,8 +214,7 @@ def update_table_effective_dates(db_configs, effective_date):
         cursor_object = database_connection.cursor()
 
         #'0000-00-00 00:00:00' this is not a valid date handle this
-        eff_date_object = datetime.datetime.strptime(effective_date, '%Y-%m-%d %H:%M:%S').strftime("%Y-%m-%d %H:%M:%S")
-        effective_date_of_latest_records = eff_date_object
+        effective_date_of_latest_records = effective_date.strftime("%Y-%m-%d %H:%M:%S")
         update_sql = "UPDATE PRICE_ZONE_MASTER_DATA SET EFFECTIVE_DATE ='%s' WHERE TABLE_TYPE = '%s'"% (effective_date_of_latest_records, 'FUTURE')
         print(update_sql)
         cursor_object.execute(update_sql)
