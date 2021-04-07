@@ -116,8 +116,7 @@ def lambda_handler(event, context):
     }
 
     print(additional_info)
-    additional_info_json_string = json.dumps(additional_info)
-    additional_info_json = json.loads(additional_info_json_string)
+
 
 
     #add record count to common db status table if evnt is prize zone
@@ -128,6 +127,8 @@ def lambda_handler(event, context):
         etl_timestamp = event['etl_timestamp']
         input_file_name = event['file_name']
         #send s3_input_file_key
+        additional_info_json_string = json.dumps(additional_info)
+        additional_info_json = json.loads(additional_info_json_string)
         record_count = additional_info_json['received_records_count']
         logger.info('updating status DB with file name: %s, etl timestamp: %s, record count: %s, env: %s' % (
             input_file_name, etl_timestamp, record_count, env))
