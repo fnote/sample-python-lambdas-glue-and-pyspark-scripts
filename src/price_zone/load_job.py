@@ -212,8 +212,11 @@ def update_table_effective_dates(db_configs, effective_date):
 
     try:
         cursor_object = database_connection.cursor()
-        datenow = effective_date.strftime('%Y-%m-%d %H:%M:%S')
-        update_sql = "UPDATE PRICE_ZONE_MASTER_DATA SET EFFECTIVE_DATE ='%s' WHERE TABLE_TYPE = '%s'"% (datenow, 'FUTURE')
+
+        #'0000-00-00 00:00:00' this is not a valid date handle this
+        eff_date_object = datetime.datetime.strptime(effective_date, '%Y-%m-%d %H:%M:%S').strftime("%Y-%m-%d %H:%M:%S")
+        effective_date_of_latest_records = eff_date_object
+        update_sql = "UPDATE PRICE_ZONE_MASTER_DATA SET EFFECTIVE_DATE ='%s' WHERE TABLE_TYPE = '%s'"% (effective_date_of_latest_records, 'FUTURE')
         print(update_sql)
         cursor_object.execute(update_sql)
         result = cursor_object.fetchall()
@@ -231,7 +234,7 @@ def get_effective_date(table, db_configs):
     database_connection = getNewConnection(db_configs['host'], db_configs['username'], db_configs['password'], db_configs['database'])
     try:
         cursor_object = database_connection.cursor()
-        sql = "SELECT EFFECTIVE_DATE FROM %s LIMIT 1"% table
+        sql = "SELECT EFFECTIVE_DATE FROM %s WHERE ARRIVED_TIME = '%s' LIMIT 1"% (table, etl_timestamp)
         print(sql)
         cursor_object.execute(sql)
         result = cursor_object.fetchall()
