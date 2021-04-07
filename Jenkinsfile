@@ -360,7 +360,7 @@ pipeline {
                     updateLambdaProd(
                             bucket, region, "CP-REF-etl-price-zone-wait-status-analyzer-${ENV}",
                             "${s3key}/analyze_etl_wait_status.py.zip")
-                    updateLambdaProd(bucket, region, 'cp-discount-fetch-file-list-${ENV}',
+                    updateLambdaProd(bucket, region, 'CP-REF-etl-price-zone-opco-files-fetch-${ENV}',
                             "${s3key}/FetchFileListLambda.zip")
                     updateLambdaProd(bucket, region, 'CP-REF-etl-price-zone-Analyse-Load-or-wait-${ENV}',
                             "${s3key}/AnalyzeWaitOrLoadClusterLambda.zip")
