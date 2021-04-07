@@ -129,6 +129,10 @@ def lambda_handler(event, context):
         #send s3_input_file_key
         additional_info_json_string = json.dumps(additional_info)
         additional_info_json = json.loads(additional_info_json_string)
+        print(type(additional_info_json_string))
+        print(type(additional_info_json))
+        print(type(additional_info))
+
         record_count = additional_info_json['received_records_count']
         logger.info('updating status DB with file name: %s, etl timestamp: %s, record count: %s, env: %s' % (
             input_file_name, etl_timestamp, record_count, env))
