@@ -121,11 +121,15 @@ def lambda_handler(event, context):
         failed_opcos_joined_string = "," + ",".join(failed_opco_list)
         status = "COMPLETED"
 
-        if not failed_opco_list:
+        # no failures and opco count equals total then complete
+        if not failed_opco_list and (successful_opco_count + success_job_count == total_opco_count):
             #failed opco list is empty
             status = "COMPLETED"
-        else:
+        elif failed_opco_count > 0 and (successful_opco_count + success_job_count == total_opco_count):
+            #processing completed but failed opcos present
             status = "FAILED"
+        else:
+            status = "IN_PROGRESS"
 
         date_time_now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         cursor_object.execute(JOB_EXECUTION_STATUS_UPDATE_QUERY.format(successful_opco_count + success_job_count,
