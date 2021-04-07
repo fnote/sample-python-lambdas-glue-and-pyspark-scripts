@@ -127,15 +127,16 @@ def lambda_handler(event, context):
         etl_timestamp = event['etl_timestamp']
         input_file_name = event['file_name']
         #send s3_input_file_key
-        additional_info_json_string = json.dumps(additional_info)
-        # additional_info_json = json.loads(additional_info_json_string)
+        # additional_info_json_string = json.dumps(additional_info)
+        additional_info_json = json.loads(additional_info)
 
-        # record_count = additional_info_json['received_records_count']
+        record_count = additional_info_json['received_records_count']
+
         logger.info('updating status DB with file name: %s, etl timestamp: %s, env: %s' % (
             input_file_name, etl_timestamp, env))
         database_connection = get_db_connection(env)
         cursor_object = database_connection.cursor()
-        cursor_object.execute(JOB_EXECUTION_STATUS_UPDATE_QUERY.format(additional_info_json_string, input_file_name, etl_timestamp))
+        cursor_object.execute(JOB_EXECUTION_STATUS_UPDATE_QUERY.format(str(record_count), input_file_name, etl_timestamp))
         database_connection.commit()
 
     #update the status table with total record count
