@@ -67,6 +67,7 @@ def get_value_from_ssm(key):
 def lambda_handler(event, context):
 
     opco_list_for_cluster = event['Input']
+    print(opco_list_for_cluster)
     cluster = int(event['cluster'])
 
 
@@ -105,13 +106,13 @@ def lambda_handler(event, context):
                 else:
                     #else update by max count
                     update_count = max_load_job_concurrency
-            elif available_count == required_job_count:
+            elif available_count >= required_job_count:
                 update_count = required_job_count
 
             if update_count == 0:
                 cursor_object.execute(CLUSTER_LOAD_JOB_COUNT_UPDATE_QUERY.format(0, cluster))
                 database_connection.commit()
-                return {'nextStep': 'wait'}
+                return {'nextStep': 'Wait'}
 
             #update table
             cursor_object.execute(CLUSTER_LOAD_JOB_COUNT_UPDATE_QUERY.format(update_count, cluster))

@@ -10,7 +10,7 @@ if __name__ == "__main__":
     args = getResolvedOptions(sys.argv, ['s3_input_bucket', 's3_input_file_key', 'partitioned_files_key',
                                          'decompressed_file_path', 'etl_timestamp', 'etl_output_path_key',
                                          'intermediate_directory_path',
-                                         'INTERMEDIATE_S3_BUCKET', 'ARCHIVING_S3_BUCKET', 'backup_file_path'])
+                                         'INTERMEDIATE_S3_BUCKET', 'ARCHIVING_S3_BUCKET', 'backup_file_path', 'file_type'])
 
 
     s3_input_bucket = args['s3_input_bucket']
@@ -23,6 +23,7 @@ if __name__ == "__main__":
     intermediate_directory_path = args['intermediate_directory_path']
     archiving_s3_bucket = args['ARCHIVING_S3_BUCKET']
     backup_file_path = args['backup_file_path']
+    file_type = args['file_type']
 
     etl_time_object = datetime.fromtimestamp(int(etl_timestamp))
 
@@ -35,7 +36,10 @@ if __name__ == "__main__":
     input_file_destination_key = archiving_path + s3_input_file_key
     decompressed_file_destination_key = archiving_path + decompressed_file_key.split('/')[-1]
     copy_input_file(s3_input_bucket, s3_input_file_key, archiving_s3_bucket, input_file_destination_key)
-    copy_input_file(decompressed_file_bucket, decompressed_file_key, archiving_s3_bucket, decompressed_file_destination_key)
+
+    #do this if gzip only
+    if file_type == 'gz':
+        copy_input_file(decompressed_file_bucket, decompressed_file_key, archiving_s3_bucket, decompressed_file_destination_key)
 
     metadata_file = '{}/additionalInfo.txt'.format(intermediate_directory_path)
     copy_input_file(decompressed_file_bucket, metadata_file, archiving_s3_bucket, archiving_path + 'additionalInfo.txt')
@@ -45,6 +49,10 @@ if __name__ == "__main__":
 
     # cleaning source files
     delete_object(s3_input_bucket, s3_input_file_key)
-    delete_object(decompressed_file_bucket, decompressed_file_key)
+
+    # do this if gzip only
+    if file_type == 'gz':
+        delete_object(decompressed_file_bucket, decompressed_file_key)
+
     delete_directory(source_bucket=intermediate_s3_bucket, prefix=partitioned_files_path)
     delete_directory(source_bucket=intermediate_s3_bucket, prefix=intermediate_directory_path)

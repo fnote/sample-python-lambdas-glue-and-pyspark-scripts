@@ -145,8 +145,8 @@ def lambda_handler(event, context):
     etl_timestamp = event[ETL_TIMESTAMP_PARAM_NAME]
     active_opcos = event['active_opcos']
     active_opco_id_list = active_opcos.split(',')
-    partial_load = "true"
-    file_type = "wtp"
+    partial_load = event['partial_load']
+    file_type = event['file_type']
 
 
     paginator = client.get_paginator('list_objects_v2')

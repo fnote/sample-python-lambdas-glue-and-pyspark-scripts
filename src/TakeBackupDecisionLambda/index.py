@@ -112,7 +112,7 @@ def lambda_handler(event, context):
         print('successful opco list ' + str(successful_opcos))
 
         # to make sure only one cluster does the backing  up
-        if failed_opco_count > 0 or successful_opco_count + cluster_opco_count != total_opco_count:
+        if failed_opco_count > 0 or (successful_opco_count + success_job_count != total_opco_count):
             should_backup = False
 
         # read success load job count from input and write to DB

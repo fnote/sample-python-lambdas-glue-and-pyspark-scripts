@@ -359,4 +359,9 @@ if __name__ == "__main__":
         "Started data loading job for Opco: %s, file path: %s/%s\n" % (opco_id, intermediate_s3, partitioned_files_key))
 
     partial_load_bool = str_to_bool(partial_load)
-    find_tables_to_load(partial_load, environment, opco_id, intermediate_s3, partitioned_files_key)
+
+    try:
+      find_tables_to_load(partial_load_bool, environment, opco_id, intermediate_s3, partitioned_files_key)
+    except Exception as e:
+        raise Exception()
+

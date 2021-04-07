@@ -207,7 +207,7 @@ def write_metadata(metadata_lambda, intermediate_s3_name, intermediate_directory
     response = lambda_client.invoke(FunctionName=metadata_lambda, Payload=json.dumps({
         "intermediate_s3_name": intermediate_s3_name,
         "intermediate_directory_path": intermediate_directory_path,
-        "total_record_count_from_pa_file": count_from_file,
+        "received_records_count": count_from_file,
         "invalid_price_record_count": invalid_price_record_count,
     }))
 
