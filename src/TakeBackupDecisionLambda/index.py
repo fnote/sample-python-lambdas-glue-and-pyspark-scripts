@@ -120,6 +120,13 @@ def lambda_handler(event, context):
         successful_opcos_joined_string = ",".join(successful_opcos)
         failed_opcos_joined_string =  ",".join(failed_opco_list)
         status = "COMPLETED"
+
+        if not failed_opco_list:
+            #failed opco list is empty
+            status = "COMPLETED"
+        else:
+            status = "FAILED"
+
         date_time_now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         cursor_object.execute(JOB_EXECUTION_STATUS_UPDATE_QUERY.format(successful_opco_count + success_job_count,
                                                                        failed_opco_count + failed_job_count, failed_opcos_joined_string, successful_opcos_joined_string, date_time_now, status, file_name,

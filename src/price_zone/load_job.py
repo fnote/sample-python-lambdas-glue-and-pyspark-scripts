@@ -42,19 +42,21 @@ def get_common_db_connection_details(env):
     password = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/COMMON/PASSWORD'
     username = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/COMMON/USERNAME'
     db_name = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/COMMON/DB_NAME'
-    ssm_keys = [db_url, db_name, username, password]
+    soft_validation_on_future_table_loading = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/FULL_EXPORT_LOADING/SOFT_VALIDATION'
+    ssm_keys = [db_url, db_name, username, password, soft_validation_on_future_table_loading]
     ssm_key_values = get_values_from_ssm(ssm_keys)
     print(ssm_key_values)
     return {
         "db_endpoint": ssm_key_values[db_url],
         "password": ssm_key_values[password],
         "username": ssm_key_values[username],
-        "db_name": ssm_key_values[db_name]
+        "db_name": ssm_key_values[db_name],
+        "soft_validation": ssm_key_values[soft_validation_on_future_table_loading]
     }
 
 
-def get_common_db_connection(env):
-    connection_params = get_common_db_connection_details(env)
+
+def get_common_db_connection(env , connection_params):
     return pymysql.connect(
         host=connection_params['db_endpoint'], user=connection_params['username'], password=connection_params['password'], db=connection_params['db_name'], charset=charset, cursorclass=cursor_type)
 
@@ -253,6 +255,9 @@ def find_tables_to_load(partial_load ,env ,opco_id, intermediate_s3, partitioned
     db_configs = _retrieve_conection_details(cluster_id)
     db_configs['database'] = Configuration.DATABASE_PREFIX + opco_id
 
+    #get connection params for common db and validation type
+    connection_params = get_common_db_connection_details(env)
+
     if partial_load:
         active_table = get_active_and_future_tables(env, "ACTIVE" ,db_configs)
         future_table = get_active_and_future_tables(env, "FUTURE" ,db_configs)
@@ -273,7 +278,7 @@ def find_tables_to_load(partial_load ,env ,opco_id, intermediate_s3, partitioned
         if len(future_table_query_result) == 0:
             #future table empty stop
             #check if full export is in progress if so load to future too
-            database_connection = get_common_db_connection(env)
+            database_connection = get_common_db_connection(env, connection_params)
             cursor_object = database_connection.cursor()
 
             cursor_object.execute(JOB_EXECUTION_STATUS_FETCH_QUERY.format(0, "IN PROGRESS"))
@@ -302,13 +307,24 @@ def find_tables_to_load(partial_load ,env ,opco_id, intermediate_s3, partitioned
             load_data(db_configs, opco_id, intermediate_s3, partitioned_files_key)
 
             # update master db with future table effective date
-            effective_date_result  = get_effective_date(future_table_name, db_configs)
+            effective_date_result = get_effective_date(future_table_name, db_configs)
             update_table_effective_dates(db_configs, effective_date_result[0][0])
         else:
             #soft valida -> we just print skip that opco return opco id metadataa
             #hard ->error
             #proceeed -> load irrespective of
-            raise Exception("full load and future table is not empty")
+            if int(connection_params['soft_validation']) == 0:
+                raise Exception("full load and future table is not empty")
+            elif int(connection_params['soft_validation']) == 1:
+                print('fill load and future table is not empty and soft validation hence job allowed to progress')
+            elif int(connection_params['soft_validation']) == 2:
+                print('load future table with full export even though future table is not empty and update effective date')
+                db_configs['table'] = future_table_name
+                load_data(db_configs, opco_id, intermediate_s3, partitioned_files_key)
+                effective_date_result = get_effective_date(future_table_name, db_configs)
+                update_table_effective_dates(db_configs, effective_date_result[0][0])
+            else:
+                raise Exception("full load and future table is not empty")
 
 
 def list_files_in_s3(bucketname, prefix):
