@@ -116,7 +116,8 @@ def lambda_handler(event, context):
     }
 
     print(additional_info)
-    additional_info_json = json.dumps(additional_info)
+    additional_info_json_string = json.dumps(additional_info)
+    additional_info_json = json.loads(additional_info_json_string)
 
 
     #add record count to common db status table if evnt is prize zone
