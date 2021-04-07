@@ -135,7 +135,7 @@ def lambda_handler(event, context):
             input_file_name, etl_timestamp, env))
         database_connection = get_db_connection(env)
         cursor_object = database_connection.cursor()
-        cursor_object.execute(JOB_EXECUTION_STATUS_UPDATE_QUERY.format(str(additional_info), input_file_name, etl_timestamp))
+        cursor_object.execute(JOB_EXECUTION_STATUS_UPDATE_QUERY.format("k", input_file_name, etl_timestamp))
         database_connection.commit()
 
     #update the status table with total record count
