@@ -69,13 +69,14 @@ def lambda_handler(event, context):
     opco_list_for_cluster = event['Input']
     print(opco_list_for_cluster)
     cluster = int(event['cluster'])
+    env = event['ENV']
 
 
     if len(opco_list_for_cluster) == 0:
         return {'nextStep': 'terminate'}
     else:
         required_job_count = len(opco_list_for_cluster)
-        database_connection = get_db_connection("DEV")
+        database_connection = get_db_connection(env)
         try:
             cursor_object = database_connection.cursor()
             cursor_object.execute(CLUSTER_LOAD_JOB_COUNT_QUERY.format(cluster))
@@ -88,7 +89,7 @@ def lambda_handler(event, context):
             print('Currently running count: {}'.format(running_count))
 
             max_load_job_concurrency = int(
-                get_value_from_ssm(LOAD_JOB_MAXIMUM_CONCURRENCY_SSM_KEY.format("DEV", cluster)))
+                get_value_from_ssm(LOAD_JOB_MAXIMUM_CONCURRENCY_SSM_KEY.format(env, cluster)))
             # max_load_job_concurrency = 2
 
             if available_count == 0:
