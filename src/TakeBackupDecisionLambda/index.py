@@ -125,7 +125,7 @@ def lambda_handler(event, context):
         if not failed_opco_list and (successful_opco_count + success_job_count == total_opco_count):
             #failed opco list is empty
             status = "COMPLETED"
-        elif failed_opco_count > 0 and (successful_opco_count + success_job_count == total_opco_count):
+        elif failed_opco_count > 0 and (successful_opco_count + failed_opco_count == total_opco_count):
             #processing completed but failed opcos present
             status = "FAILED"
         else:
