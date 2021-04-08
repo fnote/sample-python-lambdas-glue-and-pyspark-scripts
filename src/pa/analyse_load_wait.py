@@ -41,9 +41,9 @@ def lambda_handler(event, context):
     logger.info('## TRIGGERED BY EVENT: ')
     logger.info(event)
     step_function_arn = os.environ['stepFunctionArn']
-    # step_function_arn = 'arn:aws:states:us-east-1:037295147636:stateMachine:CP-Ref-Price-Price-Zone-Scaled'
+    environment = os.environ['env']
 
-    max_allowed_concurrent_executions= get_execution_counts("DEV")
+    max_allowed_concurrent_executions = get_execution_counts(environment)
     print(max_allowed_concurrent_executions)
 
     logger.info('Max allowed concurrent executions: ' + max_allowed_concurrent_executions)
@@ -70,8 +70,3 @@ def lambda_handler(event, context):
         return {
             "shouldWait": True
         }
-
-
-
-# r = lambda_handler({},{})
-# print(r)

@@ -90,7 +90,6 @@ def lambda_handler(event, context):
 
             max_load_job_concurrency = int(
                 get_value_from_ssm(LOAD_JOB_MAXIMUM_CONCURRENCY_SSM_KEY.format(env, cluster)))
-            # max_load_job_concurrency = 2
 
             if available_count == 0:
                 cursor_object.execute(CLUSTER_LOAD_JOB_COUNT_UPDATE_QUERY.format(0, cluster))
@@ -130,7 +129,3 @@ def lambda_handler(event, context):
         finally:
             database_connection.close()
 
-
-# out = lambda_handler({'opcos_cluster_1': ['001', '003', '005'], 'opcos_cluster_2': ['002', '004']}, {})
-# out = lambda_handler({'opcos_cluster_1': [], 'opcos_cluster_2': ['002', '004']}, {})
-# print(out)
