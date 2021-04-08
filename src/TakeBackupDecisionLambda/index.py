@@ -120,15 +120,17 @@ def lambda_handler(event, context):
         successful_opcos_joined_string = "," + ",".join(successful_opcos)
         failed_opcos_joined_string = "," + ",".join(failed_opco_list)
         status = "COMPLETED"
+        total_failed_opco_count_from_both_clusters = failed_opco_count + failed_job_count
 
         # no failures and opco count equals total then complete
         if not failed_opco_list and (successful_opco_count + success_job_count == total_opco_count):
-            #failed opco list is empty
+            #no failed opcos in current cluster and total jobs completed
             status = "COMPLETED"
-        elif failed_opco_count > 0 and (successful_opco_count + failed_opco_count == total_opco_count):
-            #processing completed but failed opcos present
+        elif total_failed_opco_count_from_both_clusters > 0 and (successful_opco_count + failed_opco_count + success_job_count + failed_job_count == total_opco_count):
+            #entire process is done , all opcos in file processed but there are failures
             status = "FAILED"
         else:
+            # no failed opcos in finished current cluster but other cluster still loading ( failed opco
             status = "IN_PROGRESS"
 
         date_time_now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
