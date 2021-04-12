@@ -176,21 +176,9 @@ def lambda_handler(event, context):
     status = "IN PROGRESS"
 
     date_time_now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    update_job_execution_status(environment, file_name, etl_timestamp, valid_opco_count, file_type, status , date_time_now,date_time_now, partial_load)
+    update_job_execution_status(environment, file_name, etl_timestamp, valid_opco_count, file_type, status, date_time_now, date_time_now, partial_load)
 
     return separated_opco_result
 
 
-
-
-
-# active_opco_list = ["001","002"]
-# opco_list = ["001", "002", "003"]
-# joined_string = ",".join(opco_list)
-# opco_cluster_mapping_df = get_opco_cluster_mapping(joined_string, "DEV")
-# print(opco_cluster_mapping_df)
-# k= separate_opcos_by_cluster(opco_cluster_mapping_df,active_opco_list)
-# print(k)
-# g = return_results(k)
-# print(g)
 

@@ -100,7 +100,8 @@ def lambda_handler(event, context):
 
             #more jobs available
             if available_count >= max_load_job_concurrency:
-                #if no of opcos less than max update by number opco
+                # if no of opcos less than max update by number opco
+
                 if required_job_count < max_load_job_concurrency:
                     update_count = required_job_count
                 else:
