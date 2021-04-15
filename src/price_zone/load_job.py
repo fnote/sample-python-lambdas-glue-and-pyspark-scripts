@@ -182,6 +182,7 @@ def get_active_and_future_tables(env ,table ,db_configs):
         return result
     except Exception as e:
         print(e)
+        raise e
     finally:
         database_connection.close()
 
@@ -201,6 +202,7 @@ def check_table_is_empty(table, db_configs):
         return result
     except Exception as e:
         print(e)
+        raise e
     finally:
         database_connection.close()
 
@@ -224,6 +226,7 @@ def update_table_effective_dates(db_configs, effective_date):
         return result
     except Exception as e:
         print(e)
+        raise e
     finally:
         database_connection.commit()
         database_connection.close()
@@ -233,7 +236,7 @@ def get_effective_date(table, db_configs):
     database_connection = getNewConnection(db_configs['host'], db_configs['username'], db_configs['password'], db_configs['database'])
     try:
         cursor_object = database_connection.cursor()
-        sql = "SELECT EFFECTIVE_DATE FROM %s WHERE ARRIVED_TIME = '%s' LIMIT 1"% (table, etl_timestamp)
+        sql = "SELECT min(EFFECTIVE_DATE) FROM %s LIMIT 1"% table
         print(sql)
         cursor_object.execute(sql)
         result = cursor_object.fetchall()
@@ -242,6 +245,7 @@ def get_effective_date(table, db_configs):
         return result
     except Exception as e:
         print(e)
+        raise e
     finally:
         database_connection.close()
 
@@ -283,7 +287,7 @@ def find_tables_to_load(partial_load ,env ,opco_id, intermediate_s3, partitioned
             database_connection = get_common_db_connection(env, connection_params)
             cursor_object = database_connection.cursor()
 
-            cursor_object.execute(JOB_EXECUTION_STATUS_FETCH_QUERY.format(0, "IN PROGRESS"))
+            cursor_object.execute(JOB_EXECUTION_STATUS_FETCH_QUERY.format(0, "IN_PROGRESS"))
             result = cursor_object.fetchall()
             if len(result) == 0:
                 print('partial load and the future table is empty and no full export is in progress, therefore stop the loading process')
@@ -323,8 +327,6 @@ def find_tables_to_load(partial_load ,env ,opco_id, intermediate_s3, partitioned
                 print('load future table with full export even though future table is not empty and update effective date')
                 db_configs['table'] = future_table_name
                 load_data(db_configs, opco_id, intermediate_s3, partitioned_files_key)
-                effective_date_result = get_effective_date(future_table_name, db_configs)
-                update_table_effective_dates(db_configs, effective_date_result[0][0])
             else:
                 raise Exception("full load and future table is not empty")
 

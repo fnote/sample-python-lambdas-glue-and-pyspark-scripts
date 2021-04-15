@@ -5,11 +5,20 @@ import os
 from datetime import datetime
 # Import Boto 3 for AWS Glue
 import boto3
+from botocore.config import Config
 import time
 from urllib.parse import unquote_plus
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
+
+
+config = Config(
+   retries={
+      'max_attempts': 5,
+      'mode': 'adaptive'
+   }
+)
 
 def get_values_from_ssm(keys):
     client_ssm = boto3.client('ssm')
@@ -48,7 +57,7 @@ def lambda_handler(event, context):
 
     logger.info('Max allowed concurrent executions: ' + max_allowed_concurrent_executions)
 
-    client = boto3.client('stepfunctions')
+    client = boto3.client('stepfunctions', config=config)
     response = client.list_executions(
         stateMachineArn = step_function_arn,
         statusFilter='RUNNING',

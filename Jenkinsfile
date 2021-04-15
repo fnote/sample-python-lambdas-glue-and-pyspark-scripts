@@ -138,6 +138,7 @@ def copyFileIntoEnv(s3Path) {
     copyToS3("./src/price_zone/load_job.py", s3Path)
     copyToS3("./src/price_zone/data_backup_job.py", s3Path)
     copyToS3("./src/FetchFileListLambda/FetchFileListLambda.zip", s3Path)
+    copyToS3("./src/AnalyzeEtlWaitStatusLambda./AnalyzeEtlWaitStatusLambda.zip", s3Path)
     copyToS3("./src/AnalyzeWaitOrLoadClusterLambda/AnalyzeWaitOrLoadClusterLambda.zip", s3Path)
     copyToS3("./src/TakeBackupDecisionLambda/TakeBackupDecisionLambda.zip", s3Path)
 
@@ -167,6 +168,7 @@ def deployIntoEnv(env, bucket, s3Path, s3key, region) {
             "${s3Path}/transform_spark_job.py")
 
     updateLambda(bucket, region, "CP-REF-etl-price-zone-opco-files-fetch-${env}", "${s3key}/FetchFileListLambda.zip")
+    updateLambda(bucket, region, "CP-REF-etl-price-zone-wait-status-analyzer-${env}", "${s3key}/AnalyzeEtlWaitStatusLambda.zip")
     updateLambda(bucket, region, "CP-REF-etl-price-zone-Analyse-Load-or-wait-${env}", "${s3key}/AnalyzeWaitOrLoadClusterLambda.zip")
     updateLambda(bucket, region, "CP-REF-etl-price-zone-job-status-analyzer-${env}", "${s3key}/TakeBackupDecisionLambda.zip")
 
@@ -211,6 +213,7 @@ pipeline {
                     zipScript("src/price_zone", "analyze_etl_wait_status.py")
                     bat script: "cd src/Notifier & pip3 install --target . -r requirements.txt & D:/winrar/winrar a -r Notifier.zip & dir"
                     bat script: "cd src/FetchFileListLambda & pip3 install --target . -r requirements.txt & D:/winrar/winrar a -r FetchFileListLambda.zip & dir"
+                    bat script: "cd src/AnalyzeEtlWaitStatusLambda & pip3 install --target . -r requirements.txt & D:/winrar/winrar a -r AnalyzeEtlWaitStatusLambda.zip & dir"
                     bat script: "cd src/AnalyzeWaitOrLoadClusterLambda & pip3 install --target . -r requirements.txt & D:/winrar/winrar a -r AnalyzeWaitOrLoadClusterLambda.zip & dir"
                     bat script: "cd src/TakeBackupDecisionLambda & pip3 install --target . -r requirements.txt & D:/winrar/winrar a -r TakeBackupDecisionLambda.zip & dir"
                     zipScript("src/pa/", "s3_trigger_lambda.py")
@@ -362,6 +365,8 @@ pipeline {
                             "${s3key}/analyze_etl_wait_status.py.zip")
                     updateLambdaProd(bucket, region, 'CP-REF-etl-price-zone-opco-files-fetch-${ENV}',
                             "${s3key}/FetchFileListLambda.zip")
+                    updateLambdaProd(bucket, region, 'CP-REF-etl-price-zone-wait-status-analyzer-${ENV}',
+                            "${s3key}/AnalyzeEtlWaitStatusLambda.zip")
                     updateLambdaProd(bucket, region, 'CP-REF-etl-price-zone-Analyse-Load-or-wait-${ENV}',
                             "${s3key}/AnalyzeWaitOrLoadClusterLambda.zip")
                     updateLambdaProd(bucket, region, 'CP-REF-etl-price-zone-job-status-analyzer-${ENV}',

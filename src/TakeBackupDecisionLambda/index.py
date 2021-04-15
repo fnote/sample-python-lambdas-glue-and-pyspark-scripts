@@ -91,7 +91,7 @@ def lambda_handler(event, context):
 
     failed_opco_list = list(set(cluster_opcos) - set(successful_opcos))
 
-    should_backup = True
+    should_backup = False
 
     try:
         cursor_object = database_connection.cursor()
@@ -108,7 +108,7 @@ def lambda_handler(event, context):
         print('total_opco_count ' + str(total_opco_count))
         print('cluster_opco_count ' + str(cluster_opco_count))
         print('successful_opco_count ' + str(successful_opco_count))
-        print('failed opco list'+ str(failed_opco_list))
+        print('failed opco list' + str(failed_opco_list))
         print('successful opco list ' + str(successful_opcos))
 
         # to make sure only one cluster does the backing  up
@@ -119,7 +119,7 @@ def lambda_handler(event, context):
         # add file type , success opco ids failed opco ids status record count start time and end time
         successful_opcos_joined_string = "," + ",".join(successful_opcos)
         failed_opcos_joined_string = "," + ",".join(failed_opco_list)
-        status = "COMPLETED"
+        status = "IN_PROGRESS"
         total_failed_opco_count_from_both_clusters = failed_opco_count + failed_job_count
 
         # no failures and opco count equals total then complete
@@ -130,7 +130,7 @@ def lambda_handler(event, context):
             #entire process is done , all opcos in file processed but there are failures
             status = "FAILED"
         else:
-            # no failed opcos in finished current cluster but other cluster still loading ( failed opco
+            # no failed opcos in finished current cluster but other cluster still loading
             status = "IN_PROGRESS"
 
         date_time_now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')

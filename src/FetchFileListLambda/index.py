@@ -1,31 +1,29 @@
 import boto3
 import re
 import pymysql
-from datetime import datetime
 import os
 
 OPCO_CLUSTER_MAPPINGS_QUERY = 'SELECT * FROM OPCO_CLUSTER_MAPPINGS WHERE BUSINESS_UNIT_NUMBER IN ({})'
 # file name , etl, total bbusiness unit count , success count, failed count , file type ,  failed opco ids, success opco ids , status, record count ,start time ,end time,partial load
-EXECUTION_STATUS_UPDATE_QUERY = 'INSERT INTO PRICE_ZONE_LOAD_JOB_EXECUTION_STATUS VALUES ("{}", {}, {}, 0, 0 ,"{}",0,0,"{}","0","{}","{}",{})'
+JOB_EXECUTION_STATUS_UPDATE_QUERY = 'UPDATE PRICE_ZONE_LOAD_JOB_EXECUTION_STATUS SET TOTAL_BUSINESS_UNITS = {} WHERE FILE_NAME="{}" AND ETL_TIMESTAMP={}'
 CLUSTER_ID_COLUMN_NAME = 'CLUSTER_ID'
 OPCO_ID_COLUMN_NAME = 'BUSINESS_UNIT_NUMBER'
 ENVIRONMENT_PARAM_NAME = 'ENV'
 FILE_NAME_PARAM_NAME = 's3_object_key'
 ETL_TIMESTAMP_PARAM_NAME = 'etl_timestamp'
-CLUSTER_1_OPCO_KEY = 'cluster_a'
-CLUSTER_2_OPCO_KEY = 'cluster_b'
+CLUSTER_1_OPCO_KEY = 'cluster_01'
+CLUSTER_2_OPCO_KEY = 'cluster_02'
 
 charset = 'utf8'
 cursor_type = pymysql.cursors.DictCursor
 
 
-def update_job_execution_status(env, file_name, etl_timestamp, opco_count, file_type, status, start_time, end_time, partial_load):
+def update_job_execution_status(env, file_name, etl_timestamp, opco_count):
     print('update job execution status')
     database_connection = get_db_connection(env)
     try:
         cursor_object = database_connection.cursor()
-        print(EXECUTION_STATUS_UPDATE_QUERY.format(file_name, etl_timestamp, opco_count, file_type, status,start_time, end_time, partial_load))
-        cursor_object.execute(EXECUTION_STATUS_UPDATE_QUERY.format(file_name, etl_timestamp, opco_count, file_type, status, start_time, end_time, partial_load))
+        cursor_object.execute(JOB_EXECUTION_STATUS_UPDATE_QUERY.format(opco_count, file_name, etl_timestamp))
         result = cursor_object.fetchall()
         print(result)
         database_connection.commit()
@@ -74,40 +72,37 @@ def get_db_connection(env):
 def return_results(opco_cluster_map):
 
     resultant_json = {
-        "cluster_a": opco_cluster_map[0],
-        "cluster_b": opco_cluster_map[1],
+        "cluster_01": opco_cluster_map[0],
+        "cluster_02": opco_cluster_map[1],
         "invalid_or_inactive_opco_list": opco_cluster_map[2]
     }
 
     return resultant_json
 
 def separate_opcos_by_cluster(mappings, active_opco_list):
-    cluster_1_opcos = []
-    cluster_2_opcos = []
+    cluster_01_opcos = []
+    cluster_02_opcos = []
     invalid_or_inactive_opcos = []
     for mapping in mappings:
         cluster_id = mapping[CLUSTER_ID_COLUMN_NAME]
         opco_id = mapping[OPCO_ID_COLUMN_NAME]
         if cluster_id == 1 and opco_id in active_opco_list:
-            cluster_1_opcos.append(opco_id)
+            cluster_01_opcos.append(opco_id)
         elif cluster_id == 2 and opco_id in active_opco_list:
-            cluster_2_opcos.append(opco_id)
+            cluster_02_opcos.append(opco_id)
         else:
             invalid_or_inactive_opcos.append(opco_id)
 
-    print(cluster_1_opcos)
-    print(cluster_2_opcos)
+    print(cluster_01_opcos)
+    print(cluster_02_opcos)
     print(invalid_or_inactive_opcos)
-    result_list = [cluster_1_opcos ,cluster_2_opcos ,invalid_or_inactive_opcos]
+    result_list = [cluster_01_opcos ,cluster_02_opcos ,invalid_or_inactive_opcos]
     return result_list
 
 def filter_to_two_cluster(df):
     opco_cluster_mapping = []
     df_cluster_1 = df[df['CLUSTER_ID'] == 1]
     df_cluster_2 = df[df['CLUSTER_ID'] == 2]
-    print(df_cluster_1)
-    print(df_cluster_2)
-    print(df)
 
     cluster_1_opco_list = df_cluster_1[OPCO_ID_COLUMN_NAME].tolist()
     cluster_2_opco_list = df_cluster_2[OPCO_ID_COLUMN_NAME].tolist()
@@ -173,10 +168,7 @@ def lambda_handler(event, context):
 
     # update status table
     # 5 , file type , success opcos , failed opcos , record count status start time end time
-    status = "IN PROGRESS"
-
-    date_time_now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    update_job_execution_status(environment, file_name, etl_timestamp, valid_opco_count, file_type, status, date_time_now, date_time_now, partial_load)
+    update_job_execution_status(environment, file_name, etl_timestamp, valid_opco_count)
 
     return separated_opco_result
 

@@ -260,13 +260,13 @@ if __name__ == "__main__":
     joined_string = ",".join(unique_opco_ids)
 
     #get the cluster details of those opcos
-    opco_cluster_mapping = get_opco_cluster_mapping(joined_string , environment)
+    opco_cluster_mapping = get_opco_cluster_mapping(joined_string, environment)
 
     #add active opco list here
-    cluster1_opcos_cluster2_opcos_and_invalids = separate_opcos_by_cluster(opco_cluster_mapping , unique_opco_ids)
+    cluster1_opcos_cluster2_opcos_and_invalids = separate_opcos_by_cluster(opco_cluster_mapping, unique_opco_ids)
     df_cluster_1 = df[df['opco_id'].isin(cluster1_opcos_cluster2_opcos_and_invalids[0])]
     df_cluster_2 = df[df['opco_id'].isin(cluster1_opcos_cluster2_opcos_and_invalids[1])]
-    cluster_wise_opcos_df = [df_cluster_1 , df_cluster_2]
+    cluster_wise_opcos_df = [df_cluster_1, df_cluster_2]
 
     total_record_count_from_pa_file = len(df.index)
     cluster_id = 0

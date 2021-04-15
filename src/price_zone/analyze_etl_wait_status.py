@@ -4,16 +4,59 @@ from collections import Counter
 
 import boto3
 from botocore.config import Config
+import pymysql
+from datetime import datetime
+
+# file name , etl, total bbusiness unit count , success count, failed count , file type ,  failed opco ids, success opco ids , status, record count ,start time ,end time,partial load
+EXECUTION_STATUS_INSERT_QUERY = 'INSERT INTO PRICE_ZONE_LOAD_JOB_EXECUTION_STATUS (FILE_NAME,ETL_TIMESTAMP,TOTAL_BUSINESS_UNITS,SUCCESSFUL_BUSINESS_UNITS,FAILED_BUSINESS_UNITS,FILE_TYPE,FAILED_OPCO_IDS,SUCCESSFUL_OPCO_IDS,STATUS,RECORD_COUNT,START_TIME,END_TIME,PARTIAL_LOAD) VALUES ("{}", "{}", 0, 0, 0 ,"{}",0,0,"{}","0","{}","{}")'
+RECORD_EXIST_CHECK_QUERY = 'SELECT EXISTS(SELECT * FROM PRICE_ZONE_LOAD_JOB_EXECUTION_STATUS WHERE WHERE FILE_NAME="{}" AND ETL_TIMESTAMP={})'
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
+charset = 'utf8'
+cursor_type = pymysql.cursors.DictCursor
 
 config = Config(
    retries={
-      'max_attempts': 5,
+      'max_attempts': 50,
       'mode': 'adaptive'
    }
 )
+
+def get_values_from_ssm(keys):
+    client_ssm = boto3.client('ssm')
+    response = client_ssm.get_parameters(Names=keys, WithDecryption=True)
+    parameters = response['Parameters']
+    invalid_parameters = response['InvalidParameters']
+    if invalid_parameters:
+        raise KeyError('Found invalid ssm parameter keys:' + ','.join(invalid_parameters))
+    parameter_dictionary = {}
+    for parameter in parameters:
+        parameter_dictionary[parameter['Name']] = parameter['Value']
+    print(parameter_dictionary)
+    return parameter_dictionary
+
+
+def get_connection_details(env):
+    db_url = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/COMMON/DB_URL'
+    password = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/COMMON/PASSWORD'
+    username = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/COMMON/USERNAME'
+    db_name = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/COMMON/DB_NAME'
+    ssm_keys = [db_url, db_name, username, password]
+    ssm_key_values = get_values_from_ssm(ssm_keys)
+    print(ssm_key_values)
+    return {
+        "db_endpoint": ssm_key_values[db_url],
+        "password": ssm_key_values[password],
+        "username": ssm_key_values[username],
+        "db_name": ssm_key_values[db_name]
+    }
+
+
+def get_db_connection(env):
+    connection_params = get_connection_details(env)
+    return pymysql.connect(
+        host=connection_params['db_endpoint'], user=connection_params['username'], password=connection_params['password'], db=connection_params['db_name'], charset=charset, cursorclass=cursor_type)
 
 def get_value_from_ssm(key):
     client_ssm = boto3.client('ssm')
@@ -29,6 +72,10 @@ def lambda_handler(event, context):
 
     step_functionArn = event['stepFunctionArn']
     step_function_execution_id = event['stepFunctionExecutionId']
+    etl_timestamp = event['etl_timestamp']
+    file_name = event['s3_input_file_key']
+    file_type = event['file_type']
+    partial_load = event['partial_load']
     env = os.environ['env']
     max_concurrency_ssm_key = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/MAX_CONCURRENCY'
 
@@ -43,6 +90,27 @@ def lambda_handler(event, context):
     paginator = step_function.get_paginator('list_executions')
     pages = paginator.paginate(stateMachineArn=step_functionArn, statusFilter=status)
     logger.info('Retrieved execution list for step function:%s with execution status:%s' % (step_functionArn, status))
+
+    start_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    database_connection = get_db_connection(env)
+
+    try:
+        cursor_object = database_connection.cursor()
+        cursor_object.execute(RECORD_EXIST_CHECK_QUERY.format(file_name, etl_timestamp))
+        result = cursor_object.fetchone()
+
+        if not result:
+            cursor_object.execute(EXECUTION_STATUS_INSERT_QUERY.format(file_name, etl_timestamp, file_type, status, start_time, partial_load))
+
+        database_connection.commit()
+    except Exception as e:
+        print(e)
+        # TODO: handle this
+
+    finally:
+        database_connection.close()
+    #identify the file and etl timestamp here , avoid creating new records in db for retry occasions
+    #if file name and etl exist update else insert
 
     execution_dictionary = {}
     for page in pages:
