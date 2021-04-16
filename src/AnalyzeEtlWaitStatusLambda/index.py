@@ -9,7 +9,7 @@ from datetime import datetime
 
 # file name , etl, total bbusiness unit count , success count, failed count , file type ,  failed opco ids, success opco ids , status, record count ,start time ,end time,partial load
 EXECUTION_STATUS_INSERT_QUERY = 'INSERT INTO PRICE_ZONE_LOAD_JOB_EXECUTION_STATUS (FILE_NAME,ETL_TIMESTAMP,TOTAL_BUSINESS_UNITS,SUCCESSFUL_BUSINESS_UNITS,FAILED_BUSINESS_UNITS,FILE_TYPE,FAILED_OPCO_IDS,SUCCESSFUL_OPCO_IDS,STATUS,RECORD_COUNT,START_TIME,END_TIME,PARTIAL_LOAD) VALUES ("{}", "{}", 0, 0, 0 ,"{}",0,0,"{}","0","{}","{}")'
-RECORD_EXIST_CHECK_QUERY = 'SELECT EXISTS(SELECT * FROM PRICE_ZONE_LOAD_JOB_EXECUTION_STATUS WHERE WHERE FILE_NAME="{}" AND ETL_TIMESTAMP={})'
+RECORD_EXIST_CHECK_QUERY = 'SELECT * FROM PRICE_ZONE_LOAD_JOB_EXECUTION_STATUS WHERE FILE_NAME="{}" AND ETL_TIMESTAMP={}'
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -98,9 +98,11 @@ def lambda_handler(event, context):
         cursor_object = database_connection.cursor()
         cursor_object.execute(RECORD_EXIST_CHECK_QUERY.format(file_name, etl_timestamp))
         result = cursor_object.fetchone()
+        logger.info('Retrieved record details from status table and the result :%s' % result)
 
-        if not result:
-            cursor_object.execute(EXECUTION_STATUS_INSERT_QUERY.format(file_name, etl_timestamp, file_type, status, start_time, partial_load))
+        if result != None:
+            res = cursor_object.execute(EXECUTION_STATUS_INSERT_QUERY.format(file_name, etl_timestamp, file_type, status, start_time, partial_load))
+            logger.info('insert query results :%s' % res)
 
         database_connection.commit()
     except Exception as e:
