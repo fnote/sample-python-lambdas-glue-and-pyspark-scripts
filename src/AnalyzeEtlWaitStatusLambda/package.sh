@@ -18,6 +18,6 @@ pushd .package > /dev/null
 zip --recurse-paths ${SCRIPT_DIRECTORY}/AnalyzeEtlWaitStatusLambda.zip .
 popd > /dev/null
 
-zip --grow AnalyzeEtlWaitStatusLambda.zip.zip index.py
+zip --grow AnalyzeEtlWaitStatusLambda.zip index.py
 
 popd > /dev/null
