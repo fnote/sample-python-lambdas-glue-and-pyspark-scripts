@@ -25,7 +25,7 @@ config = Config(
 )
 
 def get_values_from_ssm(keys):
-    client_ssm = boto3.client('ssm')
+    client_ssm = boto3.client('ssm', config=config)
     response = client_ssm.get_parameters(Names=keys, WithDecryption=True)
     parameters = response['Parameters']
     invalid_parameters = response['InvalidParameters']
@@ -38,32 +38,28 @@ def get_values_from_ssm(keys):
     return parameter_dictionary
 
 
-def get_connection_details(env):
+def get_connection_details_and_max_concurrency(env):
     db_url = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/COMMON/DB_URL'
     password = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/COMMON/PASSWORD'
     username = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/COMMON/USERNAME'
     db_name = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/COMMON/DB_NAME'
-    ssm_keys = [db_url, db_name, username, password]
+    max_concurrency_ssm_key = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/MAX_CONCURRENCY'
+    ssm_keys = [db_url, db_name, username, password, max_concurrency_ssm_key]
     ssm_key_values = get_values_from_ssm(ssm_keys)
-    print(ssm_key_values)
+    logger.info('GetParameter called for ssm key: %s, %s, %s, %s, %s' % (db_url, db_name, username, password, max_concurrency_ssm_key))
     return {
         "db_endpoint": ssm_key_values[db_url],
         "password": ssm_key_values[password],
         "username": ssm_key_values[username],
-        "db_name": ssm_key_values[db_name]
+        "db_name": ssm_key_values[db_name],
+        "max_concurrency": ssm_key_values[max_concurrency_ssm_key]
     }
 
 
-def get_db_connection(env):
-    connection_params = get_connection_details(env)
+def get_db_connection(env, connection_params):
     return pymysql.connect(
         host=connection_params['db_endpoint'], user=connection_params['username'], password=connection_params['password'], db=connection_params['db_name'], charset=charset, cursorclass=cursor_type)
 
-def get_value_from_ssm(key):
-    client_ssm = boto3.client('ssm')
-    logger.info("GetParameter called for ssm key: %s" % key)
-    parameter = client_ssm.get_parameter(Name=key)['Parameter']  # will throw exception on key error
-    return parameter['Value']
 
 def str_to_bool_int(s):
     if s == 'True':
@@ -72,6 +68,7 @@ def str_to_bool_int(s):
          return 0
     else:
          raise ValueError
+
 
 def lambda_handler(event, context):
     logger.info("Received event:")
@@ -86,9 +83,11 @@ def lambda_handler(event, context):
     partial_load_string = event['partial_load']
     partial_load = str_to_bool_int(partial_load_string)
     env = os.environ['env']
-    max_concurrency_ssm_key = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/MAX_CONCURRENCY'
 
-    ALLOWED_CONCURRENT_EXECUTIONS = int(get_value_from_ssm(max_concurrency_ssm_key))
+    # get allowed concurrent step function execution amount and common db connection parameters
+    params = get_connection_details_and_max_concurrency(env)
+    database_connection = get_db_connection(env, params)
+    ALLOWED_CONCURRENT_EXECUTIONS = int(params['max_concurrency'])
 
     if ALLOWED_CONCURRENT_EXECUTIONS == 0:
         error_msg = 'Received illegal value for Price Zone ETL workFlow maximum concurrency: {}' \
@@ -102,7 +101,6 @@ def lambda_handler(event, context):
     logger.info('Retrieved execution list for step function:%s with execution status:%s' % (step_functionArn, status))
 
     start_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    database_connection = get_db_connection(env)
     file_progress_status = "IN_PROGRESS"
 
     try:
