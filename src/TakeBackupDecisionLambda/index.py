@@ -91,7 +91,7 @@ def lambda_handler(event, context):
 
     failed_opco_list = list(set(cluster_opcos) - set(successful_opcos))
 
-    should_backup = False
+    should_backup = True
 
     try:
         cursor_object = database_connection.cursor()

@@ -293,6 +293,7 @@ def find_tables_to_load(partial_load ,env ,opco_id, intermediate_s3, partitioned
                 print('partial load and the future table is empty and no full export is in progress, therefore stop the loading process')
             else:
                 # if full export is in progress load the partial export also to future table
+                print('partial load and the future table is empty and full export is in progress, therefore load future table')
                 db_configs['table'] = future_table_name
                 load_data(db_configs, opco_id, intermediate_s3, partitioned_files_key)
         else:

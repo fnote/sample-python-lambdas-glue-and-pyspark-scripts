@@ -8,7 +8,7 @@ import pymysql
 from datetime import datetime
 
 # file name , etl, total bbusiness unit count , success count, failed count , file type ,  failed opco ids, success opco ids , status, record count ,start time ,end time,partial load
-EXECUTION_STATUS_INSERT_QUERY = 'INSERT INTO PRICE_ZONE_LOAD_JOB_EXECUTION_STATUS (FILE_NAME,ETL_TIMESTAMP,TOTAL_BUSINESS_UNITS,SUCCESSFUL_BUSINESS_UNITS,FAILED_BUSINESS_UNITS,FILE_TYPE,FAILED_OPCO_IDS,SUCCESSFUL_OPCO_IDS,STATUS,RECORD_COUNT,START_TIME,END_TIME,PARTIAL_LOAD) VALUES ("{}", "{}", 0, 0, 0 ,"{}",0,0,"{}","0","{}","{}")'
+EXECUTION_STATUS_INSERT_QUERY = 'INSERT INTO PRICE_ZONE_LOAD_JOB_EXECUTION_STATUS (FILE_NAME,ETL_TIMESTAMP,TOTAL_BUSINESS_UNITS,SUCCESSFUL_BUSINESS_UNITS,FAILED_BUSINESS_UNITS,FILE_TYPE,FAILED_OPCO_IDS,SUCCESSFUL_OPCO_IDS,STATUS,RECORD_COUNT,START_TIME,END_TIME,PARTIAL_LOAD) VALUES ("{}", "{}", 0, 0, 0 ,"{}","","","{}","0","{}",0,"{}")'
 RECORD_EXIST_CHECK_QUERY = 'SELECT * FROM PRICE_ZONE_LOAD_JOB_EXECUTION_STATUS WHERE FILE_NAME="{}" AND ETL_TIMESTAMP={}'
 
 logger = logging.getLogger()
@@ -16,6 +16,7 @@ logger.setLevel(logging.INFO)
 charset = 'utf8'
 cursor_type = pymysql.cursors.DictCursor
 
+# adaptive - Retries with additional client side throttling.
 config = Config(
    retries={
       'max_attempts': 50,
@@ -64,6 +65,13 @@ def get_value_from_ssm(key):
     parameter = client_ssm.get_parameter(Name=key)['Parameter']  # will throw exception on key error
     return parameter['Value']
 
+def str_to_bool_int(s):
+    if s == 'True':
+         return 1
+    elif s == 'False':
+         return 0
+    else:
+         raise ValueError
 
 def lambda_handler(event, context):
     logger.info("Received event:")
@@ -75,7 +83,8 @@ def lambda_handler(event, context):
     etl_timestamp = event['etl_timestamp']
     file_name = event['s3_input_file_key']
     file_type = event['file_type']
-    partial_load = event['partial_load']
+    partial_load_string = event['partial_load']
+    partial_load = str_to_bool_int(partial_load_string)
     env = os.environ['env']
     max_concurrency_ssm_key = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/MAX_CONCURRENCY'
 
@@ -89,10 +98,12 @@ def lambda_handler(event, context):
     status = 'RUNNING'
     paginator = step_function.get_paginator('list_executions')
     pages = paginator.paginate(stateMachineArn=step_functionArn, statusFilter=status)
+    logger.info('paginator:%s  pages:%s' % (paginator, pages))
     logger.info('Retrieved execution list for step function:%s with execution status:%s' % (step_functionArn, status))
 
     start_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     database_connection = get_db_connection(env)
+    file_progress_status = "IN_PROGRESS"
 
     try:
         cursor_object = database_connection.cursor()
@@ -100,8 +111,8 @@ def lambda_handler(event, context):
         result = cursor_object.fetchone()
         logger.info('Retrieved record details from status table and the result :%s' % result)
 
-        if result != None:
-            res = cursor_object.execute(EXECUTION_STATUS_INSERT_QUERY.format(file_name, etl_timestamp, file_type, status, start_time, partial_load))
+        if result == None:
+            res = cursor_object.execute(EXECUTION_STATUS_INSERT_QUERY.format(file_name, etl_timestamp, file_type, file_progress_status, start_time, partial_load))
             logger.info('insert query results :%s' % res)
 
         database_connection.commit()
