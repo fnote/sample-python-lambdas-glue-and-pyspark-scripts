@@ -9,7 +9,7 @@ SCRIPT_DIRECTORY="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pw
 
 pushd $SCRIPT_DIRECTORY > /dev/null
 
-rm -rf .package AnalyzeEtlWaitStatusLambda.zip.zip
+rm -rf .package AnalyzeEtlWaitStatusLambda.zip
 mkdir .package
 
 pip3 install --target .package -r requirements.txt
