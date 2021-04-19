@@ -87,11 +87,10 @@ def separate_opcos_by_cluster(mappings, active_opco_list):
         else:
             invalid_or_inactive_opcos.append(opco_id)
 
-    print(cluster_1_opcos)
-    print(cluster_2_opcos)
-    print(invalid_or_inactive_opcos)
-    result_list = [cluster_1_opcos ,cluster_2_opcos ,invalid_or_inactive_opcos]
+    result_list = [cluster_1_opcos, cluster_2_opcos, invalid_or_inactive_opcos]
+    print(result_list)
     return result_list
+
 
 def read_data_from_s3(bucketname, key):
     print("Starting downloading Price advisor data file from S3")
@@ -108,8 +107,7 @@ def write_dataframe_to_s3(opco_id, fileName):
         s3_output = boto3.client('s3')
         s3_output.upload_fileobj(data, intermediate_s3_bucket, key)
 
-    print("Completed uploading PA data of opco %s to s3 bucket: %s key:%s" % (
-    opco_id, intermediate_s3_bucket, key))
+    print("Completed uploading PA data of opco %s to s3 bucket: %s key:%s" % (opco_id, intermediate_s3_bucket, key))
 
 
 def load_data(opco_id, df ,cluster_id):
@@ -260,22 +258,29 @@ if __name__ == "__main__":
     joined_string = ",".join(unique_opco_ids)
 
     #get the cluster details of those opcos
-    opco_cluster_mapping = get_opco_cluster_mapping(joined_string, environment)
+    try:
+        opco_cluster_mapping = get_opco_cluster_mapping(joined_string, environment)
 
-    #add active opco list here
-    cluster1_opcos_cluster2_opcos_and_invalids = separate_opcos_by_cluster(opco_cluster_mapping, unique_opco_ids)
-    df_cluster_1 = df[df['opco_id'].isin(cluster1_opcos_cluster2_opcos_and_invalids[0])]
-    df_cluster_2 = df[df['opco_id'].isin(cluster1_opcos_cluster2_opcos_and_invalids[1])]
-    cluster_wise_opcos_df = [df_cluster_1, df_cluster_2]
+        #add active opco list here
+        cluster1_opcos_cluster2_opcos_and_invalids = separate_opcos_by_cluster(opco_cluster_mapping, unique_opco_ids)
+        df_cluster_1 = df[df['opco_id'].isin(cluster1_opcos_cluster2_opcos_and_invalids[0])]
+        df_cluster_2 = df[df['opco_id'].isin(cluster1_opcos_cluster2_opcos_and_invalids[1])]
 
-    total_record_count_from_pa_file = len(df.index)
-    cluster_id = 0
+        total_record_count_from_pa_file = len(df.index)
 
-    for cluster_df in cluster_wise_opcos_df:
-        cluster_id = cluster_id + 1
-        print('load data in to cluster : ', cluster_id)
-        item_zone_prices_for_opco = dict(tuple(cluster_df.groupby(cluster_df['opco_id'])))  # group data by opco_id
-        for opco in item_zone_prices_for_opco:
-            load_data(opco, item_zone_prices_for_opco[opco], cluster_id)
+        # load price data to cluster 1
+        item_zone_prices_for_opco_in_cluster_1 = dict(tuple(df_cluster_1.groupby(df_cluster_1['opco_id'])))  # group data by opco_id
+        for opco in item_zone_prices_for_opco_in_cluster_1:
+            print('load data in to cluster : 1')
+            load_data(opco, item_zone_prices_for_opco_in_cluster_1[opco], 1)
 
-    write_metadata(metadata_lambda, intermediate_s3_bucket, intermediate_directory_path, total_record_count_from_pa_file, invalid_price_record_count)
+        # load price data to cluster 2
+        item_zone_prices_for_opco_in_cluster_2 = dict(tuple(df_cluster_2.groupby(df_cluster_2['opco_id'])))  # group data by opco_id
+        for opco in item_zone_prices_for_opco_in_cluster_2:
+            print('load data in to cluster : 2')
+            load_data(opco, item_zone_prices_for_opco_in_cluster_2[opco], 2)
+
+        write_metadata(metadata_lambda, intermediate_s3_bucket, intermediate_directory_path, total_record_count_from_pa_file, invalid_price_record_count)
+
+    except Exception as e:
+        raise e
