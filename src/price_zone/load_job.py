@@ -25,7 +25,6 @@ cursor_type = pymysql.cursors.DictCursor
 def get_values_from_ssm(keys):
     client_ssm = boto3.client('ssm')
     response = client_ssm.get_parameters(Names=keys, WithDecryption=True)
-    # print(response)
     parameters = response['Parameters']
     invalid_parameters = response['InvalidParameters']
     if invalid_parameters:
@@ -207,7 +206,7 @@ def check_table_is_empty(table, db_configs):
         database_connection.close()
 
 def update_table_effective_dates(db_configs, effective_date):
-    print('check if tables are empty')
+    print('update the effective dates in price zone master data table')
 
     database_connection = getNewConnection(db_configs['host'], db_configs['username'], db_configs['password'],
                                            db_configs['database'])
@@ -265,25 +264,25 @@ def find_tables_to_load(partial_load ,env ,opco_id, intermediate_s3, partitioned
     connection_params = get_common_db_connection_details(env)
 
     if partial_load:
-        active_table = get_active_and_future_tables(env, "ACTIVE" ,db_configs)
-        future_table = get_active_and_future_tables(env, "FUTURE" ,db_configs)
+        active_table = get_active_and_future_tables(env, "ACTIVE", db_configs)
+        future_table = get_active_and_future_tables(env, "FUTURE", db_configs)
 
-        #find active table from db
+        # find active table from db
         active_table_name = active_table[0][0]
         future_table_name = future_table[0][0]
 
-        #load data to active table
+        # load data to active table
         db_configs['table'] = active_table_name
         load_data(db_configs, opco_id, intermediate_s3, partitioned_files_key)
 
-        #check whether future table is empty
+        # check whether future table is empty
         db_configs['table'] = future_table_name
         future_table_query_result = check_table_is_empty(future_table_name, db_configs)
         print(future_table_query_result)
 
         if len(future_table_query_result) == 0:
-            #future table empty stop
-            #check if full export is in progress if so load to future too
+            # If future table empty -> stop
+            # Check if full export is in progress if so load to future too
             database_connection = get_common_db_connection(env, connection_params)
             cursor_object = database_connection.cursor()
 
@@ -317,9 +316,9 @@ def find_tables_to_load(partial_load ,env ,opco_id, intermediate_s3, partitioned
             effective_date_result = get_effective_date(future_table_name, db_configs)
             update_table_effective_dates(db_configs, effective_date_result[0][0])
         else:
-            #soft valida -> we just print skip that opco return opco id metadataa
-            #hard ->error
-            #proceeed -> load irrespective of
+            # soft validation -> 1 -> we just print skip that opco return opco id metadata
+            # hard validation -> 0 -> throw error
+            # proceed -> 2 -> load irrespective of error
             if int(connection_params['soft_validation']) == 0:
                 raise Exception("full load and future table is not empty")
             elif int(connection_params['soft_validation']) == 1:

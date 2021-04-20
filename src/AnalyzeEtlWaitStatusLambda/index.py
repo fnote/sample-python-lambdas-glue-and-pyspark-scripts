@@ -34,7 +34,7 @@ def get_values_from_ssm(keys):
     parameter_dictionary = {}
     for parameter in parameters:
         parameter_dictionary[parameter['Name']] = parameter['Value']
-    print(parameter_dictionary)
+    logger.info('ssm parameter dictionary returned: %s' % parameter_dictionary)
     return parameter_dictionary
 
 
@@ -115,7 +115,7 @@ def lambda_handler(event, context):
 
         database_connection.commit()
     except Exception as e:
-        print(e)
+        logger.error(e)
         # TODO: handle this
 
     finally:
