@@ -166,7 +166,7 @@ def get_values_from_ssm(keys):
     return parameter_dictionary
 
 
-def get_active_and_future_tables(env ,table ,db_configs):
+def get_active_and_future_tables(env, table, db_configs):
     #from common db
     database_connection = getNewConnection(db_configs['host'], db_configs['username'], db_configs['password'], db_configs['database'])
 
@@ -283,20 +283,9 @@ def find_tables_to_load(partial_load ,env ,opco_id, intermediate_s3, partitioned
         if len(future_table_query_result) == 0:
             # If future table empty -> stop
             # Check if full export is in progress if so load to future too
-            database_connection = get_common_db_connection(env, connection_params)
-            cursor_object = database_connection.cursor()
-
-            cursor_object.execute(JOB_EXECUTION_STATUS_FETCH_QUERY.format(0, "IN_PROGRESS"))
-            result = cursor_object.fetchall()
-            if len(result) == 0:
-                print('partial load and the future table is empty and no full export is in progress, therefore stop the loading process')
-            else:
-                # if full export is in progress load the partial export also to future table
-                print('partial load and the future table is empty and full export is in progress, therefore load future table')
-                db_configs['table'] = future_table_name
-                load_data(db_configs, opco_id, intermediate_s3, partitioned_files_key)
+            print('partial load and the future table is empty, therefore stop the loading process & proceed')
         else:
-            #load future table
+            # future table not empty , therefore load future table
             db_configs['table'] = future_table_name
             print('partial load and the future table is not empty, therefore load the future table')
             load_data(db_configs, opco_id, intermediate_s3, partitioned_files_key)
@@ -308,7 +297,7 @@ def find_tables_to_load(partial_load ,env ,opco_id, intermediate_s3, partitioned
         future_table_query_result = check_table_is_empty(future_table_name, db_configs)
         if len(future_table_query_result) == 0:
             print('full load and future table empty, therefore load to future table ')
-            #load future table
+            # load future table
             db_configs['table'] = future_table_name
             load_data(db_configs, opco_id, intermediate_s3, partitioned_files_key)
 
