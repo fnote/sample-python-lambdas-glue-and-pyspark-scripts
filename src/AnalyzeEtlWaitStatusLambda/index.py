@@ -73,6 +73,9 @@ def str_to_bool_int(s):
 def lambda_handler(event, context):
     logger.info("Received event:")
     logger.info(event)
+    status = 'RUNNING'
+    file_progress_status = "IN_PROGRESS"
+
     step_function = boto3.client('stepfunctions', config=config)
 
     step_functionArn = event['stepFunctionArn']
@@ -94,14 +97,12 @@ def lambda_handler(event, context):
             .format(ALLOWED_CONCURRENT_EXECUTIONS)
         raise ValueError(error_msg)
 
-    status = 'RUNNING'
     paginator = step_function.get_paginator('list_executions')
     pages = paginator.paginate(stateMachineArn=step_functionArn, statusFilter=status)
     logger.info('paginator:%s  pages:%s' % (paginator, pages))
     logger.info('Retrieved execution list for step function:%s with execution status:%s' % (step_functionArn, status))
 
     start_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    file_progress_status = "IN_PROGRESS"
 
     try:
         cursor_object = database_connection.cursor()
