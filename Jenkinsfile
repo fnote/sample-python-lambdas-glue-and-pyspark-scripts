@@ -132,13 +132,12 @@ def copyToS3(sourceFile, destinationPath) {
 def copyFileIntoEnv(s3Path) {
     def paS3Path = "${s3Path}/pa"
     copyToS3("./src/price_zone/s3_trigger_lambda.py.zip", s3Path)
-    copyToS3("./src/price_zone/analyze_etl_wait_status.py.zip", s3Path)
     copyToS3("./src/price_zone/decompress_job.py", s3Path)
     copyToS3("./src/price_zone/transform_spark_job.py", s3Path)
     copyToS3("./src/price_zone/load_job.py", s3Path)
     copyToS3("./src/price_zone/data_backup_job.py", s3Path)
     copyToS3("./src/FetchFileListLambda/FetchFileListLambda.zip", s3Path)
-    copyToS3("./src/AnalyzeEtlWaitStatusLambda./AnalyzeEtlWaitStatusLambda.zip", s3Path)
+    copyToS3("./src/AnalyzeEtlWaitStatusLambda/AnalyzeEtlWaitStatusLambda.zip", s3Path)
     copyToS3("./src/AnalyzeWaitOrLoadClusterLambda/AnalyzeWaitOrLoadClusterLambda.zip", s3Path)
     copyToS3("./src/TakeBackupDecisionLambda/TakeBackupDecisionLambda.zip", s3Path)
 
@@ -157,9 +156,6 @@ def deployIntoEnv(env, bucket, s3Path, s3key, region) {
     updateLambda(
             bucket, region, "CP-REF-etl-price-zone-trigger-${env}",
             "${s3key}/s3_trigger_lambda.py.zip")
-    updateLambda(
-            bucket, region, "CP-REF-etl-price-zone-wait-status-analyzer-${env}",
-            "${s3key}/analyze_etl_wait_status.py.zip")
     updateGlueScript(
             region, "CP-REF-etl-price-zone-decompression-job-${env}",
             "${s3Path}/decompress_job.py")
@@ -210,7 +206,6 @@ pipeline {
             steps {
                 script {
                     zipScript("src/price_zone", "s3_trigger_lambda.py")
-                    zipScript("src/price_zone", "analyze_etl_wait_status.py")
                     bat script: "cd src/Notifier & pip3 install --target . -r requirements.txt & D:/winrar/winrar a -r Notifier.zip & dir"
                     bat script: "cd src/FetchFileListLambda & pip3 install --target . -r requirements.txt & D:/winrar/winrar a -r FetchFileListLambda.zip & dir"
                     bat script: "cd src/AnalyzeEtlWaitStatusLambda & pip3 install --target . -r requirements.txt & D:/winrar/winrar a -r AnalyzeEtlWaitStatusLambda.zip & dir"
@@ -360,9 +355,6 @@ pipeline {
                     updateLambdaProd(
                             bucket, region, "CP-REF-etl-price-zone-trigger-${ENV}",
                             "${s3key}/s3_trigger_lambda.py.zip")
-                    updateLambdaProd(
-                            bucket, region, "CP-REF-etl-price-zone-wait-status-analyzer-${ENV}",
-                            "${s3key}/analyze_etl_wait_status.py.zip")
                     updateLambdaProd(bucket, region, 'CP-REF-etl-price-zone-opco-files-fetch-${ENV}',
                             "${s3key}/FetchFileListLambda.zip")
                     updateLambdaProd(bucket, region, 'CP-REF-etl-price-zone-wait-status-analyzer-${ENV}',
