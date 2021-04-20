@@ -236,7 +236,7 @@ def get_effective_date(table, db_configs):
     database_connection = getNewConnection(db_configs['host'], db_configs['username'], db_configs['password'], db_configs['database'])
     try:
         cursor_object = database_connection.cursor()
-        sql = "SELECT min(EFFECTIVE_DATE) FROM %s LIMIT 1"% table
+        sql = "SELECT min(EFFECTIVE_DATE) FROM %s"% table
         print(sql)
         cursor_object.execute(sql)
         result = cursor_object.fetchall()
