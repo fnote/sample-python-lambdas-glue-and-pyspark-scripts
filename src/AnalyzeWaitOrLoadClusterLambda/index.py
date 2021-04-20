@@ -1,8 +1,5 @@
-import logging
-import os
 import pymysql
 import boto3
-from collections import Counter
 
 OPCO_CLUSTER_MAPPINGS_QUERY = 'SELECT * FROM OPCO_CLUSTER_MAPPING WHERE OPCO_ID IN ({})'
 CLUSTER_ID_COLUMN_NAME = 'CLUSTER_ID'
@@ -115,18 +112,15 @@ def lambda_handler(event, context):
                 database_connection.commit()
                 return {'nextStep': 'Wait'}
 
-            #update table
+            # update table
             cursor_object.execute(CLUSTER_LOAD_JOB_COUNT_UPDATE_QUERY.format(update_count, cluster))
             database_connection.commit()
 
-            cursor_object.execute(JOB_COUNT_AFTER_UPDATE_QUERY.format(cluster))
-            result_after_update = cursor_object.fetchone()
-
-            print("Actual running count after update: {}".format(result_after_update[RUNNING_LOAD_JOB_COUNT_KEY]))
             return {'nextStep': 'Load All', 'allocatedJobCount': update_count}
         except Exception as e:
             # TODO: handle this appropriately
             print(e)
+            raise e
         finally:
             database_connection.close()
 

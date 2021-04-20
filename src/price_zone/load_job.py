@@ -1,7 +1,6 @@
 import sys
 import threading
 import time
-import json
 
 import boto3
 import base64
@@ -17,7 +16,6 @@ lambda_client = boto3.client('lambda')
 
 query_for_tables = 'SELECT * FROM settings WHERE setting = (%s)'
 glue_connection_name = 'cp-ref-etl-common-connection-{}-cluster-{}'
-JOB_EXECUTION_STATUS_FETCH_QUERY = 'SELECT STATUS FROM PRICE_ZONE_LOAD_JOB_EXECUTION_STATUS WHERE PARTIAL_LOAD={} AND STATUS="{}" FOR UPDATE'
 
 charset = 'utf8'
 cursor_type = pymysql.cursors.DictCursor

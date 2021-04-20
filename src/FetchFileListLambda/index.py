@@ -1,7 +1,6 @@
 import boto3
 import re
 import pymysql
-import os
 
 OPCO_CLUSTER_MAPPINGS_QUERY = 'SELECT * FROM OPCO_CLUSTER_MAPPINGS WHERE BUSINESS_UNIT_NUMBER IN ({})'
 # file name , etl, total bbusiness unit count , success count, failed count , file type ,  failed opco ids, success opco ids , status, record count ,start time ,end time,partial load
@@ -165,7 +164,7 @@ def lambda_handler(event, context):
     valid_opco_count = len(separated_opco_result[CLUSTER_1_OPCO_KEY]) + len(separated_opco_result[CLUSTER_2_OPCO_KEY])
 
     # update status table
-    # 5 , file type , success opcos , failed opcos , record count status start time end time
+    # 5 attributes, file type , success opcos , failed opcos , record count status start time end time
     update_job_execution_status(environment, file_name, etl_timestamp, valid_opco_count)
 
     return separated_opco_result
