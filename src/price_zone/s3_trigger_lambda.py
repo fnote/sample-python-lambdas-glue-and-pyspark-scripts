@@ -81,7 +81,7 @@ def lambda_handler(event, context):
         partial_load = True
     elif full_load:
         partial_load = False
-    elif int(partial_load_file_size_upper_bound) < input_file_size_in_gb:
+    elif float(partial_load_file_size_upper_bound) < input_file_size_in_gb:
         partial_load = False
     else:
         partial_load = True
