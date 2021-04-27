@@ -83,9 +83,9 @@ def separate_opcos_by_cluster(mappings, active_opco_list):
     for mapping in mappings:
         cluster_id = mapping[CLUSTER_ID_COLUMN_NAME]
         opco_id = mapping[OPCO_ID_COLUMN_NAME]
-        if cluster_id == 1 and opco_id in active_opco_list:
+        if cluster_id == '01' and opco_id in active_opco_list:
             cluster_01_opcos.append(opco_id)
-        elif cluster_id == 2 and opco_id in active_opco_list:
+        elif cluster_id == '02' and opco_id in active_opco_list:
             cluster_02_opcos.append(opco_id)
         else:
             invalid_or_inactive_opcos.append(opco_id)
@@ -93,7 +93,7 @@ def separate_opcos_by_cluster(mappings, active_opco_list):
     print(cluster_01_opcos)
     print(cluster_02_opcos)
     print(invalid_or_inactive_opcos)
-    result_list = [cluster_01_opcos ,cluster_02_opcos ,invalid_or_inactive_opcos]
+    result_list = [cluster_01_opcos, cluster_02_opcos, invalid_or_inactive_opcos]
     return result_list
 
 def filter_to_two_cluster(df):
