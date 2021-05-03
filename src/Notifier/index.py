@@ -6,9 +6,14 @@ import boto3
 import json
 import anticrlf
 import pymysql
+import urllib.request
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
+
+from urllib.request import Request, urlopen
+from urllib.error import URLError, HTTPError
+HOOK_URL = 'https://sysco.webhook.office.com/webhookb2/333723ea-275d-4f46-bf5a-4591e9c67d25@b7aa4308-bf33-414f-9971-6e0c972cbe5d/IncomingWebhook/a21120594854442cad98ea00a41885f9/8feac8da-972c-4405-8a3a-96bd633d14e0'
 
 JOB_EXECUTION_STATUS_UPDATE_QUERY = 'UPDATE PRICE_ZONE_LOAD_JOB_EXECUTION_STATUS SET RECORD_COUNT = "{}" WHERE FILE_NAME="{}" AND ETL_TIMESTAMP={}'
 
@@ -79,6 +84,7 @@ def read_additional_info(bucket_name, backup_completed, event):
         return 'None'
 
 def lambda_handler(event, context):
+    logger.info("Event: " + str(event))
     REFERENCE_PRICING = "REFERENCE_PRICING"
 
     url = os.environ['cp_notification_url']
@@ -87,7 +93,9 @@ def lambda_handler(event, context):
     notification_event = event.get("event", "PROCESSOR")
     status = event.get("status", "ERROR")
     message = event.get("message", "NA")
+    ref_price_type = event.get("event", "NA")
     bucket_name = event['additional_info_file_s3']
+
 
     current_time = int(time.time())
     logger.info('Sending notification env: %s, time: %s, status: %s, message: %s' % (
@@ -116,17 +124,39 @@ def lambda_handler(event, context):
     }
 
     print(additional_info)
+    additional_info_json = json.loads(additional_info)
+
+    failed_opco_list = additional_info_json['failed_opcos']
+
+    print(len(failed_opco_list))
+
+    # Teams alerts for failed files
+    if len(failed_opco_list) > 0 or status == 'ERROR':
+        file_name = event['file_name']
+        etl_timestamp = event['etl_timestamp']
+        file_datetime = time.strftime('%A, %Y-%m-%d %H:%M:%S', time.localtime(int(etl_timestamp)))
+        print(file_datetime)
+        print("failed opcos present , send teams alert")
+
+        try:
+            # teams_webhook_url = os.environ['teams_webhook_url']
+
+            payload = {
+                "text": json.dumps(data['message'])
+            }
+            requests.post(HOOK_URL, data=json.dumps(payload))
+        except Exception as e:
+            logger.error(e)
 
 
-
-    #add record count to common db status table if evnt is prize zone
-    #file name and etl time stamp required to edit the right record in db
+    # add record count to common db status table if event is prize zone
+    # file name and etl time stamp required to edit the right record in db
 
     if notification_event == "[ETL] - [Ref Price] [Price Zone Data]" and status == "SUCCEEDED":
 
         etl_timestamp = event['etl_timestamp']
         input_file_name = event['file_name']
-        #send s3_input_file_key
+        # send s3_input_file_key
         # additional_info_json_string = json.dumps(additional_info)
         additional_info_json = json.loads(additional_info)
 
@@ -139,7 +169,7 @@ def lambda_handler(event, context):
         cursor_object.execute(JOB_EXECUTION_STATUS_UPDATE_QUERY.format(str(record_count), input_file_name, etl_timestamp))
         database_connection.commit()
 
-    #update the status table with total record count
+    # update the status table with total record count
     headers = {'host': host, 'Content-Type': 'application/json'}
     response = requests.post(url, json=data, headers=headers)
     logger.info('Response: %s' % response.json())
