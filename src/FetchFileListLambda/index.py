@@ -2,11 +2,11 @@ import boto3
 import re
 import pymysql
 
-OPCO_CLUSTER_MAPPINGS_QUERY = 'SELECT * FROM OPCO_CLUSTER_MAPPINGS WHERE BUSINESS_UNIT_NUMBER IN ({})'
+OPCO_CLUSTER_MAPPINGS_QUERY = 'SELECT * FROM OPCO_CLUSTER WHERE OPCO_ID IN ({})'
 # file name , etl, total bbusiness unit count , success count, failed count , file type ,  failed opco ids, success opco ids , status, record count ,start time ,end time,partial load
 JOB_EXECUTION_STATUS_UPDATE_QUERY = 'UPDATE PRICE_ZONE_LOAD_JOB_EXECUTION_STATUS SET TOTAL_BUSINESS_UNITS = {} WHERE FILE_NAME="{}" AND ETL_TIMESTAMP={}'
 CLUSTER_ID_COLUMN_NAME = 'CLUSTER_ID'
-OPCO_ID_COLUMN_NAME = 'BUSINESS_UNIT_NUMBER'
+OPCO_ID_COLUMN_NAME = 'OPCO_ID'
 ENVIRONMENT_PARAM_NAME = 'ENV'
 FILE_NAME_PARAM_NAME = 's3_object_key'
 ETL_TIMESTAMP_PARAM_NAME = 'etl_timestamp'
@@ -83,9 +83,9 @@ def separate_opcos_by_cluster(mappings, active_opco_list):
     for mapping in mappings:
         cluster_id = mapping[CLUSTER_ID_COLUMN_NAME]
         opco_id = mapping[OPCO_ID_COLUMN_NAME]
-        if cluster_id == 1 and opco_id in active_opco_list:
+        if cluster_id == '01' and opco_id in active_opco_list:
             cluster_01_opcos.append(opco_id)
-        elif cluster_id == 2 and opco_id in active_opco_list:
+        elif cluster_id == '02' and opco_id in active_opco_list:
             cluster_02_opcos.append(opco_id)
         else:
             invalid_or_inactive_opcos.append(opco_id)
@@ -93,7 +93,7 @@ def separate_opcos_by_cluster(mappings, active_opco_list):
     print(cluster_01_opcos)
     print(cluster_02_opcos)
     print(invalid_or_inactive_opcos)
-    result_list = [cluster_01_opcos ,cluster_02_opcos ,invalid_or_inactive_opcos]
+    result_list = [cluster_01_opcos, cluster_02_opcos, invalid_or_inactive_opcos]
     return result_list
 
 def filter_to_two_cluster(df):

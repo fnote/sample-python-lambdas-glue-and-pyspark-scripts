@@ -13,10 +13,10 @@ from awsglue.utils import getResolvedOptions
 
 lambda_client = boto3.client('lambda')
 
-OPCO_CLUSTER_MAPPINGS_QUERY = 'SELECT * FROM OPCO_CLUSTER_MAPPINGS WHERE BUSINESS_UNIT_NUMBER IN ({})'
+OPCO_CLUSTER_MAPPINGS_QUERY = 'SELECT * FROM OPCO_CLUSTER WHERE OPCO_ID IN ({})'
 glue_connection_name = 'cp-ref-etl-common-connection-{}-cluster-{}'
 CLUSTER_ID_COLUMN_NAME = 'CLUSTER_ID'
-OPCO_ID_COLUMN_NAME = 'BUSINESS_UNIT_NUMBER'
+OPCO_ID_COLUMN_NAME = 'OPCO_ID'
 charset = 'utf8'
 cursor_type = pymysql.cursors.DictCursor
 
