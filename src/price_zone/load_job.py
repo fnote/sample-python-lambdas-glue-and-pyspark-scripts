@@ -21,7 +21,7 @@ glue_connection_name = 'cp-ref-etl-common-connection-{}-cluster-{}'
 charset = 'utf8'
 cursor_type = pymysql.cursors.DictCursor
 
-JOB_EXECUTION_STATUS_FETCH_QUERY = 'SELECT STATUS FROM PRICE_ZONE_LOAD_JOB_EXECUTION_STATUS WHERE PARTIAL_LOAD={} AND STATUS="{}" FOR UPDATE'
+JOB_EXECUTION_STATUS_FETCH_QUERY = 'SELECT RECEIVED_OPCOS FROM PRICE_ZONE_LOAD_JOB_EXECUTION_STATUS WHERE PARTIAL_LOAD={} AND STATUS="{}" FOR UPDATE'
 
 def get_values_from_ssm(keys):
     client_ssm = boto3.client('ssm')
