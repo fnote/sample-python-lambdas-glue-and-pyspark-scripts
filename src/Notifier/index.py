@@ -11,10 +11,6 @@ import urllib.request
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-from urllib.request import Request, urlopen
-from urllib.error import URLError, HTTPError
-HOOK_URL = 'https://sysco.webhook.office.com/webhookb2/333723ea-275d-4f46-bf5a-4591e9c67d25@b7aa4308-bf33-414f-9971-6e0c972cbe5d/IncomingWebhook/a21120594854442cad98ea00a41885f9/8feac8da-972c-4405-8a3a-96bd633d14e0'
-
 JOB_EXECUTION_STATUS_UPDATE_QUERY = 'UPDATE PRICE_ZONE_LOAD_JOB_EXECUTION_STATUS SET RECORD_COUNT = "{}" WHERE FILE_NAME="{}" AND ETL_TIMESTAMP={}'
 
 # Using a handler with anticrlf log formatter to avoid CRLF injections
@@ -139,12 +135,13 @@ def lambda_handler(event, context):
         print("failed opcos present , send teams alert")
 
         try:
-            # teams_webhook_url = os.environ['teams_webhook_url']
+            teams_url = 'teams_webhook_url_' + env
+            teams_webhook_url = os.environ[teams_url]
 
             payload = {
                 "text": json.dumps(data['message'])
             }
-            requests.post(HOOK_URL, data=json.dumps(payload))
+            requests.post(teams_webhook_url, data=json.dumps(payload))
         except Exception as e:
             logger.error(e)
 
