@@ -122,12 +122,8 @@ def lambda_handler(event, context):
     print(additional_info)
     additional_info_json = json.loads(additional_info)
 
-    failed_opco_list = additional_info_json['failed_opcos']
-
-    print(len(failed_opco_list))
-
     # Teams alerts for failed files
-    if len(failed_opco_list) > 0 or status == 'ERROR':
+    if status == 'ERROR':
         file_name = event['file_name']
         etl_timestamp = event['etl_timestamp']
         file_datetime = time.strftime('%A, %Y-%m-%d %H:%M:%S', time.localtime(int(etl_timestamp)))
