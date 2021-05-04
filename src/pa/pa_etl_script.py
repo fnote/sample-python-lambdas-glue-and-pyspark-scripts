@@ -80,9 +80,9 @@ def separate_opcos_by_cluster(mappings, active_opco_list):
     for mapping in mappings:
         cluster_id = mapping[CLUSTER_ID_COLUMN_NAME]
         opco_id = mapping[OPCO_ID_COLUMN_NAME]
-        if cluster_id == 1 and opco_id in active_opco_list:
+        if cluster_id == '01' and opco_id in active_opco_list:
             cluster_1_opcos.append(opco_id)
-        elif cluster_id == 2 and opco_id in active_opco_list:
+        elif cluster_id == '02' and opco_id in active_opco_list:
             cluster_2_opcos.append(opco_id)
         else:
             invalid_or_inactive_opcos.append(opco_id)
