@@ -251,24 +251,17 @@ def get_effective_date(table, db_configs):
 
 
 def check_for_full_exports_in_progress(common_db_connection_params, opco_id):
-    print(common_db_connection_params)
     opcos_in_full_export = []
     database_connection = get_common_db_connection(environment, connection_params=common_db_connection_params)
     try:
         cursor_object = database_connection.cursor()
         cursor_object.execute(JOB_EXECUTION_STATUS_FETCH_QUERY.format(0, "IN_PROGRESS"))
         results = cursor_object.fetchall()
-        print(results)
-        print(len(results))
         for result in results:
-            print(result['RECEIVED_OPCOS'])
             opcos_in_full_export.append(result['RECEIVED_OPCOS'].split(','))
-        print(opcos_in_full_export)
         flat_opco_list_in_export = []
         if opcos_in_full_export:
             flat_opco_list_in_export = reduce(list.__add__, opcos_in_full_export)
-        print(flat_opco_list_in_export)
-        print(opco_id)
         if opco_id in flat_opco_list_in_export:
             print('current loading opco present in a full export in progress')
             return True
