@@ -272,13 +272,13 @@ if __name__ == "__main__":
         item_zone_prices_for_opco_in_cluster_1 = dict(tuple(df_cluster_1.groupby(df_cluster_1['opco_id'])))  # group data by opco_id
         for opco in item_zone_prices_for_opco_in_cluster_1:
             print('load data in to cluster : 1')
-            load_data(opco, item_zone_prices_for_opco_in_cluster_1[opco], 1)
+            load_data(opco, item_zone_prices_for_opco_in_cluster_1[opco], '01')
 
         # load price data to cluster 2
         item_zone_prices_for_opco_in_cluster_2 = dict(tuple(df_cluster_2.groupby(df_cluster_2['opco_id'])))  # group data by opco_id
         for opco in item_zone_prices_for_opco_in_cluster_2:
             print('load data in to cluster : 2')
-            load_data(opco, item_zone_prices_for_opco_in_cluster_2[opco], 2)
+            load_data(opco, item_zone_prices_for_opco_in_cluster_2[opco], '02')
 
         write_metadata(metadata_lambda, intermediate_s3_bucket, intermediate_directory_path, total_record_count_from_pa_file, invalid_price_record_count)
 
