@@ -123,9 +123,6 @@ def lambda_handler(event, context):
 
     # Teams alerts for failed files
     if status == 'ERROR':
-        etl_timestamp = event['etl_timestamp']
-        file_datetime = time.strftime('%A, %Y-%m-%d %H:%M:%S', time.localtime(int(etl_timestamp)))
-        print(file_datetime)
         print("failed opcos present , send teams alert")
 
         try:
