@@ -120,7 +120,6 @@ def lambda_handler(event, context):
     }
 
     print(additional_info)
-    additional_info_json = json.loads(additional_info)
 
     # Teams alerts for failed files
     if status == 'ERROR':
