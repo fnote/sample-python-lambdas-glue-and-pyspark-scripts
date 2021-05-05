@@ -1,12 +1,17 @@
+"""
+trigger lambda to trigger the step function on arrival of a file
+"""
+# pylint: disable=line-too-long
+
+import json
 import logging
 import os
+import time
 import uuid
-from urllib.parse import unquote_plus
 from datetime import datetime
+from urllib.parse import unquote_plus
 
 import boto3
-import json
-import time
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -17,10 +22,10 @@ def get_values_from_ssm(keys):
     logger.info("GetParameter called for ssm key: {}".format(keys))
     response = client_ssm.get_parameters(Names=keys)
     parameters = response['Parameters']
-    invalidParameters = response['InvalidParameters']
+    invalid_parameters = response['InvalidParameters']
 
-    if invalidParameters:
-        raise KeyError('Found invalid ssm parameter keys:' + ','.join(invalidParameters))
+    if invalid_parameters:
+        raise KeyError('Found invalid ssm parameter keys:' + ','.join(invalid_parameters))
 
     parameter_dictionary = {}
     for parameter in parameters:
@@ -29,8 +34,7 @@ def get_values_from_ssm(keys):
     return parameter_dictionary
 
 
-
-def is_partial_or_full_load(file_name, prefixes_str ,file_prefix):
+def is_partial_or_full_load(file_name, prefixes_str, file_prefix):
     prefix_list = prefixes_str.split(",")
     for prefix in prefix_list:
         if file_name.startswith(prefix):
@@ -55,7 +59,7 @@ def lambda_handler(event, context):
     full_load_prefixes_key = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/FULL_LOAD_PREFIXES'
 
     file_prefix = ''
-    ssm_key_set = [ partial_load_prefixes_key, full_load_prefixes_key]
+    ssm_key_set = [partial_load_prefixes_key, full_load_prefixes_key]
     prefixes_values = get_values_from_ssm(ssm_key_set)
     partial_load = is_partial_or_full_load(s3_object_key, prefixes_values[partial_load_prefixes_key], file_prefix)
     full_load = is_partial_or_full_load(s3_object_key, prefixes_values[full_load_prefixes_key], file_prefix)
@@ -63,7 +67,7 @@ def lambda_handler(event, context):
     size = boto3.resource('s3').Bucket(s3['bucket']['name']).Object(s3_object_key).content_length
     logger.info('Input file size in GBs:' + str(size))
     # 1 Bytes = 9.31×10 Gigabytes
-    input_file_size_in_gb =  (int(size) * 9.31)/10**10
+    input_file_size_in_gb = (int(size) * 9.31) / 10 ** 10
     logger.info('Input file size in GBs:' + str(input_file_size_in_gb))
 
     file_size_upper_bound_key = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/PARTIAL_LOAD_FILE_SIZE_UPPER_BOUND'
@@ -73,10 +77,10 @@ def lambda_handler(event, context):
     ssm_key_set_values = get_values_from_ssm(ssm_key_set)
     partial_load_file_size_upper_bound = ssm_key_set_values[file_size_upper_bound_key]
 
-    #if partial load prefix is present in the file name or file size is less than the min size of a full export
+    # if partial load prefix is present in the file name or file size is less than the min size of a full export
 
     # ctt itt big file
-    #small file but not ctt itt
+    # small file but not ctt itt
     if partial_load:
         partial_load = True
     elif full_load:
@@ -85,7 +89,6 @@ def lambda_handler(event, context):
         partial_load = False
     else:
         partial_load = True
-
 
     # here file name is not included to the path to prevent errors from filenames containing special characters
     unique_path_prefix = 'etl_output_' + etl_timestamp + '_' \
@@ -97,7 +100,7 @@ def lambda_handler(event, context):
         min_worker_count_key = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/WORKER_COUNT/MIN'
         ssm_keys = [min_worker_count_key, etl_worker_type_key, active_opcos_key]
         ssm_key_values = get_values_from_ssm(ssm_keys)
-        glue_NumberOfWorkers = int(ssm_key_values[min_worker_count_key])
+        glue_number_of_workers = int(ssm_key_values[min_worker_count_key])
         glue_worker_type = ssm_key_values[etl_worker_type_key]
         active_opco_list = ssm_key_values[active_opcos_key]
     else:  # handle full load
@@ -106,12 +109,12 @@ def lambda_handler(event, context):
         max_worker_count_key = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/WORKER_COUNT/MAX'
         ssm_keys = [max_worker_count_key, etl_worker_type_key, active_opcos_key]
         ssm_key_values = get_values_from_ssm(ssm_keys)
-        glue_NumberOfWorkers = int(ssm_key_values[max_worker_count_key])
+        glue_number_of_workers = int(ssm_key_values[max_worker_count_key])
         glue_worker_type = ssm_key_values[etl_worker_type_key]
         active_opco_list = ssm_key_values[active_opcos_key]
 
-    if glue_NumberOfWorkers == 0:
-        error_msg = 'Received illegal value for glue_NumberOfWorkers: {}'.format(glue_NumberOfWorkers)
+    if glue_number_of_workers == 0:
+        error_msg = 'Received illegal value for glue_NumberOfWorkers: {}'.format(glue_number_of_workers)
         raise ValueError(error_msg)
 
     intermediate_directory_path = "s3://" + intermediate_s3_storage + "/" + folder_key
@@ -137,7 +140,7 @@ def lambda_handler(event, context):
         "s3_input_bucket": s3['bucket']['name'],
         "s3_input_file_key": s3_object_key,
         "partial_load": str(partial_load),
-        "worker_count": glue_NumberOfWorkers,
+        "worker_count": glue_number_of_workers,
         "worker_type": glue_worker_type,
         "active_opcos": active_opco_list,
         "backup_bucket": 'cp-ref-etl-data-backup-storage-{}'.format(env.lower()),
