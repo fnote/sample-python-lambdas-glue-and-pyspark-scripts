@@ -2,11 +2,12 @@
 import json
 import logging
 import os
+import time
 from datetime import datetime
+from urllib.parse import unquote_plus
+
 # Import Boto 3 for AWS Glue
 import boto3
-import time
-from urllib.parse import unquote_plus
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
