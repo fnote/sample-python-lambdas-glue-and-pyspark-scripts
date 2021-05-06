@@ -1,20 +1,5 @@
----
-###########################
-###########################
-## Linter GitHub Actions ##
-###########################
-###########################
 name: Lint Code Base
 
-
-#
-# Documentation:
-# https://help.github.com/en/articles/workflow-syntax-for-github-actions
-#
-
-#############################
-# Start the job on all push #
-#############################
 on:
   push:
     branches-ignore: [task/TRSP-65-etl-scalability-issues]
@@ -22,9 +7,6 @@ on:
   pull_request:
     branches: [task/TRSP-65-etl-scalability-issues]
 
-###############
-# Set the Job #
-###############
 jobs:
   build:
     # Name the Job
@@ -36,21 +18,6 @@ jobs:
     # Load all steps #
     ##################
     steps:
-      ##########################
-      # Checkout the code base #
-      ##########################
-      - name: Checkout Code
-        uses: actions/checkout@v2
-        with:
-          # Full git history is needed to get a proper list of changed files within `super-linter`
-          fetch-depth: 0
-
-      ################################
-      # Run Linter against code base #
-      ################################
-      - name: Lint Code Base
-        uses: github/super-linter@v3
-        env:
-          VALIDATE_ALL_CODEBASE: false
-          DEFAULT_BRANCH: master
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        - uses: actions/checkout@v2
+        - name: Super-Linter
+          uses: github/super-linter@v3
