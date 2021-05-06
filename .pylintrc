@@ -620,4 +620,4 @@ overgeneral-exceptions=BaseException,
                        Exception
 
 [pre-commit-hook]
-limit=9.0
+limit=5.0

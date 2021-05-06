@@ -5,6 +5,7 @@ validator to validate columns in incoming files
 
 from pyspark.sql.functions import isnan, length
 
+
 def validate_opcos(df,active_opco_list,column):
     invalid_df = df.filter(~df[column].isin(active_opco_list) | df[column].isNull())
     if len(invalid_df.head(1)) > 0:
@@ -12,21 +13,21 @@ def validate_opcos(df,active_opco_list,column):
         print("Invalid or inactive opco records found in the file: refer dataframe above ")
     return get_opco_list(invalid_df)
 
+
 def validate_column(df, column):
-    """
-        validate column
-    """
     invalid_df = df.filter((df[column] == "") | df[column].isNull() | (df[column].rlike('[^0-9]')) | isnan(df[column]))
     if len(invalid_df.head(1)) > 0:
         invalid_df.show(truncate=False)
         print("Data can not be null/empty/non-numeric of column: " + column)
     return get_opco_list(invalid_df)
 
+
 def get_opco_list(df):
     """
         get opco list
     """
     return [row.opco_id for row in df.select('opco_id').distinct().collect()]
+
 
 def remove_records_of_given_opcos(df, failed_opco_list):
     """
