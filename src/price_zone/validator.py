@@ -6,9 +6,6 @@ validator to validate columns in incoming files
 from pyspark.sql.functions import isnan, length
 
 def validate_opcos(df,active_opco_list,column):
-    """
-        validate opco id
-    """
     invalid_df = df.filter(~df[column].isin(active_opco_list) | df[column].isNull())
     if len(invalid_df.head(1)) > 0:
         invalid_df.show(truncate=False)

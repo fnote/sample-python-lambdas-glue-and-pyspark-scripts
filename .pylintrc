@@ -618,3 +618,6 @@ preferred-modules=
 # "BaseException, Exception".
 overgeneral-exceptions=BaseException,
                        Exception
+
+[pre-commit-hook]
+limit=9.0
