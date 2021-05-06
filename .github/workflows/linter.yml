@@ -23,4 +23,5 @@ jobs:
     steps:
         - uses: actions/checkout@v2
         - name: Super-Linter
-          uses: github/super-linter@v3
+          run: pylint src
+#          uses: github/super-linter@v3
