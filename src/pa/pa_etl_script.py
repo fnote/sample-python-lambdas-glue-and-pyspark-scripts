@@ -82,9 +82,9 @@ def separate_opcos_by_cluster(mappings, active_opco_list):
     for mapping in mappings:
         cluster_id = mapping[CLUSTER_ID_COLUMN_NAME]
         opco_id = mapping[OPCO_ID_COLUMN_NAME]
-        if cluster_id == 1 and opco_id in active_opco_list:
+        if cluster_id == '01' and opco_id in active_opco_list:
             cluster_1_opcos.append(opco_id)
-        elif cluster_id == 2 and opco_id in active_opco_list:
+        elif cluster_id == '02' and opco_id in active_opco_list:
             cluster_2_opcos.append(opco_id)
         else:
             invalid_or_inactive_opcos.append(opco_id)
@@ -277,14 +277,14 @@ if __name__ == "__main__":
             tuple(df_cluster_1.groupby(df_cluster_1['opco_id'])))  # group data by opco_id
         for opco in item_zone_prices_for_opco_in_cluster_1:
             print('load data in to cluster : 1')
-            load_data(opco, item_zone_prices_for_opco_in_cluster_1[opco], 1)
+            load_data(opco, item_zone_prices_for_opco_in_cluster_1[opco], '01')
 
         # load price data to cluster 2
         item_zone_prices_for_opco_in_cluster_2 = dict(
             tuple(df_cluster_2.groupby(df_cluster_2['opco_id'])))  # group data by opco_id
         for opco in item_zone_prices_for_opco_in_cluster_2:
             print('load data in to cluster : 2')
-            load_data(opco, item_zone_prices_for_opco_in_cluster_2[opco], 2)
+            load_data(opco, item_zone_prices_for_opco_in_cluster_2[opco], '02')
 
         write_metadata(metadata_lambda_name, intermediate_s3_bucket, intermediate_directory_path,
                        total_record_count_from_pa_file, invalid_price_record_count)
