@@ -121,8 +121,8 @@ def lambda_handler(event, context):
 
     finally:
         database_connection.close()
-    #identify the file and etl timestamp here , avoid creating new records in db for retry occasions
-    #if file name and etl exist update else insert
+    # identify the file and etl timestamp here , avoid creating new records in db for retry occasions
+    # if file name and etl exist update else insert
 
     execution_dictionary = {}
     for page in pages:
