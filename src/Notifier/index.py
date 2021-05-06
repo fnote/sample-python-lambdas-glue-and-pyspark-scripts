@@ -1,12 +1,12 @@
-import requests
-import time
-import os
-import logging
-import boto3
 import json
+import logging
+import os
+import time
+
 import anticrlf
+import boto3
 import pymysql
-import urllib.request
+import requests
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -18,6 +18,7 @@ JOB_EXECUTION_STATUS_UPDATE_QUERY = 'UPDATE PRICE_ZONE_LOAD_JOB_EXECUTION_STATUS
 
 charset = 'utf8'
 cursor_type = pymysql.cursors.DictCursor
+
 
 def get_values_from_ssm(keys):
     client_ssm = boto3.client('ssm')
@@ -53,13 +54,17 @@ def get_connection_details(env):
 def get_db_connection(env):
     connection_params = get_connection_details(env)
     return pymysql.connect(
-        host=connection_params['db_endpoint'], user=connection_params['username'], password=connection_params['password'], db=connection_params['db_name'], charset=charset, cursorclass=cursor_type)
+        host=connection_params['db_endpoint'], user=connection_params['username'],
+        password=connection_params['password'], db=connection_params['db_name'], charset=charset,
+        cursorclass=cursor_type)
 
 
-formatter = anticrlf.LogFormatter('[%(levelname)s]\t%(asctime)s.%(msecs)dZ\t%(aws_request_id)s\t%(message)s\n', '%Y-%m-%dT%H:%M:%S')
+formatter = anticrlf.LogFormatter('[%(levelname)s]\t%(asctime)s.%(msecs)dZ\t%(aws_request_id)s\t%(message)s\n',
+                                  '%Y-%m-%dT%H:%M:%S')
 
 for handler in logger.handlers:
     handler.setFormatter(formatter)
+
 
 def read_additional_info(bucket_name, backup_completed, event):
     logger.info('bucket name: %s' % (bucket_name))
@@ -79,6 +84,7 @@ def read_additional_info(bucket_name, backup_completed, event):
     except s3_client.exceptions.NoSuchKey:
         return 'None'
 
+
 def lambda_handler(event, context):
     logger.info("Event: " + str(event))
     REFERENCE_PRICING = "REFERENCE_PRICING"
@@ -91,7 +97,6 @@ def lambda_handler(event, context):
     message = event.get("message", "NA")
     ref_price_type = event.get("event", "NA")
     bucket_name = event['additional_info_file_s3']
-
 
     current_time = int(time.time())
     logger.info('Sending notification env: %s, time: %s, status: %s, message: %s' % (
@@ -120,14 +125,9 @@ def lambda_handler(event, context):
     }
 
     print(additional_info)
-    additional_info_json = json.loads(additional_info)
 
     # Teams alerts for failed files
     if status == 'ERROR':
-        file_name = event['file_name']
-        etl_timestamp = event['etl_timestamp']
-        file_datetime = time.strftime('%A, %Y-%m-%d %H:%M:%S', time.localtime(int(etl_timestamp)))
-        print(file_datetime)
         print("failed opcos present , send teams alert")
 
         try:
@@ -141,12 +141,10 @@ def lambda_handler(event, context):
         except Exception as e:
             logger.error(e)
 
-
     # add record count to common db status table if event is prize zone
     # file name and etl time stamp required to edit the right record in db
 
     if notification_event == "[ETL] - [Ref Price] [Price Zone Data]" and status == "SUCCEEDED":
-
         etl_timestamp = event['etl_timestamp']
         input_file_name = event['file_name']
         # send s3_input_file_key
@@ -159,7 +157,8 @@ def lambda_handler(event, context):
             input_file_name, etl_timestamp, env))
         database_connection = get_db_connection(env)
         cursor_object = database_connection.cursor()
-        cursor_object.execute(JOB_EXECUTION_STATUS_UPDATE_QUERY.format(str(record_count), input_file_name, etl_timestamp))
+        cursor_object.execute(
+            JOB_EXECUTION_STATUS_UPDATE_QUERY.format(str(record_count), input_file_name, etl_timestamp))
         database_connection.commit()
 
     # update the status table with total record count
