@@ -16,14 +16,14 @@ JOB_EXECUTION_STATUS_UPDATE_QUERY = 'UPDATE PRICE_ZONE_LOAD_JOB_EXECUTION_STATUS
 # Using a handler with anticrlf log formatter to avoid CRLF injections
 # https://www.veracode.com/blog/secure-development/fixing-crlf-injection-logging-issues-python
 
-charset = 'utf8'
-cursor_type = pymysql.cursors.DictCursor
+CHARSET = 'utf8'
+CursorType = pymysql.cursors.DictCursor
 
 
 def get_values_from_ssm(keys):
     client_ssm = boto3.client('ssm')
     response = client_ssm.get_parameters(Names=keys, WithDecryption=True)
-    # print(response)
+    print(response)
     parameters = response['Parameters']
     invalid_parameters = response['InvalidParameters']
     if invalid_parameters:
@@ -42,7 +42,6 @@ def get_connection_details(env):
     db_name = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/COMMON/DB_NAME'
     ssm_keys = [db_url, db_name, username, password]
     ssm_key_values = get_values_from_ssm(ssm_keys)
-    print(ssm_key_values)
     return {
         "db_endpoint": ssm_key_values[db_url],
         "password": ssm_key_values[password],
@@ -55,8 +54,8 @@ def get_db_connection(env):
     connection_params = get_connection_details(env)
     return pymysql.connect(
         host=connection_params['db_endpoint'], user=connection_params['username'],
-        password=connection_params['password'], db=connection_params['db_name'], charset=charset,
-        cursorclass=cursor_type)
+        password=connection_params['password'], db=connection_params['db_name'], charset=CHARSET,
+        cursorclass=CursorType)
 
 
 formatter = anticrlf.LogFormatter('[%(levelname)s]\t%(asctime)s.%(msecs)dZ\t%(aws_request_id)s\t%(message)s\n',
@@ -125,6 +124,7 @@ def lambda_handler(event, context):
     }
 
     print(additional_info)
+
 
     # Teams alerts for failed files
     if status == 'ERROR':
