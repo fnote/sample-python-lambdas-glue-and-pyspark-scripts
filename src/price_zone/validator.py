@@ -23,9 +23,6 @@ def validate_column(df, column):
 
 
 def get_opco_list(df):
-    """
-        get opco list
-    """
     return [row.opco_id for row in df.select('opco_id').distinct().collect()]
 
 
