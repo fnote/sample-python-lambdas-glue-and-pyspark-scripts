@@ -11,18 +11,24 @@ on:
       - 'task/**'
 
 jobs:
-  build:
-    # Name the Job
-    name: Lint Code Base
-    # Set the agent to run on
+  run-linters:
+    name: Run linters
     runs-on: ubuntu-latest
 
-    ##################
-    # Load all steps #
-    ##################
     steps:
-        - uses: actions/checkout@v2
-        - name: Super-Linter
-          run: pylint src
-          shell: bash
-#          uses: github/super-linter@v3
+      - name: Check out Git repository
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.7
+
+      - name: Install Python dependencies
+        run: pip install pylint
+
+      - name: Run linters
+        uses: wearerequired/lint-action@v1
+        with:
+          pylint: true
+
