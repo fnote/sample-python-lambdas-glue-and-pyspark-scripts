@@ -33,51 +33,36 @@
 #          pylint: true
 #
 
----
-###########################
-###########################
-## Linter GitHub Actions ##
-###########################
-###########################
-name: Lint Code Base
-
-#
-# Documentation:
-# https://help.github.com/en/articles/workflow-syntax-for-github-actions
-#
-
-#############################
-# Start the job on all push #
-#############################
+name: configuration for python env
 on: [push, pull_request]
-
 
 jobs:
   build:
-    # Name the Job
-    name: Lint Code Base
-    # Set the agent to run on
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
-    ##################
-    # Load all steps #
-    ##################
+
     steps:
-      ##########################
-      # Checkout the code base #
-      ##########################
-      - name: Checkout Code
-        uses: actions/checkout@v2
+      - uses: actions/checkout@v2
+      - name: Install python version
+        uses: gabrielfalcao/pyenv-action@v7
         with:
-          # Full git history is needed to get a proper list of changed files within `super-linter`
-          fetch-depth: 0
+          default: 3.7
+          command: pip install -U pip  # upgrade pip after installing python
 
-      ################################
-      # Run Linter against code base #
-      ################################
-      - name: Lint Code Base
-        uses: github/super-linter@v3
-        env:
-          VALIDATE_ALL_CODEBASE: false
-          DEFAULT_BRANCH: master
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: create environment
+        run: pyenv local 3.7 && python -mvenv .venv37
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt --upgrade pip
+             pip install pylint
+      - name: Analysing the code with pylint
+        run: |
+          pylint `ls -R|grep .py$|xargs`
+
+      - name: setup pyenv
+        id: pyenv_installation
+        uses: "gabrielfalcao/pyenv-action@v7"
+
+      - name: debug pyenv
+        run: echo ${{ steps.pyenv_installation.outputs.pyenv_root }}
