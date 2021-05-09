@@ -47,23 +47,23 @@ def lambda_handler(event, context):
     logger.info(event)
     step_function = boto3.client('stepfunctions', config=config)
 
-    step_functionArn = event['stepFunctionArn']
+    step_function_arn = event['stepFunctionArn']
     step_function_execution_id = event['stepFunctionExecutionId']
     env = os.environ['env']
 
     params = get_max_concurrency(env)
-    ALLOWED_CONCURRENT_EXECUTIONS = int(params['max_concurrency'])
+    allowed_concurrent_executions = int(params['max_concurrency'])
 
-    if ALLOWED_CONCURRENT_EXECUTIONS == 0:
+    if allowed_concurrent_executions == 0:
         error_msg = 'Received illegal value for PA ETL workFlow maximum concurrency: {}' \
-            .format(ALLOWED_CONCURRENT_EXECUTIONS)
+            .format(allowed_concurrent_executions)
         raise ValueError(error_msg)
 
     status = 'RUNNING'
     paginator = step_function.get_paginator('list_executions')
-    pages = paginator.paginate(stateMachineArn=step_functionArn, statusFilter=status)
+    pages = paginator.paginate(stateMachineArn=step_function_arn, statusFilter=status)
     logger.info('paginator:%s  pages:%s' % (paginator, pages))
-    logger.info('Retrieved execution list for step function:%s with execution status:%s' % (step_functionArn, status))
+    logger.info('Retrieved execution list for step function:%s with execution status:%s' % (step_function_arn, status))
 
     execution_dictionary = {}
     for page in pages:
@@ -82,7 +82,7 @@ def lambda_handler(event, context):
         logger.info("Current execution index: %d for  step function execution Id:%s with start time:%6f "
                     % (step_function_wait_index, step_function_execution_id, step_function_start_time))
 
-        if step_function_wait_index <= ALLOWED_CONCURRENT_EXECUTIONS:
+        if step_function_wait_index <= allowed_concurrent_executions:
             start_time_counter = Counter(sorted_start_time_list)
             if start_time_counter[step_function_start_time] != 1:  # contains duplicates for same start time
                 logger.info("contains multiple execution ids with same start time: %.6f and number of entries %d"
@@ -98,7 +98,7 @@ def lambda_handler(event, context):
                 logger.info(sorted_execution_id_list)
                 step_function_wait_index = step_function_wait_index + sorted_execution_id_list.index(
                     step_function_execution_id)
-                if step_function_wait_index <= ALLOWED_CONCURRENT_EXECUTIONS:
+                if step_function_wait_index <= allowed_concurrent_executions:
                     logger.info("New Execution index:%d for execution id:%s. Hence can proceed"
                                 % (step_function_wait_index, step_function_execution_id))
                     shouldWait = False
@@ -112,7 +112,7 @@ def lambda_handler(event, context):
         else:
             logger.info("Step function execution id:%s with start time:%.6f has list index %d. Allowed concurrency %d"
                         % (step_function_execution_id, step_function_start_time, step_function_wait_index,
-                           ALLOWED_CONCURRENT_EXECUTIONS))
+                           allowed_concurrent_executions))
     else:
         logger.info("could not locate step function execution Id %s in the received execution list"
                     % step_function_execution_id)
