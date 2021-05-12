@@ -1,3 +1,4 @@
+# pylint: disable=no-value-for-parameter,undefined-variable,too-many-function-args
 import json
 import sys
 
