@@ -14,7 +14,7 @@ logger.setLevel(logging.INFO)
 
 
 # Define Lambda function
-def lambda_handler(event, context):
+def lambda_handler(event, _):
     logger.info('## TRIGGERED BY EVENT: ')
     logger.info(event)
     step_function_arn = os.environ['stepFunctionArn']

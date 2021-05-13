@@ -1,7 +1,7 @@
 """
 Price data etl backup job
 """
-# pylint: disable=import-error,line-too-long
+# pylint: disable=import-error
 
 import sys
 from datetime import datetime

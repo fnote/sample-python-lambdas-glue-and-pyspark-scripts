@@ -1,7 +1,6 @@
 """
 validator to validate columns in incoming files
 """
-# pylint: disable=line-too-long
 
 from pyspark.sql.functions import isnan, length
 

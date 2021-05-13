@@ -1,7 +1,7 @@
 """
 Price zone etl load job
 """
-# pylint: disable=import-error,too-few-public-methods,redefined-outer-name,no-else-return,no-else-raise,line-too-long
+# pylint: disable=import-error,too-few-public-methods
 
 import base64
 import sys
@@ -12,7 +12,7 @@ from queue import Queue
 
 import boto3
 import pymysql
-import sqlalchemy as sqlalchemy
+import sqlalchemy
 from awsglue.utils import getResolvedOptions
 from sqlalchemy.pool import QueuePool
 
@@ -24,7 +24,8 @@ GLUE_CONNECTION_NAME = 'cp-ref-etl-common-connection-{}-cluster-{}'
 CHARSET = 'utf8'
 CursorType = pymysql.cursors.DictCursor
 
-JOB_EXECUTION_STATUS_FETCH_QUERY = 'SELECT RECEIVED_OPCOS FROM PRICE_ZONE_LOAD_JOB_EXECUTION_STATUS WHERE PARTIAL_LOAD={} AND STATUS="{}" FOR UPDATE'
+JOB_EXECUTION_STATUS_FETCH_QUERY = 'SELECT RECEIVED_OPCOS FROM PRICE_ZONE_LOAD_JOB_EXECUTION_STATUS WHERE ' \
+                                   'PARTIAL_LOAD={} AND STATUS="{}" FOR UPDATE'
 
 
 def get_values_from_ssm(keys):
@@ -55,7 +56,7 @@ def get_common_db_connection_details(env):
     username = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/COMMON/USERNAME'
     db_name = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/COMMON/DB_NAME'
     soft_validation_on_future_table_loading = '/CP/' + env + \
-        '/ETL/REF_PRICE/PRICE_ZONE' '/FULL_EXPORT_LOADING/SOFT_VALIDATION'
+                                              '/ETL/REF_PRICE/PRICE_ZONE' '/FULL_EXPORT_LOADING/SOFT_VALIDATION'
     ssm_keys = [db_url, db_name, username, password,
                 soft_validation_on_future_table_loading]
     ssm_key_values = get_values_from_ssm(ssm_keys)
@@ -115,13 +116,13 @@ def _execute_load(pool, queue, database, table, thread_errors):
             raise e
 
 
-def load_data(dbconfigs, opco_id, bucketname, partitioned_files_path):
+def load_data(dbconfigs, opco, bucketname, partitioned_files_path):
     """
             load price zone data in to the correct opco db and table
             """
-    prefix = partitioned_files_path + Configuration.OUTPUT_PATH_PREFIX + opco_id
+    prefix = partitioned_files_path + Configuration.OUTPUT_PATH_PREFIX + opco
     output_files = list_files_in_s3(bucketname, prefix)
-    dbconfigs['database'] = Configuration.DATABASE_PREFIX + opco_id
+    dbconfigs['database'] = Configuration.DATABASE_PREFIX + opco
     pool = __create_db_engine(dbconfigs)
     queue = Queue()
     for file in output_files:
@@ -162,12 +163,12 @@ def get_new_connection(host, user, decrypted, db):
     return pymysql.connect(host=host, user=user, password=decrypted, db=db)
 
 
-def _retrieve_conection_details(cluster_id):
+def _retrieve_conection_details(db_cluster_id):
     glue = boto3.client('glue', region_name='us-east-1')
 
     response = glue.get_connection(
         Name=GLUE_CONNECTION_NAME.format(
-            environment, cluster_id))
+            environment, db_cluster_id))
 
     connection_properties = response['Connection']['ConnectionProperties']
     URL = connection_properties['JDBC_CONNECTION_URL']
@@ -190,27 +191,6 @@ def _retrieve_conection_details(cluster_id):
         'port': int(port),
         "decrypted": decrypted
     }
-
-
-def get_values_from_ssm(keys):
-    """
-            fetch ssm params from parameter store
-            """
-    client_ssm = boto3.client('ssm')
-    response = client_ssm.get_parameters(Names=keys)
-    parameters = response['Parameters']
-    invalid_parameters = response['InvalidParameters']
-
-    if invalid_parameters:
-        raise KeyError(
-            'Found invalid ssm parameter keys:' +
-            ','.join(invalid_parameters))
-
-    parameter_dictionary = {}
-    for parameter in parameters:
-        parameter_dictionary[parameter['Name']] = parameter['Value']
-
-    return parameter_dictionary
 
 
 def get_active_and_future_tables(table, db_configs):
@@ -327,7 +307,7 @@ def get_effective_date(table, db_configs):
         database_connection.close()
 
 
-def check_for_full_exports_in_progress(common_db_connection_params, opco_id):
+def check_for_full_exports_in_progress(common_db_connection_params, opco):
     """
         method to check if a full export is in progress for a given opco while loading a partial load
     """
@@ -346,12 +326,11 @@ def check_for_full_exports_in_progress(common_db_connection_params, opco_id):
         if opcos_in_full_export:
             flat_opco_list_in_export = reduce(
                 list.__add__, opcos_in_full_export)
-        if opco_id in flat_opco_list_in_export:
+        if opco in flat_opco_list_in_export:
             print('current loading opco present in a full export in progress')
             return True
-        else:
-            print('current loading opco not present in full export in progress')
-            return False
+        print('current loading opco not present in full export in progress')
+        return False
 
     except Exception as e:
         print(e)
@@ -366,28 +345,27 @@ def str_to_bool(received_string_value):
     """
     if received_string_value == 'True':
         return True
-    elif received_string_value == 'False':
+    if received_string_value == 'False':
         return False
-    else:
-        raise ValueError
+    raise ValueError
 
 
 def find_tables_to_load(
-        partial_load,
+        is_partial_load,
         env,
-        opco_id,
-        intermediate_s3,
-        partitioned_files_key):
+        opco,
+        intermediate_s3_bucket,
+        partitioned_files_key_name):
     """
         method to find tables and start loading
     """
     db_configs = _retrieve_conection_details(cluster_id)
-    db_configs['database'] = Configuration.DATABASE_PREFIX + opco_id
+    db_configs['database'] = Configuration.DATABASE_PREFIX + opco
 
     # get connection params for common db and validation type
     connection_params = get_common_db_connection_details(env)
 
-    if partial_load:
+    if is_partial_load:
         active_table = get_active_and_future_tables("ACTIVE", db_configs)
         future_table = get_active_and_future_tables("FUTURE", db_configs)
 
@@ -397,7 +375,7 @@ def find_tables_to_load(
 
         # load data to active table
         db_configs['table'] = active_table_name
-        load_data(db_configs, opco_id, intermediate_s3, partitioned_files_key)
+        load_data(db_configs, opco, intermediate_s3_bucket, partitioned_files_key_name)
 
         # check whether future table is empty
         db_configs['table'] = future_table_name
@@ -410,22 +388,22 @@ def find_tables_to_load(
             # Check if full export is in progress for that opco if so load to
             # future too
             opco_available_in_full_export = check_for_full_exports_in_progress(
-                connection_params, opco_id)
+                connection_params, opco)
 
             if opco_available_in_full_export:
-                print(
-                    'partial load , future table is empty and full export is in progress for the current opco, therefore load the future table')
+                print('partial load , future table is empty and full export is in progress for the current opco, '
+                      'therefore load the future table')
                 db_configs['table'] = future_table_name
                 load_data(
                     db_configs,
-                    opco_id,
-                    intermediate_s3,
-                    partitioned_files_key)
+                    opco,
+                    intermediate_s3_bucket,
+                    partitioned_files_key_name)
             else:
                 # opco not available in in progress full export or no full
                 # exports are currently running
-                print(
-                    'partial load and the future table is empty and full export is not in progress or current opco not in full export, therefore stop loading process')
+                print('partial load and the future table is empty and full export is not in progress or '
+                      'current opco not in full export, therefore stop loading process')
 
         else:
             # future table not empty , therefore load future table
@@ -434,9 +412,9 @@ def find_tables_to_load(
                 'partial load and the future table is not empty, therefore load the future table')
             load_data(
                 db_configs,
-                opco_id,
-                intermediate_s3,
-                partitioned_files_key)
+                opco,
+                intermediate_s3_bucket,
+                partitioned_files_key_name)
 
     else:
         future_table = get_active_and_future_tables("FUTURE", db_configs)
@@ -450,9 +428,9 @@ def find_tables_to_load(
             db_configs['table'] = future_table_name
             load_data(
                 db_configs,
-                opco_id,
-                intermediate_s3,
-                partitioned_files_key)
+                opco,
+                intermediate_s3_bucket,
+                partitioned_files_key_name)
 
             # update master db with future table effective date
             effective_date_result = get_effective_date(
@@ -465,7 +443,7 @@ def find_tables_to_load(
             # proceed -> 2 -> load irrespective of error
             if int(connection_params['soft_validation']) == 0:
                 raise Exception("full load and future table is not empty")
-            elif int(connection_params['soft_validation']) == 1:
+            if int(connection_params['soft_validation']) == 1:
                 print(
                     'fill load and future table is not empty and soft validation hence job allowed to progress')
             elif int(connection_params['soft_validation']) == 2:
@@ -475,9 +453,9 @@ def find_tables_to_load(
                 db_configs['table'] = future_table_name
                 load_data(
                     db_configs,
-                    opco_id,
-                    intermediate_s3,
-                    partitioned_files_key)
+                    opco,
+                    intermediate_s3_bucket,
+                    partitioned_files_key_name)
             else:
                 raise Exception("full load and future table is not empty")
 
@@ -559,4 +537,5 @@ if __name__ == "__main__":
             intermediate_s3,
             partitioned_files_key)
     except Exception as e:
-        raise Exception()
+        print(e)
+        raise e

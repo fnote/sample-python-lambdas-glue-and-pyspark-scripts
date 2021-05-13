@@ -1,4 +1,4 @@
-# pylint: disable=line-too-long
+# pylint: disable=too-many-locals
 from datetime import datetime
 
 import boto3
@@ -10,10 +10,19 @@ CLUSTER_N_OPCO_PARAM_NAME = 'cluster_opcos'
 FILE_NAME_PARAM_NAME = 's3_object_key'
 ETL_TIMESTAMP_PARAM_NAME = 'etl_timestamp'
 ALLOCATED_JOB_COUNT_PARAM_NAME = 'allocated_job_count'
-JOB_EXECUTION_STATUS_FETCH_QUERY = 'SELECT * FROM PRICE_ZONE_LOAD_JOB_EXECUTION_STATUS WHERE FILE_NAME="{}" AND ETL_TIMESTAMP={} FOR UPDATE'
-JOB_EXECUTION_STATUS_UPDATE_QUERY = 'UPDATE PRICE_ZONE_LOAD_JOB_EXECUTION_STATUS SET SUCCESSFUL_BUSINESS_UNITS = {}, FAILED_BUSINESS_UNITS = {}, FAILED_OPCO_IDS =CONCAT( FAILED_OPCO_IDS ,"{}") , SUCCESSFUL_OPCO_IDS =CONCAT( SUCCESSFUL_OPCO_IDS ,"{}"), END_TIME = "{}", STATUS ="{}" WHERE FILE_NAME="{}" AND ETL_TIMESTAMP={}'
-CLUSTER_LOAD_JOB_COUNT_FETCH_QUERY = 'SELECT RUNNING_LOAD_JOB_COUNT FROM PRICE_ZONE_CLUSTER_LOAD_JOB_SETTINGS WHERE CLUSTER_ID = "{}" FOR UPDATE'
-CLUSTER_LOAD_JOB_COUNT_UPDATE_QUERY = 'UPDATE PRICE_ZONE_CLUSTER_LOAD_JOB_SETTINGS SET RUNNING_LOAD_JOB_COUNT = RUNNING_LOAD_JOB_COUNT - {} WHERE CLUSTER_ID  = "{}"'
+JOB_EXECUTION_STATUS_FETCH_QUERY = 'SELECT * FROM PRICE_ZONE_LOAD_JOB_EXECUTION_STATUS WHERE ' \
+                                   'FILE_NAME="{}" AND ETL_TIMESTAMP={} FOR UPDATE'
+JOB_EXECUTION_STATUS_UPDATE_QUERY = 'UPDATE PRICE_ZONE_LOAD_JOB_EXECUTION_STATUS SET ' \
+                                    'SUCCESSFUL_BUSINESS_UNITS = {}, ' \
+                                    'FAILED_BUSINESS_UNITS = {}, ' \
+                                    'FAILED_OPCO_IDS =CONCAT( FAILED_OPCO_IDS ,"{}") ,' \
+                                    ' SUCCESSFUL_OPCO_IDS =CONCAT( SUCCESSFUL_OPCO_IDS ,"{}"),' \
+                                    ' END_TIME = "{}", STATUS ="{}" WHERE FILE_NAME="{}" AND ETL_TIMESTAMP={}'
+CLUSTER_LOAD_JOB_COUNT_FETCH_QUERY = 'SELECT RUNNING_LOAD_JOB_COUNT FROM PRICE_ZONE_CLUSTER_LOAD_JOB_SETTINGS ' \
+                                     'WHERE CLUSTER_ID = "{}" FOR UPDATE'
+CLUSTER_LOAD_JOB_COUNT_UPDATE_QUERY = 'UPDATE PRICE_ZONE_CLUSTER_LOAD_JOB_SETTINGS ' \
+                                      'SET RUNNING_LOAD_JOB_COUNT = RUNNING_LOAD_JOB_COUNT - {} ' \
+                                      'WHERE CLUSTER_ID  = "{}"'
 TOTAL_BUSINESS_UNITS_COLUMN_NAME = 'TOTAL_BUSINESS_UNITS'
 SUCCESSFUL_BUSINESS_UNITS_COLUMN_NAME = 'SUCCESSFUL_BUSINESS_UNITS'
 FAILED_BUSINESS_UNITS_COLUMN_NAME = 'FAILED_BUSINESS_UNITS'
@@ -26,7 +35,6 @@ CursorType = pymysql.cursors.DictCursor
 def get_values_from_ssm(keys):
     client_ssm = boto3.client('ssm')
     response = client_ssm.get_parameters(Names=keys, WithDecryption=True)
-    # print(response)
     parameters = response['Parameters']
     invalid_parameters = response['InvalidParameters']
     if invalid_parameters:
@@ -77,7 +85,7 @@ def get_job_count_by_status(job_statuses, cluster_opco_count, successful_opco_li
             'successful_opco_list': successful_opco_list}
 
 
-def lambda_handler(event, context):
+def lambda_handler(event, _):
     # read file type also from here
     env = event[ENV_PARAM_NAME]
     cluster = event[CLUSTER_PARAM_NAME]
@@ -158,7 +166,6 @@ def lambda_handler(event, context):
         database_connection.commit()
     except Exception as e:
         print(e)
-        # TODO: handle this
     finally:
         database_connection.close()
 

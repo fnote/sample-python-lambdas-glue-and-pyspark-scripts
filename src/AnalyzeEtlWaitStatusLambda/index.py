@@ -1,4 +1,3 @@
-# pylint: disable=line-too-long
 import logging
 import os
 from collections import Counter

@@ -12,7 +12,7 @@ extension-pkg-allow-list=
 extension-pkg-whitelist=
 
 # Specify a score threshold to be exceeded before program exits with error.
-fail-under=10.0
+fail-under=9.0
 
 # Files or directories to be skipped. They should be base names, not paths.
 ignore=CVS
@@ -150,10 +150,8 @@ disable=print-statement,
         missing-class-docstring,
         duplicate-code,
         logging-not-lazy,
-        too-few-public-methods,
-        no-name-in-module,
-        no-else-return,
-        broad-except
+        broad-except,
+        logging-format-interpolation
 
 # Enable the message, report, category or checker with the given id(s). You can
 # either give multiple identifier separated by comma (,) or put this option
@@ -263,7 +261,7 @@ indent-after-paren=4
 indent-string='    '
 
 # Maximum number of characters on a single line.
-max-line-length=160
+max-line-length=120
 
 # Maximum number of lines in a module.
 max-module-lines=1000
@@ -575,7 +573,7 @@ max-returns=6
 max-statements=80
 
 # Minimum number of public methods for a class (see R0903).
-min-public-methods=2
+min-public-methods=1
 
 
 [IMPORTS]

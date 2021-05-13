@@ -1,4 +1,4 @@
-# pylint: disable=no-value-for-parameter,undefined-variable,too-many-function-args
+# pylint: disable=too-many-function-args,no-name-in-module,no-value-for-parameter)
 import json
 import sys
 
@@ -50,6 +50,7 @@ datasourceDF = spark.read.format("csv") \
 datasource0 = DynamicFrame.fromDF(datasourceDF, glueContext, "datasource0")
 
 # renaming columns and dropping off unnecessary columns
+# pylint: disable=undefined-variable
 applyMapping1 = ApplyMapping.apply(frame=datasource0, mappings=[("co_nbr", "string", "opco_id", "string"),
                                                                 ("supc", "string", "supc", "string"),
                                                                 ("prc_zone", "string", "price_zone", "string"),

@@ -1,3 +1,4 @@
+# pylint: disable=too-few-public-methods
 import base64
 import json
 import sys
@@ -112,10 +113,10 @@ def write_dataframe_to_s3(opco_id, file_name):
     print("Completed uploading PA data of opco %s to s3 bucket: %s key:%s" % (opco_id, intermediate_s3_bucket, key))
 
 
-def load_data(opco_id, df, cluster_id):
+def load_data(opco_id, opco_df, cluster_id):
     output_file_name = Configuration.OUTPUT_FILE_PREFIX + "_" + opco_id + Configuration.CSV
-    del df['opco_id']
-    df.to_csv(output_file_name, encoding='utf-8', index=False)
+    del opco_df['opco_id']
+    opco_df.to_csv(output_file_name, encoding='utf-8', index=False)
     write_dataframe_to_s3(opco_id, output_file_name)
 
     connection_details = get_connection_details(cluster_id)
@@ -192,24 +193,23 @@ def get_new_connection(host, user, decrypted):
     return pymysql.connect(host=host, user=user, password=decrypted["Plaintext"])
 
 
-def validate_price(df, column):
-    df[column] = pd.to_numeric(df[column])
-    invalid_df = df[df[column] <= 0].dropna()
+def validate_price(df_received, column):
+    df_received[column] = pd.to_numeric(df_received[column])
+    invalid_df = df_received[df_received[column] <= 0].dropna()
     if len(invalid_df.head(1)) > 0:
         print(invalid_df)
         print("price cannot be negative or zero : ", column)
         return len(invalid_df)
-    else:
-        return 0
+    return 0
 
 
-def write_metadata(metadata_lambda, intermediate_s3_name, intermediate_directory_path, count_from_file,
-                   invalid_price_record_count):
+def write_metadata(metadata_lambda, intermediate_s3_name, intermediate_directory, count_from_file,
+                   invalid_price_record_counts):
     response = lambda_client.invoke(FunctionName=metadata_lambda, Payload=json.dumps({
         "intermediate_s3_name": intermediate_s3_name,
-        "intermediate_directory_path": intermediate_directory_path,
+        "intermediate_directory_path": intermediate_directory,
         "received_records_count": count_from_file,
-        "invalid_price_record_count": invalid_price_record_count,
+        "invalid_price_record_count": invalid_price_record_counts,
     }))
 
     return response

@@ -1,4 +1,4 @@
-# pylint: disable=invalid-name
+# pylint: disable=invalid-name,too-many-locals
 import logging
 import os
 from collections import Counter
@@ -43,7 +43,7 @@ def get_max_concurrency(env):
     }
 
 
-def lambda_handler(event, context):
+def lambda_handler(event, _):
     logger.info("Received event:")
     logger.info(event)
     step_function = boto3.client('stepfunctions', config=config)
