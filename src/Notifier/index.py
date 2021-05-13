@@ -94,7 +94,6 @@ def lambda_handler(event, context):
     notification_event = event.get("event", "PROCESSOR")
     status = event.get("status", "ERROR")
     message = event.get("message", "NA")
-    ref_price_type = event.get("event", "NA")
     bucket_name = event['additional_info_file_s3']
 
     current_time = int(time.time())
