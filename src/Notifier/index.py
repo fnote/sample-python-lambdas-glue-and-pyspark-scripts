@@ -12,13 +12,32 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 JOB_EXECUTION_STATUS_UPDATE_QUERY = 'UPDATE LOAD_JOB_EXECUTION_STATUS SET FAILED_OPCO_IDS = "{}", TOTAL_RECORD_COUNT = "{}",INVALID_RECORD_COUNT = "{}" WHERE FILE_NAME="{}" AND ETL_TIMESTAMP={}'
-JOB_EXECUTION_STATUS_UPDATE_QUERY_WHEN_FAIL = 'UPDATE LOAD_JOB_EXECUTION_STATUS SET STATUS = "{}" WHERE FILE_NAME="{}" AND ETL_TIMESTAMP={}'
+JOB_EXECUTION_STATUS_UPDATE_QUERY_WHEN_FAIL = 'UPDATE LOAD_JOB_EXECUTION_STATUS SET STATUS = "{}",FAILED_OPCO_IDS = "{}", TOTAL_RECORD_COUNT = "{}",INVALID_RECORD_COUNT = "{}" WHERE FILE_NAME="{}" AND ETL_TIMESTAMP={}'
 
 # Using a handler with anticrlf log formatter to avoid CRLF injections
 # https://www.veracode.com/blog/secure-development/fixing-crlf-injection-logging-issues-python
 
 charset = 'utf8'
 cursor_type = pymysql.cursors.DictCursor
+
+
+def get_additional_info(additional_info_details):
+    additional_info_json = json.loads(additional_info_details)
+    total_record_count = additional_info_json['received_records_count']
+    received_valid_records_count = additional_info_json['received_valid_records_count']
+    failed_opcos = additional_info_json['failed_opcos']
+    failed_opcos_count = len(failed_opcos)
+    failed_opco_list_string = ",".join(failed_opcos)
+    invalid_record_count = total_record_count - received_valid_records_count
+
+    return {
+        "total_record_count": total_record_count,
+        "received_valid_records_count": received_valid_records_count,
+        "failed_opcos": failed_opcos,
+        "failed_opcos_count": failed_opcos_count,
+        "failed_opco_list_string": failed_opco_list_string,
+        "invalid_record_count": invalid_record_count
+    }
 
 def get_values_from_ssm(keys):
     client_ssm = boto3.client('ssm')
@@ -140,24 +159,24 @@ def lambda_handler(event, context):
 
     # add record count to common db status table if event is prize zone
     # file name and etl time stamp required to edit the right record in db
+    total_record_count = 0
+    invalid_record_count = 0
+    failed_opco_list_string = ''
+    if additional_info is not None:
+        additional_info_json = json.loads(additional_info)
+        total_record_count = additional_info_json.get("received_records_count", 0)
+        received_valid_records_count = additional_info_json.get("received_valid_records_count", 0)
+        failed_opcos = additional_info_json.get("failed_opcos", [])
+        failed_opco_list_string = ",".join(failed_opcos)
+        invalid_record_count = total_record_count - received_valid_records_count
 
     if notification_event == "[ETL] - [Ref Price] [Price Zone Data]" and status == "SUCCEEDED":
 
         etl_timestamp = event['etl_timestamp']
         input_file_name = event['file_name']
-        # send s3_input_file_key
-        # additional_info_json_string = json.dumps(additional_info)
-        additional_info_json = json.loads(additional_info)
 
-        total_record_count = additional_info_json['received_records_count']
-        received_valid_records_count = additional_info_json['received_valid_records_count']
-        failed_opcos = additional_info_json['failed_opcos']
-        failed_opcos_count = len(failed_opcos)
-        failed_opco_list_string = ",".join(failed_opcos)
-        invalid_record_count = total_record_count - received_valid_records_count
-
-        logger.info('updating status DB with file name: %s, etl timestamp: %s, env: %s, failed opcos: %s, failed opco count :%s , invalid record count:%s' % (
-            input_file_name, etl_timestamp, env, failed_opcos, failed_opcos_count, invalid_record_count))
+        logger.info('updating status DB with file name: %s, etl timestamp: %s, env: %s, failed opcos: %s, invalid record count:%s' % (
+            input_file_name, etl_timestamp, env, failed_opco_list_string, invalid_record_count))
         database_connection = get_db_connection(env)
         cursor_object = database_connection.cursor()
         # add failed opcos here and increment failed opcos count
@@ -176,7 +195,7 @@ def lambda_handler(event, context):
         database_connection = get_db_connection(env)
         cursor_object = database_connection.cursor()
         cursor_object.execute(
-            JOB_EXECUTION_STATUS_UPDATE_QUERY_WHEN_FAIL.format("FAILED", input_file_name, etl_timestamp))
+            JOB_EXECUTION_STATUS_UPDATE_QUERY_WHEN_FAIL.format("FAILED", failed_opco_list_string, str(total_record_count), str(invalid_record_count), input_file_name, etl_timestamp))
         database_connection.commit()
 
     # update the status table with total record count
