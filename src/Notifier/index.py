@@ -11,7 +11,7 @@ import urllib.request
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-JOB_EXECUTION_STATUS_UPDATE_QUERY = 'UPDATE LOAD_JOB_EXECUTION_STATUS SET TOTAL_RECORD_COUNT = "{}",INVALID_RECORD_COUNT = "{}" WHERE FILE_NAME="{}" AND ETL_TIMESTAMP={}'
+JOB_EXECUTION_STATUS_UPDATE_QUERY = 'UPDATE LOAD_JOB_EXECUTION_STATUS SET FAILED_OPCO_IDS = "{}", TOTAL_RECORD_COUNT = "{}",INVALID_RECORD_COUNT = "{}" WHERE FILE_NAME="{}" AND ETL_TIMESTAMP={}'
 JOB_EXECUTION_STATUS_UPDATE_QUERY_WHEN_FAIL = 'UPDATE LOAD_JOB_EXECUTION_STATUS SET STATUS = "{}" WHERE FILE_NAME="{}" AND ETL_TIMESTAMP={}'
 
 # Using a handler with anticrlf log formatter to avoid CRLF injections
@@ -151,16 +151,21 @@ def lambda_handler(event, context):
 
         total_record_count = additional_info_json['received_records_count']
         received_valid_records_count = additional_info_json['received_valid_records_count']
+        failed_opcos = additional_info_json['failed_opcos']
+        failed_opcos_count = len(failed_opcos)
+        failed_opco_list_string = ",".join(failed_opcos)
         invalid_record_count = total_record_count - received_valid_records_count
 
-        logger.info('updating status DB with file name: %s, etl timestamp: %s, env: %s' % (
-            input_file_name, etl_timestamp, env))
+        logger.info('updating status DB with file name: %s, etl timestamp: %s, env: %s, failed opcos: %s, failed opco count :%s , invalid record count:%s' % (
+            input_file_name, etl_timestamp, env, failed_opcos, failed_opcos_count, invalid_record_count))
         database_connection = get_db_connection(env)
         cursor_object = database_connection.cursor()
-        cursor_object.execute(JOB_EXECUTION_STATUS_UPDATE_QUERY.format(str(total_record_count), str(invalid_record_count), input_file_name, etl_timestamp))
+        # add failed opcos here and increment failed opcos count
+        cursor_object.execute(JOB_EXECUTION_STATUS_UPDATE_QUERY.format(failed_opco_list_string, str(total_record_count), str(invalid_record_count), input_file_name, etl_timestamp))
         database_connection.commit()
 
     if notification_event == "ETL-PRICE_ZONE-OUTSIDE-FAILURE" and status == "ERROR":
+        # we do not know whether additional info file got created
         logger.info('file has failed before map state , update the execution status table with failed')
         print(additional_info)
         etl_timestamp = event['etl_timestamp']
