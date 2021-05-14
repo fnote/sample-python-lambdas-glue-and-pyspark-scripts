@@ -82,7 +82,7 @@ def lambda_handler(event, context):
     step_function_execution_id = event['stepFunctionExecutionId']
     etl_timestamp = event['etl_timestamp']
     file_name = event['s3_input_file_key']
-    file_type = event['file_prefix']
+    file_type = event.get("file_prefix", "")
     partial_load_string = event['partial_load']
     partial_load = str_to_bool_int(partial_load_string)
     env = os.environ['env']
