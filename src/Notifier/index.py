@@ -11,8 +11,8 @@ import urllib.request
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-JOB_EXECUTION_STATUS_UPDATE_QUERY = 'UPDATE PRICE_ZONE_LOAD_JOB_EXECUTION_STATUS SET RECORD_COUNT = "{}" WHERE FILE_NAME="{}" AND ETL_TIMESTAMP={}'
-JOB_EXECUTION_STATUS_UPDATE_QUERY_WHEN_FAIL = 'UPDATE PRICE_ZONE_LOAD_JOB_EXECUTION_STATUS SET STATUS = "{}" WHERE FILE_NAME="{}" AND ETL_TIMESTAMP={}'
+JOB_EXECUTION_STATUS_UPDATE_QUERY = 'UPDATE LOAD_JOB_EXECUTION_STATUS SET TOTAL_RECORD_COUNT = "{}",INVALID_RECORD_COUNT = "{}" WHERE FILE_NAME="{}" AND ETL_TIMESTAMP={}'
+JOB_EXECUTION_STATUS_UPDATE_QUERY_WHEN_FAIL = 'UPDATE LOAD_JOB_EXECUTION_STATUS SET STATUS = "{}" WHERE FILE_NAME="{}" AND ETL_TIMESTAMP={}'
 
 # Using a handler with anticrlf log formatter to avoid CRLF injections
 # https://www.veracode.com/blog/secure-development/fixing-crlf-injection-logging-issues-python
@@ -149,13 +149,15 @@ def lambda_handler(event, context):
         # additional_info_json_string = json.dumps(additional_info)
         additional_info_json = json.loads(additional_info)
 
-        record_count = additional_info_json['received_records_count']
+        total_record_count = additional_info_json['received_records_count']
+        received_valid_records_count = additional_info_json['received_valid_records_count']
+        invalid_record_count = total_record_count - received_valid_records_count
 
         logger.info('updating status DB with file name: %s, etl timestamp: %s, env: %s' % (
             input_file_name, etl_timestamp, env))
         database_connection = get_db_connection(env)
         cursor_object = database_connection.cursor()
-        cursor_object.execute(JOB_EXECUTION_STATUS_UPDATE_QUERY.format(str(record_count), input_file_name, etl_timestamp))
+        cursor_object.execute(JOB_EXECUTION_STATUS_UPDATE_QUERY.format(str(total_record_count), str(invalid_record_count), input_file_name, etl_timestamp))
         database_connection.commit()
 
     if notification_event == "ETL-PRICE_ZONE-OUTSIDE-FAILURE" and status == "ERROR":
