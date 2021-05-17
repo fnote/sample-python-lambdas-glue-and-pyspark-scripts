@@ -147,9 +147,9 @@ def lambda_handler(event, context):
 
     if notification_event == "[ETL] - [Ref Price] [Price Zone Data]" and status == "SUCCEEDED":
         additional_info_json = json.loads(additional_info)
-        total_record_count = additional_info_json.get("received_records_count", 0)
-        received_valid_records_count = additional_info_json.get("received_valid_records_count", 0)
-        failed_opcos = additional_info_json.get("failed_opcos", [])
+        total_record_count = additional_info_json['received_records_count']
+        received_valid_records_count = additional_info_json['received_valid_records_count']
+        failed_opcos = additional_info_json['failed_opcos']
         failed_opco_list_string = ",".join(failed_opcos)
         invalid_record_count = total_record_count - received_valid_records_count
 
