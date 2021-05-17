@@ -7,12 +7,13 @@ import json
 import anticrlf
 import pymysql
 import urllib.request
+from datetime import datetime
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 JOB_EXECUTION_STATUS_UPDATE_QUERY = 'UPDATE LOAD_JOB_EXECUTION_STATUS SET FAILED_OPCO_IDS = "{}", TOTAL_RECORD_COUNT = "{}",INVALID_RECORD_COUNT = "{}" WHERE FILE_NAME="{}" AND ETL_TIMESTAMP={}'
-JOB_EXECUTION_STATUS_UPDATE_QUERY_WHEN_FAIL = 'UPDATE LOAD_JOB_EXECUTION_STATUS SET STATUS = "{}" WHERE FILE_NAME="{}" AND ETL_TIMESTAMP={}'
+JOB_EXECUTION_STATUS_UPDATE_QUERY_WHEN_FAIL = 'UPDATE LOAD_JOB_EXECUTION_STATUS SET STATUS = "{}" ,END_TIME = "{}" WHERE FILE_NAME="{}" AND ETL_TIMESTAMP={}'
 
 # Using a handler with anticrlf log formatter to avoid CRLF injections
 # https://www.veracode.com/blog/secure-development/fixing-crlf-injection-logging-issues-python
@@ -141,22 +142,6 @@ def lambda_handler(event, context):
 
     print(additional_info)
 
-    # Teams alerts for failed files
-    if status == 'ERROR':
-        print("failed opcos present , send teams alert")
-
-        try:
-            teams_url = 'teams_webhook_url_' + env
-            teams_webhook_url = os.environ[teams_url]
-
-            payload = {
-                "text": json.dumps(data['message'])
-            }
-            requests.post(teams_webhook_url, data=json.dumps(payload))
-        except Exception as e:
-            logger.error(e)
-
-
     # add record count to common db status table if event is prize zone
     # file name and etl time stamp required to edit the right record in db
 
@@ -185,14 +170,30 @@ def lambda_handler(event, context):
         print(additional_info)
         etl_timestamp = event['etl_timestamp']
         input_file_name = event['file_name']
+        end_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
         logger.info('updating status DB with file name: %s, etl timestamp: %s, env: %s' % (
             input_file_name, etl_timestamp, env))
         database_connection = get_db_connection(env)
         cursor_object = database_connection.cursor()
         cursor_object.execute(
-            JOB_EXECUTION_STATUS_UPDATE_QUERY_WHEN_FAIL.format("FAILED", input_file_name, etl_timestamp))
+            JOB_EXECUTION_STATUS_UPDATE_QUERY_WHEN_FAIL.format("FAILED", end_time, input_file_name, etl_timestamp))
         database_connection.commit()
+
+        # Teams alerts for failed files
+    if status == 'ERROR':
+            print("failed opcos present , send teams alert")
+
+            try:
+                teams_url = 'teams_webhook_url_' + env
+                teams_webhook_url = os.environ[teams_url]
+
+                payload = {
+                    "text": json.dumps(data['message'])
+                }
+                requests.post(teams_webhook_url, data=json.dumps(payload))
+            except Exception as e:
+                logger.error(e)
 
     # update the status table with total record count
     headers = {'host': host, 'Content-Type': 'application/json'}
