@@ -191,7 +191,7 @@ def deployIntoEnv(env, bucket, s3Path, s3key, region) {
 //             "${s3key}/pa/analyse_load_wait.py.zip")
     updateLambda(
             bucket, region, "CP-REF-etl-pa-Analyse-Load-or-wait-${env}",
-            "${s3key}/pa/PAAnalyzeWaitOrLoadClusterLambda/PAAnalyzeWaitOrLoadClusterLambda.zip")
+            "${s3key}/pa/PAAnalyzeWaitOrLoadClusterLambda.zip")
 
 //    Common
     updateLambda(
@@ -389,7 +389,7 @@ pipeline {
                             bucket, region, "CP-REF-etl-pa-Analyse-Load-or-wait-${ENV}",
                             "${s3key}/pa/analyse_load_wait.py.zip")
                     updateLambdaProd(bucket, region, 'CP-REF-etl-price-zone-Analyse-Load-or-wait-${ENV}',
-                            "${s3key}/pa/PAAnalyzeWaitOrLoadClusterLambda/PAAnalyzeWaitOrLoadClusterLambda.zip")
+                            "${s3key}/pa/PAAnalyzeWaitOrLoadClusterLambda.zip")
                     updateGlueScriptProd(
                             region, "CP-REF-etl-pa-job-${ENV}",
                             "${s3Path}/pa/pa_etl_script.py")
