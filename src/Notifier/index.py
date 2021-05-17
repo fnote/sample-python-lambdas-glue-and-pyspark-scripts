@@ -164,7 +164,7 @@ def lambda_handler(event, context):
         cursor_object.execute(JOB_EXECUTION_STATUS_UPDATE_QUERY.format(failed_opco_list_string, str(total_record_count), str(invalid_record_count), input_file_name, etl_timestamp))
         database_connection.commit()
 
-    if notification_event == "ETL-PRICE_ZONE-OUTSIDE-FAILURE" and status == "ERROR":
+    if notification_event in ["ETL-PRICE_ZONE-OUTSIDE-FAILURE", "ETL-PA"] and status == "ERROR":
         # we do not know whether additional info file got created
         logger.info('file has failed before map state , update the execution status table with failed')
         print(additional_info)
@@ -179,6 +179,18 @@ def lambda_handler(event, context):
         cursor_object.execute(
             JOB_EXECUTION_STATUS_UPDATE_QUERY_WHEN_FAIL.format("FAILED", end_time, input_file_name, etl_timestamp))
         database_connection.commit()
+
+    if notification_event == "[ETL] - [Ref Price] [Price Data]":
+        etl_timestamp = event['etl_timestamp']
+        input_file_name = event['file_name']
+        logger.info('PA File successful , update executions status table')
+        database_connection = get_db_connection(env)
+        cursor_object = database_connection.cursor()
+        end_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        cursor_object.execute(
+            JOB_EXECUTION_STATUS_UPDATE_QUERY_WHEN_FAIL.format("SUCCEEDED", end_time, input_file_name, etl_timestamp))
+        database_connection.commit()
+
 
         # Teams alerts for failed files
     if status == 'ERROR':

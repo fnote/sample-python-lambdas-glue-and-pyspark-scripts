@@ -37,15 +37,6 @@ def get_values_from_ssm(keys):
     return parameter_dictionary
 
 
-# def get_max_concurrency(env):
-#     max_concurrency_ssm_key = '/CP/' + env + '/ETL/REF_PRICE/PA/MAX_ALLOWED_CONCURRENT_EXECUTIONS'
-#     ssm_keys = [max_concurrency_ssm_key]
-#     ssm_key_values = get_values_from_ssm(ssm_keys)
-#     logger.info('GetParameter called for ssm key: %s' % max_concurrency_ssm_key)
-#     return {
-#         "max_concurrency": ssm_key_values[max_concurrency_ssm_key]
-#     }
-
 def get_connection_details_and_max_concurrency(env):
     db_url = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/COMMON/DB_URL'
     password = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/COMMON/PASSWORD'
