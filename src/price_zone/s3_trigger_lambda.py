@@ -30,14 +30,24 @@ def get_values_from_ssm(keys):
 
 
 
-def is_partial_or_full_load(file_name, prefixes_str ,file_prefix):
-    prefix_list = prefixes_str.split(",")
-    for prefix in prefix_list:
-        if file_name.startswith(prefix):
-            file_prefix = prefix
-            return True
-    return False
+# def is_partial_or_full_load(file_name, prefixes_str ,file_prefix):
+#     prefix_list = prefixes_str.split(",")
+#     for prefix in prefix_list:
+#         if file_name.startswith(prefix):
+#             file_prefix = prefix
+#             return True
+#     return False
 
+def is_partial_or_full_load(file_name, partial_prefixes_str, full_prefixes_str):
+    partial_prefix_list = partial_prefixes_str.split(",")
+    full_prefix_list = full_prefixes_str.split(",")
+    for prefix in partial_prefix_list:
+        if file_name.startswith(prefix):
+            return True, False, prefix
+    for prefix in full_prefix_list:
+        if file_name.startswith(prefix):
+            return False, True, prefix
+    return False, False, ''
 
 def lambda_handler(event, context):
     client_step_function = boto3.client('stepfunctions')
@@ -54,11 +64,13 @@ def lambda_handler(event, context):
     partial_load_prefixes_key = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/PARTIAL_LOAD_PREFIXES'
     full_load_prefixes_key = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/FULL_LOAD_PREFIXES'
 
-    file_prefix = ''
     ssm_key_set = [ partial_load_prefixes_key, full_load_prefixes_key]
     prefixes_values = get_values_from_ssm(ssm_key_set)
-    partial_load = is_partial_or_full_load(s3_object_key, prefixes_values[partial_load_prefixes_key], file_prefix)
-    full_load = is_partial_or_full_load(s3_object_key, prefixes_values[full_load_prefixes_key], file_prefix)
+    # partial_load = is_partial_or_full_load(s3_object_key, prefixes_values[partial_load_prefixes_key], file_prefix)
+    # full_load = is_partial_or_full_load(s3_object_key, prefixes_values[full_load_prefixes_key], file_prefix)
+    partial_load, full_load, file_prefix = is_partial_or_full_load(s3_object_key,
+                                                                   prefixes_values[partial_load_prefixes_key],
+                                                                   prefixes_values[full_load_prefixes_key])
 
     size = boto3.resource('s3').Bucket(s3['bucket']['name']).Object(s3_object_key).content_length
     logger.info('Input file size in GBs:' + str(size))
