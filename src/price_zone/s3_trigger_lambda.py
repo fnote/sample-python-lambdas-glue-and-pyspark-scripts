@@ -29,15 +29,6 @@ def get_values_from_ssm(keys):
     return parameter_dictionary
 
 
-
-# def is_partial_or_full_load(file_name, prefixes_str ,file_prefix):
-#     prefix_list = prefixes_str.split(",")
-#     for prefix in prefix_list:
-#         if file_name.startswith(prefix):
-#             file_prefix = prefix
-#             return True
-#     return False
-
 def is_partial_or_full_load(file_name, partial_prefixes_str, full_prefixes_str):
     partial_prefix_list = partial_prefixes_str.split(",")
     full_prefix_list = full_prefixes_str.split(",")
@@ -66,8 +57,6 @@ def lambda_handler(event, context):
 
     ssm_key_set = [ partial_load_prefixes_key, full_load_prefixes_key]
     prefixes_values = get_values_from_ssm(ssm_key_set)
-    # partial_load = is_partial_or_full_load(s3_object_key, prefixes_values[partial_load_prefixes_key], file_prefix)
-    # full_load = is_partial_or_full_load(s3_object_key, prefixes_values[full_load_prefixes_key], file_prefix)
     partial_load, full_load, file_prefix = is_partial_or_full_load(s3_object_key,
                                                                    prefixes_values[partial_load_prefixes_key],
                                                                    prefixes_values[full_load_prefixes_key])
