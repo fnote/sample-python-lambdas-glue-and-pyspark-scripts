@@ -100,6 +100,21 @@ def read_additional_info(bucket_name, backup_completed, event):
     except s3_client.exceptions.NoSuchKey:
         return 'None'
 
+def send_teams_notification(data, title ,env):
+    try:
+        teams_url = 'teams_webhook_url_' + env
+        teams_webhook_url = os.environ[teams_url]
+        payload = {
+            "@type": "MessageCard",
+            "@context": "http://schema.org/extensions",
+            "themeColor": "d63333",
+            "title": "There is an issue - {}".format(title),
+            "text": json.dumps(data['message'])
+        }
+        requests.post(teams_webhook_url, data=json.dumps(payload))
+    except Exception as e:
+        logger.error(e)
+
 def lambda_handler(event, context):
     logger.info("Event: " + str(event))
     REFERENCE_PRICING = "REFERENCE_PRICING"
@@ -164,6 +179,9 @@ def lambda_handler(event, context):
         cursor_object.execute(JOB_EXECUTION_STATUS_UPDATE_QUERY.format(failed_opco_list_string, str(total_record_count), str(invalid_record_count), input_file_name, etl_timestamp))
         database_connection.commit()
 
+        if invalid_record_count > 0:
+            send_teams_notification(data, "FAILED OPCOS", env)
+
     if notification_event in ["ETL-PRICE_ZONE-OUTSIDE-FAILURE", "ETL-PA"] and status == "ERROR":
         # we do not know whether additional info file got created
         logger.info('file has failed before map state , update the execution status table with failed')
@@ -180,6 +198,8 @@ def lambda_handler(event, context):
             JOB_EXECUTION_STATUS_UPDATE_QUERY_WHEN_FAIL.format("FAILED", end_time, input_file_name, etl_timestamp))
         database_connection.commit()
 
+        send_teams_notification(data, notification_event, env)
+
     if notification_event == "[ETL] - [Ref Price] [Price Data]":
         etl_timestamp = event['etl_timestamp']
         input_file_name = event['file_name']
@@ -193,19 +213,9 @@ def lambda_handler(event, context):
 
 
         # Teams alerts for failed files
-    if status == 'ERROR':
-            print("failed opcos present , send teams alert")
-
-            try:
-                teams_url = 'teams_webhook_url_' + env
-                teams_webhook_url = os.environ[teams_url]
-
-                payload = {
-                    "text": json.dumps(data['message'])
-                }
-                requests.post(teams_webhook_url, data=json.dumps(payload))
-            except Exception as e:
-                logger.error(e)
+    if notification_event == "ETL-PRICE_ZONE" and status == 'ERROR':
+        print("price zone map state failed ")
+        send_teams_notification(data, "PRICE ZONE - MAP STATE FAILED", env)
 
     # update the status table with total record count
     headers = {'host': host, 'Content-Type': 'application/json'}
