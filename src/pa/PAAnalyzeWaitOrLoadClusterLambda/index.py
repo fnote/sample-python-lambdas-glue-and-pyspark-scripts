@@ -93,6 +93,8 @@ def lambda_handler(event, context):
         database_connection.commit()
     except Exception as e:
         logger.error(e)
+    finally:
+        database_connection.close()
 
     if ALLOWED_CONCURRENT_EXECUTIONS == 0:
         error_msg = 'Received illegal value for PA ETL workFlow maximum concurrency: {}' \
