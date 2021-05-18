@@ -30,6 +30,7 @@ def get_values_from_ssm(keys):
 
 
 def is_partial_or_full_load(file_name, partial_prefixes_str, full_prefixes_str):
+    """ Returns whether a file is a full load or partial load and also the file prefix looking at the file prefix"""
     partial_prefix_list = partial_prefixes_str.split(",")
     full_prefix_list = full_prefixes_str.split(",")
     for prefix in partial_prefix_list:
