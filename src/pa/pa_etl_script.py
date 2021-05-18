@@ -287,12 +287,15 @@ if __name__ == "__main__":
 
         # write to db
         database_connection = create_common_db_connection(environment)
-        cursor_object = database_connection.cursor()
-        # add failed opcos here and increment failed opcos count
-        cursor_object.execute(JOB_EXECUTION_STATUS_UPDATE_QUERY.format(total_opcos, failed_opco_list_string, str(total_record_count_from_pa_file),
-                                                                       str(invalid_price_record_count), joined_string, s3_input_file_key,
-                                                                       etl_timestamp))
-        database_connection.commit()
+        try:
+            cursor_object = database_connection.cursor()
+            # add failed opcos here and increment failed opcos count
+            cursor_object.execute(JOB_EXECUTION_STATUS_UPDATE_QUERY.format(total_opcos, failed_opco_list_string, str(total_record_count_from_pa_file),
+                                                                           str(invalid_price_record_count), joined_string, s3_input_file_key,
+                                                                           etl_timestamp))
+            database_connection.commit()
+        finally:
+            database_connection.close()
 
     except Exception as e:
         raise e
