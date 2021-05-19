@@ -56,7 +56,7 @@ def get_connection_details_and_max_concurrency(env):
     }
 
 
-def get_db_connection(env, connection_params):
+def get_db_connection(connection_params):
     return pymysql.connect(
         host=connection_params['db_endpoint'], user=connection_params['username'], password=connection_params['password'], db=connection_params['db_name'], charset=charset, cursorclass=cursor_type)
 
@@ -89,7 +89,7 @@ def lambda_handler(event, context):
 
     # get allowed concurrent step function execution amount and common db connection parameters
     params = get_connection_details_and_max_concurrency(env)
-    database_connection = get_db_connection(env, params)
+    database_connection = get_db_connection(params)
     ALLOWED_CONCURRENT_EXECUTIONS = int(params['max_concurrency'])
 
     if ALLOWED_CONCURRENT_EXECUTIONS == 0:
