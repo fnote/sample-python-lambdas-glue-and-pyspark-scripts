@@ -15,7 +15,6 @@ from functools import reduce
 
 lambda_client = boto3.client('lambda')
 
-query_for_tables = 'SELECT * FROM settings WHERE setting = (%s)'
 glue_connection_name = 'cp-ref-etl-common-connection-{}-cluster-{}'
 
 charset = 'utf8'
