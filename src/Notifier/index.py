@@ -6,7 +6,6 @@ import boto3
 import json
 import anticrlf
 import pymysql
-import urllib.request
 from datetime import datetime
 
 logger = logging.getLogger()
