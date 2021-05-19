@@ -67,16 +67,6 @@ def get_db_connection(env):
         host=connection_params['db_url'], user=connection_params['username'], password=connection_params['password'], db=connection_params['db_name'], charset=charset, cursorclass=cursor_type)
 
 
-def return_results(opco_cluster_map):
-
-    resultant_json = {
-        "cluster_01": opco_cluster_map[0],
-        "cluster_02": opco_cluster_map[1],
-        "invalid_or_inactive_opco_list": opco_cluster_map[2]
-    }
-
-    return resultant_json
-
 def separate_opcos_by_cluster(mappings, active_opco_list):
     cluster_01_opcos = []
     cluster_02_opcos = []
@@ -91,11 +81,14 @@ def separate_opcos_by_cluster(mappings, active_opco_list):
         else:
             invalid_or_inactive_opcos.append(opco_id)
 
-    print(cluster_01_opcos)
-    print(cluster_02_opcos)
-    print(invalid_or_inactive_opcos)
-    result_list = [cluster_01_opcos, cluster_02_opcos, invalid_or_inactive_opcos]
-    return result_list
+    resultant_json = {
+        "cluster_01": cluster_01_opcos,
+        "cluster_02": cluster_02_opcos,
+        "invalid_or_inactive_opco_list": invalid_or_inactive_opcos
+    }
+
+    print("cluster 01 opcos: %s , cluster 02 opcos: %s , invalid or inactive opcos: %s" % (cluster_01_opcos, cluster_02_opcos, invalid_or_inactive_opcos))
+    return resultant_json
 
 
 def extract_opco_id(x):
@@ -149,15 +142,13 @@ def lambda_handler(event, context):
 
     separated_opcos = separate_opcos_by_cluster(opco_cluster_mappings, active_opco_id_list)
 
-    separated_opco_result = return_results(separated_opcos)
-
-    valid_opco_count = len(separated_opco_result[CLUSTER_1_OPCO_KEY]) + len(separated_opco_result[CLUSTER_2_OPCO_KEY])
+    valid_opco_count = len(separated_opcos[CLUSTER_1_OPCO_KEY]) + len(separated_opcos[CLUSTER_2_OPCO_KEY])
 
     # update status table
     # 5 attributes, file type , success opcos , failed opcos , record count status start time end time
     update_job_execution_status(environment, file_name, etl_timestamp, valid_opco_count, joined_opco_list_string)
 
-    return separated_opco_result
+    return separated_opcos
 
 
 
