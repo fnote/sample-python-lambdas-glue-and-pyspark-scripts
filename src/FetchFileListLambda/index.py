@@ -4,7 +4,7 @@ import pymysql
 
 OPCO_CLUSTER_MAPPINGS_QUERY = 'SELECT * FROM OPCO_CLUSTER WHERE OPCO_ID IN ({})'
 # file name , etl, total bbusiness unit count , success count, failed count , file type ,  failed opco ids, success opco ids , status, record count ,start time ,end time,partial load
-JOB_EXECUTION_STATUS_UPDATE_QUERY = 'UPDATE PRICE_ZONE_LOAD_JOB_EXECUTION_STATUS SET TOTAL_BUSINESS_UNITS = {} WHERE FILE_NAME="{}" AND ETL_TIMESTAMP={}'
+JOB_EXECUTION_STATUS_UPDATE_QUERY = 'UPDATE LOAD_JOB_EXECUTION_STATUS SET TOTAL_ACTIVE_OPCO_COUNT = {} ,RECEIVED_OPCOS = "{}" WHERE FILE_NAME="{}" AND ETL_TIMESTAMP={}'
 CLUSTER_ID_COLUMN_NAME = 'CLUSTER_ID'
 OPCO_ID_COLUMN_NAME = 'OPCO_ID'
 ENVIRONMENT_PARAM_NAME = 'ENV'
@@ -17,12 +17,12 @@ charset = 'utf8'
 cursor_type = pymysql.cursors.DictCursor
 
 
-def update_job_execution_status(env, file_name, etl_timestamp, opco_count):
+def update_job_execution_status(env, file_name, etl_timestamp, opco_count, opco_list):
     print('update job execution status')
     database_connection = get_db_connection(env)
     try:
         cursor_object = database_connection.cursor()
-        cursor_object.execute(JOB_EXECUTION_STATUS_UPDATE_QUERY.format(opco_count, file_name, etl_timestamp))
+        cursor_object.execute(JOB_EXECUTION_STATUS_UPDATE_QUERY.format(opco_count, opco_list, file_name, etl_timestamp))
         result = cursor_object.fetchall()
         print(result)
         database_connection.commit()
@@ -165,7 +165,7 @@ def lambda_handler(event, context):
 
     # update status table
     # 5 attributes, file type , success opcos , failed opcos , record count status start time end time
-    update_job_execution_status(environment, file_name, etl_timestamp, valid_opco_count)
+    update_job_execution_status(environment, file_name, etl_timestamp, valid_opco_count, joined_opco_list_string)
 
     return separated_opco_result
 

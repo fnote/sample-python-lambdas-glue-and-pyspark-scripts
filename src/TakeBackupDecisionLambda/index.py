@@ -8,13 +8,13 @@ CLUSTER_N_OPCO_PARAM_NAME = 'cluster_opcos'
 FILE_NAME_PARAM_NAME = 's3_object_key'
 ETL_TIMESTAMP_PARAM_NAME = 'etl_timestamp'
 ALLOCATED_JOB_COUNT_PARAM_NAME = 'allocated_job_count'
-JOB_EXECUTION_STATUS_FETCH_QUERY = 'SELECT * FROM PRICE_ZONE_LOAD_JOB_EXECUTION_STATUS WHERE FILE_NAME="{}" AND ETL_TIMESTAMP={} FOR UPDATE'
-JOB_EXECUTION_STATUS_UPDATE_QUERY = 'UPDATE PRICE_ZONE_LOAD_JOB_EXECUTION_STATUS SET SUCCESSFUL_BUSINESS_UNITS = {}, FAILED_BUSINESS_UNITS = {}, FAILED_OPCO_IDS =CONCAT( FAILED_OPCO_IDS ,"{}") , SUCCESSFUL_OPCO_IDS =CONCAT( SUCCESSFUL_OPCO_IDS ,"{}"), END_TIME = "{}", STATUS ="{}" WHERE FILE_NAME="{}" AND ETL_TIMESTAMP={}'
+JOB_EXECUTION_STATUS_FETCH_QUERY = 'SELECT * FROM LOAD_JOB_EXECUTION_STATUS WHERE FILE_NAME="{}" AND ETL_TIMESTAMP={} FOR UPDATE'
+JOB_EXECUTION_STATUS_UPDATE_QUERY = 'UPDATE LOAD_JOB_EXECUTION_STATUS SET STATUS ="{}", SUCCESSFUL_ACTIVE_OPCO_COUNT = {}, FAILED_ACTIVE_OPCO_COUNT = {}, SUCCESSFUL_ACTIVE_OPCO_IDS =CONCAT( SUCCESSFUL_ACTIVE_OPCO_IDS ,"{}"), FAILED_OPCO_IDS =CONCAT( FAILED_OPCO_IDS ,"{}") , END_TIME = "{}" WHERE FILE_NAME="{}" AND ETL_TIMESTAMP={}'
 CLUSTER_LOAD_JOB_COUNT_FETCH_QUERY = 'SELECT RUNNING_LOAD_JOB_COUNT FROM PRICE_ZONE_CLUSTER_LOAD_JOB_SETTINGS WHERE CLUSTER_ID = "{}" FOR UPDATE'
 CLUSTER_LOAD_JOB_COUNT_UPDATE_QUERY = 'UPDATE PRICE_ZONE_CLUSTER_LOAD_JOB_SETTINGS SET RUNNING_LOAD_JOB_COUNT = RUNNING_LOAD_JOB_COUNT - {} WHERE CLUSTER_ID  = "{}"'
-TOTAL_BUSINESS_UNITS_COLUMN_NAME = 'TOTAL_BUSINESS_UNITS'
-SUCCESSFUL_BUSINESS_UNITS_COLUMN_NAME = 'SUCCESSFUL_BUSINESS_UNITS'
-FAILED_BUSINESS_UNITS_COLUMN_NAME = 'FAILED_BUSINESS_UNITS'
+TOTAL_OPCO_COUNT_COLUMN_NAME = 'TOTAL_ACTIVE_OPCO_COUNT'
+SUCCESSFUL_OPCO_COUNT_COLUMN_NAME = 'SUCCESSFUL_ACTIVE_OPCO_COUNT'
+FAILED_OPCO_COUNT_COLUMN_NAME = 'FAILED_ACTIVE_OPCO_COUNT'
 CLUSTER_LOAD_JOB_STATUSES_PARAM_NAME = 'loadJobStatuses'
 
 charset = 'utf8'
@@ -23,7 +23,6 @@ cursor_type = pymysql.cursors.DictCursor
 def get_values_from_ssm(keys):
     client_ssm = boto3.client('ssm')
     response = client_ssm.get_parameters(Names=keys, WithDecryption=True)
-    # print(response)
     parameters = response['Parameters']
     invalid_parameters = response['InvalidParameters']
     if invalid_parameters:
@@ -98,9 +97,9 @@ def lambda_handler(event, context):
         cursor_object.execute(JOB_EXECUTION_STATUS_FETCH_QUERY.format(file_name, etl_timestamp))
         result = cursor_object.fetchone()
 
-        total_opco_count = int(result[TOTAL_BUSINESS_UNITS_COLUMN_NAME])
-        successful_opco_count = int(result[SUCCESSFUL_BUSINESS_UNITS_COLUMN_NAME])
-        failed_opco_count = int(result[FAILED_BUSINESS_UNITS_COLUMN_NAME])
+        total_opco_count = int(result[TOTAL_OPCO_COUNT_COLUMN_NAME])
+        successful_opco_count = int(result[SUCCESSFUL_OPCO_COUNT_COLUMN_NAME])
+        failed_opco_count = int(result[FAILED_OPCO_COUNT_COLUMN_NAME])
 
         print('failed_opco_count ' + str(failed_opco_count))
         print('successful_opco_count ' + str(successful_opco_count))
@@ -119,23 +118,23 @@ def lambda_handler(event, context):
         # add file type , success opco ids failed opco ids status record count start time and end time
         successful_opcos_joined_string = "," + ",".join(successful_opcos)
         failed_opcos_joined_string = "," + ",".join(failed_opco_list)
-        status = "IN_PROGRESS"
+        status = "RUNNING"
         total_failed_opco_count_from_both_clusters = failed_opco_count + failed_job_count
 
         # no failures and opco count equals total then complete
         if not failed_opco_list and (successful_opco_count + success_job_count == total_opco_count):
             #no failed opcos in current cluster and total jobs completed
-            status = "COMPLETED"
+            status = "SUCCEEDED"
         elif total_failed_opco_count_from_both_clusters > 0 and (successful_opco_count + failed_opco_count + success_job_count + failed_job_count == total_opco_count):
             #entire process is done , all opcos in file processed but there are failures
             status = "FAILED"
         else:
             # no failed opcos in finished current cluster but other cluster still loading
-            status = "IN_PROGRESS"
+            status = "RUNNING"
 
         date_time_now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        cursor_object.execute(JOB_EXECUTION_STATUS_UPDATE_QUERY.format(successful_opco_count + success_job_count,
-                                                                       failed_opco_count + failed_job_count, failed_opcos_joined_string, successful_opcos_joined_string, date_time_now, status, file_name,
+        cursor_object.execute(JOB_EXECUTION_STATUS_UPDATE_QUERY.format(status, successful_opco_count + success_job_count,
+                                                                       failed_opco_count + failed_job_count, successful_opcos_joined_string, failed_opcos_joined_string, date_time_now, file_name,
                                                                        etl_timestamp))
 
         # fetch the load job count

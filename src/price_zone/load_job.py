@@ -11,6 +11,7 @@ import sqlalchemy as sqlalchemy
 from queue import Queue
 from sqlalchemy.pool import QueuePool
 from awsglue.utils import getResolvedOptions
+from functools import reduce
 
 lambda_client = boto3.client('lambda')
 
@@ -19,6 +20,8 @@ glue_connection_name = 'cp-ref-etl-common-connection-{}-cluster-{}'
 
 charset = 'utf8'
 cursor_type = pymysql.cursors.DictCursor
+
+JOB_EXECUTION_STATUS_FETCH_QUERY = 'SELECT RECEIVED_OPCOS FROM LOAD_JOB_EXECUTION_STATUS WHERE PARTIAL_LOAD={} AND STATUS="{}" FOR UPDATE'
 
 def get_values_from_ssm(keys):
     client_ssm = boto3.client('ssm')
@@ -165,7 +168,7 @@ def get_values_from_ssm(keys):
 
 
 def get_active_and_future_tables(env, table, db_configs):
-    #from common db
+    # from common db
     database_connection = getNewConnection(db_configs['host'], db_configs['username'], db_configs['password'], db_configs['database'])
 
     try:
@@ -246,6 +249,32 @@ def get_effective_date(table, db_configs):
     finally:
         database_connection.close()
 
+
+def check_for_full_exports_in_progress(common_db_connection_params, opco_id):
+    opcos_in_full_export = []
+    database_connection = get_common_db_connection(environment, connection_params=common_db_connection_params)
+    try:
+        cursor_object = database_connection.cursor()
+        cursor_object.execute(JOB_EXECUTION_STATUS_FETCH_QUERY.format(0, "RUNNING"))
+        results = cursor_object.fetchall()
+        for result in results:
+            opcos_in_full_export.append(result['RECEIVED_OPCOS'].split(','))
+        flat_opco_list_in_export = []
+        if opcos_in_full_export:
+            flat_opco_list_in_export = reduce(list.__add__, opcos_in_full_export)
+        if opco_id in flat_opco_list_in_export:
+            print('current loading opco present in a full export in progress')
+            return True
+        else:
+            print('current loading opco not present in full export in progress')
+            return False
+
+    except Exception as e:
+        print(e)
+        raise e
+    finally:
+        database_connection.close()
+
 def str_to_bool(s):
     if s == 'True':
          return True
@@ -258,7 +287,7 @@ def find_tables_to_load(partial_load ,env ,opco_id, intermediate_s3, partitioned
     db_configs = _retrieve_conection_details(cluster_id)
     db_configs['database'] = Configuration.DATABASE_PREFIX + opco_id
 
-    #get connection params for common db and validation type
+    # get connection params for common db and validation type
     connection_params = get_common_db_connection_details(env)
 
     if partial_load:
@@ -280,8 +309,19 @@ def find_tables_to_load(partial_load ,env ,opco_id, intermediate_s3, partitioned
 
         if len(future_table_query_result) == 0:
             # If future table empty -> stop
-            # Check if full export is in progress if so load to future too
-            print('partial load and the future table is empty, therefore stop the loading process & proceed')
+            # Check if full export is in progress for that opco if so load to future too
+            opco_available_in_full_export = check_for_full_exports_in_progress(connection_params, opco_id)
+
+            if opco_available_in_full_export:
+                print(
+                    'partial load and the future table is empty and full export is in progress for the current opco, therefore load the future table')
+                db_configs['table'] = future_table_name
+                load_data(db_configs, opco_id, intermediate_s3, partitioned_files_key)
+            else:
+                # opco not available in in progress full export or no full exports are currently running
+                print(
+                    'partial load and the future table is empty and full export is not in progress or current opco not in full export, therefore stop loading process')
+
         else:
             # future table not empty , therefore load future table
             db_configs['table'] = future_table_name
