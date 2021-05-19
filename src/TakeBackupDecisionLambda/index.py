@@ -10,7 +10,6 @@ ETL_TIMESTAMP_PARAM_NAME = 'etl_timestamp'
 ALLOCATED_JOB_COUNT_PARAM_NAME = 'allocated_job_count'
 JOB_EXECUTION_STATUS_FETCH_QUERY = 'SELECT * FROM LOAD_JOB_EXECUTION_STATUS WHERE FILE_NAME="{}" AND ETL_TIMESTAMP={} FOR UPDATE'
 JOB_EXECUTION_STATUS_UPDATE_QUERY = 'UPDATE LOAD_JOB_EXECUTION_STATUS SET STATUS ="{}", SUCCESSFUL_ACTIVE_OPCO_COUNT = {}, FAILED_ACTIVE_OPCO_COUNT = {}, SUCCESSFUL_ACTIVE_OPCO_IDS =CONCAT( SUCCESSFUL_ACTIVE_OPCO_IDS ,"{}"), FAILED_OPCO_IDS =CONCAT( FAILED_OPCO_IDS ,"{}") , END_TIME = "{}" WHERE FILE_NAME="{}" AND ETL_TIMESTAMP={}'
-CLUSTER_LOAD_JOB_COUNT_FETCH_QUERY = 'SELECT RUNNING_LOAD_JOB_COUNT FROM PRICE_ZONE_CLUSTER_LOAD_JOB_SETTINGS WHERE CLUSTER_ID = "{}" FOR UPDATE'
 CLUSTER_LOAD_JOB_COUNT_UPDATE_QUERY = 'UPDATE PRICE_ZONE_CLUSTER_LOAD_JOB_SETTINGS SET RUNNING_LOAD_JOB_COUNT = RUNNING_LOAD_JOB_COUNT - {} WHERE CLUSTER_ID  = "{}"'
 TOTAL_OPCO_COUNT_COLUMN_NAME = 'TOTAL_ACTIVE_OPCO_COUNT'
 SUCCESSFUL_OPCO_COUNT_COLUMN_NAME = 'SUCCESSFUL_ACTIVE_OPCO_COUNT'
@@ -136,9 +135,6 @@ def lambda_handler(event, context):
         cursor_object.execute(JOB_EXECUTION_STATUS_UPDATE_QUERY.format(status, successful_opco_count + success_job_count,
                                                                        failed_opco_count + failed_job_count, successful_opcos_joined_string, failed_opcos_joined_string, date_time_now, file_name,
                                                                        etl_timestamp))
-
-        # fetch the load job count
-        cursor_object.execute(CLUSTER_LOAD_JOB_COUNT_FETCH_QUERY.format(cluster))
 
         # update the load job count
         cursor_object.execute(CLUSTER_LOAD_JOB_COUNT_UPDATE_QUERY.format(allocated_job_count, cluster))

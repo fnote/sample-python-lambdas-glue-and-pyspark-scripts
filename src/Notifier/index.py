@@ -42,7 +42,6 @@ def get_additional_info(additional_info_details):
 def get_values_from_ssm(keys):
     client_ssm = boto3.client('ssm')
     response = client_ssm.get_parameters(Names=keys, WithDecryption=True)
-    # print(response)
     parameters = response['Parameters']
     invalid_parameters = response['InvalidParameters']
     if invalid_parameters:
@@ -153,9 +152,7 @@ def lambda_handler(event, context):
             "additional_info": json.dumps(additional_info)
         }
     }
-
     print(additional_info)
-
     # add record count to common db status table if event is prize zone
     # file name and etl time stamp required to edit the right record in db
 
