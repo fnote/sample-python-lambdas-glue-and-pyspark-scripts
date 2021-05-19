@@ -145,7 +145,7 @@ def copyFileIntoEnv(s3Path) {
     copyToS3("./src/pa/s3_trigger_lambda.py.zip", paS3Path)
     copyToS3("./src/pa/pa_etl_script.py", paS3Path)
     copyToS3("./src/pa/data_backup_job.py", paS3Path)
-    copyToS3("./src/pa/analyse_load_wait.py.zip", paS3Path)
+    copyToS3("./src/pa/PAAnalyzeWaitOrLoadClusterLambda/PAAnalyzeWaitOrLoadClusterLambda.zip", paS3Path)
 
 //    Common
     copyToS3("./src/Notifier/Notifier.zip", s3Path)
@@ -187,7 +187,7 @@ def deployIntoEnv(env, bucket, s3Path, s3key, region) {
             "${s3Path}/pa/data_backup_job.py")
     updateLambda(
             bucket, region, "CP-REF-etl-pa-Analyse-Load-or-wait-${env}",
-            "${s3key}/pa/analyse_load_wait.py.zip")
+            "${s3key}/pa/PAAnalyzeWaitOrLoadClusterLambda.zip")
 
 //    Common
     updateLambda(
@@ -211,8 +211,8 @@ pipeline {
                     bat script: "cd src/AnalyzeEtlWaitStatusLambda & pip3 install --target . -r requirements.txt & D:/winrar/winrar a -r AnalyzeEtlWaitStatusLambda.zip & dir"
                     bat script: "cd src/AnalyzeWaitOrLoadClusterLambda & pip3 install --target . -r requirements.txt & D:/winrar/winrar a -r AnalyzeWaitOrLoadClusterLambda.zip & dir"
                     bat script: "cd src/TakeBackupDecisionLambda & pip3 install --target . -r requirements.txt & D:/winrar/winrar a -r TakeBackupDecisionLambda.zip & dir"
+                    bat script: "cd src/pa/PAAnalyzeWaitOrLoadClusterLambda & pip3 install --target . -r requirements.txt & D:/winrar/winrar a -r PAAnalyzeWaitOrLoadClusterLambda.zip & dir"
                     zipScript("src/pa/", "s3_trigger_lambda.py")
-                    zipScript("src/pa/", "analyse_load_wait.py")
                     zipScript("src/common/", "metadata_aggregator.py")
                 }
             }
@@ -380,9 +380,8 @@ pipeline {
                     updateLambdaProd(
                             bucket, region, "CP-REF-etl-pa-trigger-${ENV}",
                             "${s3key}/pa/s3_trigger_lambda.py.zip")
-                    updateLambdaProd(
-                            bucket, region, "CP-REF-etl-pa-Analyse-Load-or-wait-${ENV}",
-                            "${s3key}/pa/analyse_load_wait.py.zip")
+                    updateLambdaProd(bucket, region, 'CP-REF-etl-price-zone-Analyse-Load-or-wait-${ENV}',
+                            "${s3key}/pa/PAAnalyzeWaitOrLoadClusterLambda.zip")
                     updateGlueScriptProd(
                             region, "CP-REF-etl-pa-job-${ENV}",
                             "${s3Path}/pa/pa_etl_script.py")

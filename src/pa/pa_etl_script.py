@@ -14,6 +14,7 @@ from awsglue.utils import getResolvedOptions
 lambda_client = boto3.client('lambda')
 
 OPCO_CLUSTER_MAPPINGS_QUERY = 'SELECT * FROM OPCO_CLUSTER WHERE OPCO_ID IN ({})'
+JOB_EXECUTION_STATUS_UPDATE_QUERY = 'UPDATE LOAD_JOB_EXECUTION_STATUS SET TOTAL_ACTIVE_OPCO_COUNT = {},FAILED_OPCO_IDS = "{}", TOTAL_RECORD_COUNT = "{}",INVALID_RECORD_COUNT = "{}",RECEIVED_OPCOS = "{}" WHERE FILE_NAME="{}" AND ETL_TIMESTAMP={}'
 glue_connection_name = 'cp-ref-etl-common-connection-{}-cluster-{}'
 CLUSTER_ID_COLUMN_NAME = 'CLUSTER_ID'
 OPCO_ID_COLUMN_NAME = 'OPCO_ID'
@@ -261,10 +262,12 @@ if __name__ == "__main__":
     try:
         opco_cluster_mapping = get_opco_cluster_mapping(joined_string, environment)
 
-        #add active opco list here
+        # add active opco list here
         cluster1_opcos_cluster2_opcos_and_invalids = separate_opcos_by_cluster(opco_cluster_mapping, unique_opco_ids)
         df_cluster_1 = df[df['opco_id'].isin(cluster1_opcos_cluster2_opcos_and_invalids[0])]
         df_cluster_2 = df[df['opco_id'].isin(cluster1_opcos_cluster2_opcos_and_invalids[1])]
+        failed_opco_list_string = joined_string = ",".join(cluster1_opcos_cluster2_opcos_and_invalids[2])
+        total_opcos = len(cluster1_opcos_cluster2_opcos_and_invalids[0]) + len(cluster1_opcos_cluster2_opcos_and_invalids[1])
 
         total_record_count_from_pa_file = len(df.index)
 
@@ -281,6 +284,18 @@ if __name__ == "__main__":
             load_data(opco, item_zone_prices_for_opco_in_cluster_2[opco], '02')
 
         write_metadata(metadata_lambda, intermediate_s3_bucket, intermediate_directory_path, total_record_count_from_pa_file, invalid_price_record_count)
+
+        # write to db
+        database_connection = create_common_db_connection(environment)
+        try:
+            cursor_object = database_connection.cursor()
+            # add failed opcos here and increment failed opcos count
+            cursor_object.execute(JOB_EXECUTION_STATUS_UPDATE_QUERY.format(total_opcos, failed_opco_list_string, str(total_record_count_from_pa_file),
+                                                                           str(invalid_price_record_count), joined_string, s3_input_file_key,
+                                                                           etl_timestamp))
+            database_connection.commit()
+        finally:
+            database_connection.close()
 
     except Exception as e:
         raise e

@@ -21,7 +21,7 @@ glue_connection_name = 'cp-ref-etl-common-connection-{}-cluster-{}'
 charset = 'utf8'
 cursor_type = pymysql.cursors.DictCursor
 
-JOB_EXECUTION_STATUS_FETCH_QUERY = 'SELECT RECEIVED_OPCOS FROM PRICE_ZONE_LOAD_JOB_EXECUTION_STATUS WHERE PARTIAL_LOAD={} AND STATUS="{}" FOR UPDATE'
+JOB_EXECUTION_STATUS_FETCH_QUERY = 'SELECT RECEIVED_OPCOS FROM LOAD_JOB_EXECUTION_STATUS WHERE PARTIAL_LOAD={} AND STATUS="{}" FOR UPDATE'
 
 def get_values_from_ssm(keys):
     client_ssm = boto3.client('ssm')
@@ -255,7 +255,7 @@ def check_for_full_exports_in_progress(common_db_connection_params, opco_id):
     database_connection = get_common_db_connection(environment, connection_params=common_db_connection_params)
     try:
         cursor_object = database_connection.cursor()
-        cursor_object.execute(JOB_EXECUTION_STATUS_FETCH_QUERY.format(0, "IN_PROGRESS"))
+        cursor_object.execute(JOB_EXECUTION_STATUS_FETCH_QUERY.format(0, "RUNNING"))
         results = cursor_object.fetchall()
         for result in results:
             opcos_in_full_export.append(result['RECEIVED_OPCOS'].split(','))

@@ -4,11 +4,16 @@ from collections import Counter
 
 import boto3
 from botocore.config import Config
+from datetime import datetime
+import pymysql
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
+charset = 'utf8'
+cursor_type = pymysql.cursors.DictCursor
 
-
+EXECUTION_STATUS_INSERT_QUERY = 'INSERT INTO LOAD_JOB_EXECUTION_STATUS (FILE_NAME,ETL_TIMESTAMP, FILE_TYPE,STATUS,TOTAL_ACTIVE_OPCO_COUNT,SUCCESSFUL_ACTIVE_OPCO_COUNT,FAILED_ACTIVE_OPCO_COUNT,SUCCESSFUL_ACTIVE_OPCO_IDS,FAILED_OPCO_IDS,TOTAL_RECORD_COUNT,INVALID_RECORD_COUNT,PARTIAL_LOAD,RECEIVED_OPCOS,START_TIME,END_TIME) VALUES ("{}", "{}","{}","{}", 0, 0, 0 ,"","",0,0,"{}","0","{}","")'
+RECORD_EXIST_CHECK_QUERY = 'SELECT * FROM LOAD_JOB_EXECUTION_STATUS WHERE FILE_NAME="{}" AND ETL_TIMESTAMP={}'
 # adaptive - Retries with additional client side throttling.
 config = Config(
    retries={
@@ -32,15 +37,26 @@ def get_values_from_ssm(keys):
     return parameter_dictionary
 
 
-def get_max_concurrency(env):
+def get_connection_details_and_max_concurrency(env):
+    db_url = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/COMMON/DB_URL'
+    password = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/COMMON/PASSWORD'
+    username = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/COMMON/USERNAME'
+    db_name = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/COMMON/DB_NAME'
     max_concurrency_ssm_key = '/CP/' + env + '/ETL/REF_PRICE/PA/MAX_ALLOWED_CONCURRENT_EXECUTIONS'
-    ssm_keys = [max_concurrency_ssm_key]
+    ssm_keys = [db_url, db_name, username, password, max_concurrency_ssm_key]
     ssm_key_values = get_values_from_ssm(ssm_keys)
-    logger.info('GetParameter called for ssm key: %s' % max_concurrency_ssm_key)
+    logger.info('GetParameter called for ssm key: %s, %s, %s' % (db_url, db_name, max_concurrency_ssm_key))
     return {
+        "db_endpoint": ssm_key_values[db_url],
+        "password": ssm_key_values[password],
+        "username": ssm_key_values[username],
+        "db_name": ssm_key_values[db_name],
         "max_concurrency": ssm_key_values[max_concurrency_ssm_key]
     }
 
+def get_db_connection(env, connection_params):
+    return pymysql.connect(
+        host=connection_params['db_endpoint'], user=connection_params['username'], password=connection_params['password'], db=connection_params['db_name'], charset=charset, cursorclass=cursor_type)
 
 def lambda_handler(event, context):
     logger.info("Received event:")
@@ -50,9 +66,35 @@ def lambda_handler(event, context):
     step_functionArn = event['stepFunctionArn']
     step_function_execution_id = event['stepFunctionExecutionId']
     env = os.environ['env']
+    etl_timestamp = event['etl_timestamp']
+    file_name = event['s3_input_file_key']
+    partial_load = 1
 
-    params = get_max_concurrency(env)
+    params = get_connection_details_and_max_concurrency(env)
     ALLOWED_CONCURRENT_EXECUTIONS = int(params['max_concurrency'])
+
+    start_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    database_connection = get_db_connection(env, params)
+    file_progress_status = "RUNNING"
+
+    # add a record with file name and time stamp to the execution status table
+    try:
+        cursor_object = database_connection.cursor()
+        cursor_object.execute(RECORD_EXIST_CHECK_QUERY.format(file_name, etl_timestamp))
+        result = cursor_object.fetchone()
+        logger.info('Retrieved record details from status table and the result :%s' % result)
+
+        if result == None:
+            res = cursor_object.execute(
+                EXECUTION_STATUS_INSERT_QUERY.format(file_name, etl_timestamp, "PA", file_progress_status,
+                                                     partial_load, start_time))
+            logger.info('insert query results :%s' % res)
+
+        database_connection.commit()
+    except Exception as e:
+        logger.error(e)
+    finally:
+        database_connection.close()
 
     if ALLOWED_CONCURRENT_EXECUTIONS == 0:
         error_msg = 'Received illegal value for PA ETL workFlow maximum concurrency: {}' \
