@@ -93,6 +93,7 @@ def lambda_handler(event, context):
         database_connection.commit()
     except Exception as e:
         logger.error(e)
+        raise e
     finally:
         database_connection.close()
 
