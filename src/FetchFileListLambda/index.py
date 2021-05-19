@@ -28,6 +28,7 @@ def update_job_execution_status(env, file_name, etl_timestamp, opco_count, opco_
         database_connection.commit()
     except Exception as e:
         print(e)
+        raise e
     finally:
         database_connection.close()
 
@@ -96,23 +97,11 @@ def separate_opcos_by_cluster(mappings, active_opco_list):
     result_list = [cluster_01_opcos, cluster_02_opcos, invalid_or_inactive_opcos]
     return result_list
 
-def filter_to_two_cluster(df):
-    opco_cluster_mapping = []
-    df_cluster_1 = df[df['CLUSTER_ID'] == 1]
-    df_cluster_2 = df[df['CLUSTER_ID'] == 2]
-
-    cluster_1_opco_list = df_cluster_1[OPCO_ID_COLUMN_NAME].tolist()
-    cluster_2_opco_list = df_cluster_2[OPCO_ID_COLUMN_NAME].tolist()
-
-    opco_cluster_mapping.append(cluster_1_opco_list)
-    opco_cluster_mapping.append(cluster_2_opco_list)
-    print(opco_cluster_mapping)
-    return opco_cluster_mapping
-
 
 def extract_opco_id(x):
      p = re.search('opco_id=(\d+?)/', x['Key'])
      return p and p.group(1)
+
 
 def get_opco_cluster_mapping(opcos, env):
     database_connection = get_db_connection(env)
@@ -125,6 +114,7 @@ def get_opco_cluster_mapping(opcos, env):
         return result
     except Exception as e:
         print(e)
+        raise e
     finally:
         database_connection.close()
 
