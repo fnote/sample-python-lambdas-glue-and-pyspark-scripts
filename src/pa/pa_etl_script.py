@@ -70,6 +70,7 @@ def get_opco_cluster_mapping(opcos, env):
         return result
     except Exception as e:
         print(e)
+        raise e
     finally:
         database_connection.close()
 
