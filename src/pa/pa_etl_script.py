@@ -14,7 +14,7 @@ from awsglue.utils import getResolvedOptions
 lambda_client = boto3.client('lambda')
 
 OPCO_CLUSTER_MAPPINGS_QUERY = 'SELECT * FROM OPCO_CLUSTER WHERE OPCO_ID IN ({})'
-JOB_EXECUTION_STATUS_UPDATE_QUERY = 'UPDATE LOAD_JOB_EXECUTION_STATUS SET TOTAL_ACTIVE_OPCO_COUNT = {},FAILED_OPCO_IDS = "{}", TOTAL_RECORD_COUNT = "{}",INVALID_RECORD_COUNT = "{}",RECEIVED_OPCOS = "{}" WHERE FILE_NAME="{}" AND ETL_TIMESTAMP={}'
+JOB_EXECUTION_STATUS_UPDATE_QUERY = 'UPDATE LOAD_JOB_EXECUTION_STATUS SET TOTAL_ACTIVE_OPCO_COUNT = {},SUCCESSFUL_ACTIVE_OPCO_COUNT = {} ,FAILED_OPCO_IDS = "{}", TOTAL_RECORD_COUNT = "{}",INVALID_RECORD_COUNT = "{}",RECEIVED_OPCOS = "{}" WHERE FILE_NAME="{}" AND ETL_TIMESTAMP={}'
 glue_connection_name = 'cp-ref-etl-common-connection-{}-cluster-{}'
 CLUSTER_ID_COLUMN_NAME = 'CLUSTER_ID'
 OPCO_ID_COLUMN_NAME = 'OPCO_ID'
@@ -291,7 +291,7 @@ if __name__ == "__main__":
         try:
             cursor_object = database_connection.cursor()
             # add failed opcos here and increment failed opcos count
-            cursor_object.execute(JOB_EXECUTION_STATUS_UPDATE_QUERY.format(total_opcos, failed_opco_list_string, str(total_record_count_from_pa_file),
+            cursor_object.execute(JOB_EXECUTION_STATUS_UPDATE_QUERY.format(total_opcos, total_opcos,failed_opco_list_string, str(total_record_count_from_pa_file),
                                                                            str(invalid_price_record_count), joined_string, s3_input_file_key,
                                                                            etl_timestamp))
             database_connection.commit()
