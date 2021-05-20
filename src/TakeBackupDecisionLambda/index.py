@@ -69,7 +69,7 @@ def get_job_count_by_status(job_statuses, cluster_opco_count ,successful_opco_li
     return {'success_count': success_count, 'failure_count': cluster_opco_count - success_count , 'successful_opco_list': successful_opco_list}
 
 def lambda_handler(event, context):
-    #read file type also from here
+    # read file type also from here
     env = event[ENV_PARAM_NAME]
     cluster = event[CLUSTER_PARAM_NAME]
     file_name = event[FILE_NAME_PARAM_NAME]
@@ -142,7 +142,7 @@ def lambda_handler(event, context):
         database_connection.commit()
     except Exception as e:
         print(e)
-        # TODO: handle this
+        raise e
     finally:
         database_connection.close()
 
