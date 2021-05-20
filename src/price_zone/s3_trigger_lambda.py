@@ -29,13 +29,17 @@ def get_values_from_ssm(keys):
     return parameter_dictionary
 
 
-def is_partial_load(file_name, prefixes_str):
-    prefix_list = prefixes_str.split(",")
-    for prefix in prefix_list:
+def is_partial_or_full_load(file_name, partial_prefixes_str, full_prefixes_str):
+    """ Returns whether a file is a full load or partial load and also the file prefix looking at the file prefix"""
+    partial_prefix_list = partial_prefixes_str.split(",")
+    full_prefix_list = full_prefixes_str.split(",")
+    for prefix in partial_prefix_list:
         if file_name.startswith(prefix):
-            return True
-    return False
-
+            return True, False, prefix
+    for prefix in full_prefix_list:
+        if file_name.startswith(prefix):
+            return False, True, prefix
+    return False, False, ''
 
 def lambda_handler(event, context):
     client_step_function = boto3.client('stepfunctions')
@@ -50,10 +54,40 @@ def lambda_handler(event, context):
     s3_path = "s3://" + s3['bucket']['name'] + "/" + s3_object_key
     etl_timestamp = str(int(time.time()))
     partial_load_prefixes_key = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/PARTIAL_LOAD_PREFIXES'
-    partial_load_prefixes_val = get_values_from_ssm([partial_load_prefixes_key])
-    partial_load = is_partial_load(s3_object_key, partial_load_prefixes_val[partial_load_prefixes_key])
+    full_load_prefixes_key = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/FULL_LOAD_PREFIXES'
 
+    ssm_key_set = [ partial_load_prefixes_key, full_load_prefixes_key]
+    prefixes_values = get_values_from_ssm(ssm_key_set)
+    partial_load, full_load, file_prefix = is_partial_or_full_load(s3_object_key,
+                                                                   prefixes_values[partial_load_prefixes_key],
+                                                                   prefixes_values[full_load_prefixes_key])
+
+    size = boto3.resource('s3').Bucket(s3['bucket']['name']).Object(s3_object_key).content_length
+    logger.info('Input file size in GBs:' + str(size))
+    # 1 Bytes = 9.31×10 Gigabytes
+    input_file_size_in_gb =  (int(size) * 9.31)/10**10
+    logger.info('Input file size in GBs:' + str(input_file_size_in_gb))
+
+    file_size_upper_bound_key = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/PARTIAL_LOAD_FILE_SIZE_UPPER_BOUND'
     active_opcos_key = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/ACTIVE/BUSINESS/UNITS'
+
+    ssm_key_set = [file_size_upper_bound_key]
+    ssm_key_set_values = get_values_from_ssm(ssm_key_set)
+    partial_load_file_size_upper_bound = ssm_key_set_values[file_size_upper_bound_key]
+
+    #if partial load prefix is present in the file name or file size is less than the min size of a full export
+
+    # ctt itt big file
+    #small file but not ctt itt
+    if partial_load:
+        partial_load = True
+    elif full_load:
+        partial_load = False
+    elif float(partial_load_file_size_upper_bound) < input_file_size_in_gb:
+        partial_load = False
+    else:
+        partial_load = True
+
 
     # here file name is not included to the path to prevent errors from filenames containing special characters
     unique_path_prefix = 'etl_output_' + etl_timestamp + '_' \
@@ -92,6 +126,8 @@ def lambda_handler(event, context):
     archiving_path = 'price_zone/' + str(etl_time_object.year) + '/' + etl_time_object.strftime("%B") + '/' + str(
         etl_time_object.day) + '/' + custom_path + '/'
 
+    file_extension = s3_object_key.split(".")[-1]
+
     params = {
         "s3_path": s3_path,
         "intermediate_s3_name": intermediate_s3_storage,
@@ -102,13 +138,16 @@ def lambda_handler(event, context):
         "etl_output_path_key": custom_path,
         "s3_input_bucket": s3['bucket']['name'],
         "s3_input_file_key": s3_object_key,
-        "partial_load": partial_load,
+        "partial_load": str(partial_load),
         "worker_count": glue_NumberOfWorkers,
         "worker_type": glue_worker_type,
         "active_opcos": active_opco_list,
         "backup_bucket": 'cp-ref-etl-data-backup-storage-{}'.format(env.lower()),
         "backup_file_path": archiving_path,
-        "intermediate_directory_path": folder_key
+        "intermediate_directory_path": folder_key,
+        "ENV": env,
+        "file_type": file_extension,
+        "file_prefix": file_prefix
     }
 
     logger.info("Prize Zone data file Path: {}".format(s3_path))

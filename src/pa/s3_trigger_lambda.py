@@ -40,7 +40,8 @@ def lambda_handler(event, context):
         "s3_input_bucket": s3['bucket']['name'],
         "s3_input_file_key": s3_object_key,
         "backup_bucket": 'cp-ref-etl-data-backup-storage-{}'.format(env.lower()),
-        "backup_file_path": archiving_path
+        "backup_file_path": archiving_path,
+        "env": env,
     }
     client = boto3.client('stepfunctions')
     response = client.start_execution(stateMachineArn=step_function_arn,
