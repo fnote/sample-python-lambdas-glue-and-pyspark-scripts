@@ -63,7 +63,7 @@ def lambda_handler(event, context):
 
     opco_list_for_cluster = event['Input']
     print(opco_list_for_cluster)
-    cluster = int(event['cluster'])
+    cluster = event['cluster']
     env = event['ENV']
 
 
