@@ -7,6 +7,8 @@ import json
 import anticrlf
 import pymysql
 from datetime import datetime
+from datadog_lambda.metric import lambda_metric
+from datadog_lambda.wrapper import datadog_lambda_wrapper
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -113,9 +115,17 @@ def send_teams_notification(data, title ,env):
     except Exception as e:
         logger.error(e)
 
+@datadog_lambda_wrapper
 def lambda_handler(event, context):
     logger.info("Event: " + str(event))
     REFERENCE_PRICING = "REFERENCE_PRICING"
+
+    lambda_metric(
+        metric_name="prcp-ref_price_etl-valid_record_count",  # Metric name
+        metric_value=1200,  # Metric value
+        timestamp=1234567891123,  # Timestamp (optional)
+        tags=['service:cp-ref-price-etl', 'env:exe', 'application:pa', 'file:test-pa.csv']  # Associated tags
+    )
 
     url = os.environ['cp_notification_url']
     host = os.environ['cp_notification_host']
