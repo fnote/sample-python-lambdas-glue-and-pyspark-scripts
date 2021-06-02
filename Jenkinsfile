@@ -353,48 +353,48 @@ pipeline {
             steps {
                 script {
                     updateLambdaProd(
-                            bucket, region, "CP-REF-etl-price-zone-trigger-${ENV}",
+                            bucket, region, "CP-REF-etl-price-zone-trigger-PROD",
                             "${s3key}/s3_trigger_lambda.py.zip")
-                    updateLambdaProd(bucket, region, 'CP-REF-etl-price-zone-opco-files-fetch-${ENV}',
+                    updateLambdaProd(bucket, region, 'CP-REF-etl-price-zone-opco-files-fetch-PROD',
                             "${s3key}/FetchFileListLambda.zip")
-                    updateLambdaProd(bucket, region, 'CP-REF-etl-price-zone-wait-status-analyzer-${ENV}',
+                    updateLambdaProd(bucket, region, 'CP-REF-etl-price-zone-wait-status-analyzer-PROD',
                             "${s3key}/AnalyzeEtlWaitStatusLambda.zip")
-                    updateLambdaProd(bucket, region, 'CP-REF-etl-price-zone-Analyse-Load-or-wait-${ENV}',
+                    updateLambdaProd(bucket, region, 'CP-REF-etl-price-zone-Analyse-Load-or-wait-PROD',
                             "${s3key}/AnalyzeWaitOrLoadClusterLambda.zip")
-                    updateLambdaProd(bucket, region, 'CP-REF-etl-price-zone-job-status-analyzer-${ENV}',
+                    updateLambdaProd(bucket, region, 'CP-REF-etl-price-zone-job-status-analyzer-PROD',
                             "${s3key}/TakeBackupDecisionLambda.zip")
                     updateGlueScriptProd(
-                            region, "CP-REF-etl-price-zone-decompression-job-${ENV}",
+                            region, "CP-REF-etl-price-zone-decompression-job-PROD",
                             "${s3Path}/decompress_job.py")
                     updateGlueScriptProd(
-                            region, "CP-REF-etl-price-zone-transform-job-${ENV}",
+                            region, "CP-REF-etl-price-zone-transform-job-PROD",
                             "${s3Path}/transform_spark_job.py")
                     updateGlueScriptProd(
-                            region, "CP-REF-etl-price-zone-load-job-${ENV}",
+                            region, "CP-REF-etl-price-zone-load-job-PROD",
                             "${s3Path}/load_job.py")
                     updateGlueScriptProd(
-                            region, "CP-REF-etl-price-zone-backup-job-${ENV}",
+                            region, "CP-REF-etl-price-zone-backup-job-PROD",
                             "${s3Path}/data_backup_job.py")
 
                     //    PA
                     updateLambdaProd(
-                            bucket, region, "CP-REF-etl-pa-trigger-${ENV}",
+                            bucket, region, "CP-REF-etl-pa-trigger-PROD",
                             "${s3key}/pa/s3_trigger_lambda.py.zip")
-                    updateLambdaProd(bucket, region, 'CP-REF-etl-price-zone-Analyse-Load-or-wait-${ENV}',
+                    updateLambdaProd(bucket, region, 'CP-REF-etl-price-zone-Analyse-Load-or-wait-PROD',
                             "${s3key}/pa/PAAnalyzeWaitOrLoadClusterLambda.zip")
                     updateGlueScriptProd(
-                            region, "CP-REF-etl-pa-job-${ENV}",
+                            region, "CP-REF-etl-pa-job-PROD",
                             "${s3Path}/pa/pa_etl_script.py")
                     updateGlueScriptProd(
-                            region, "CP-REF-etl-pa-backup-job-${ENV}",
+                            region, "CP-REF-etl-pa-backup-job-PROD",
                             "${s3Path}/pa/data_backup_job.py")
 
                     //    Common
                     updateLambdaProd(
-                            bucket, region, "CP-REF-etl-notifier-${ENV}",
+                            bucket, region, "CP-REF-etl-notifier-PROD",
                             "${s3key}/Notifier.zip")
                     updateLambdaProd(
-                            bucket, region, "CP-REF-PRICE-etl-metadata-aggregator-${ENV}",
+                            bucket, region, "CP-REF-PRICE-etl-metadata-aggregator-PROD",
                             "${s3key}/metadata_aggregator.py.zip")
                 }
             }
