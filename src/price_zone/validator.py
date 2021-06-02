@@ -5,7 +5,7 @@ validator to validate columns in incoming files
 from pyspark.sql.functions import isnan, length
 
 
-def validate_opcos(df,active_opco_list,column):
+def validate_opcos(df, active_opco_list, column):
     invalid_df = df.filter(~df[column].isin(active_opco_list) | df[column].isNull())
     if len(invalid_df.head(1)) > 0:
         invalid_df.show(truncate=False)
@@ -61,8 +61,8 @@ def validate_data_range(df, column, min_val, max_val):
     if len(invalid_df.head(1)) > 0:
         invalid_df.show(truncate=False)
         print("Invalid data-range received for column: "
-                         + column + ".should be between " + str(min_val)
-                         + "and " + str(max_val))
+              + column + ".should be between " + str(min_val)
+              + "and " + str(max_val))
     return get_opco_list(invalid_df)
 
 

@@ -7,7 +7,6 @@ import sys
 from datetime import datetime
 
 from awsglue.utils import getResolvedOptions
-
 from move_s3_objects import copy_input_file, copy_objects_with_prefix, delete_object, delete_directory
 
 if __name__ == "__main__":

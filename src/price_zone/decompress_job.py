@@ -5,8 +5,11 @@ Price zone etl decompression job
 
 import sys
 import time
+
 import smart_open
 from awsglue.utils import getResolvedOptions
+
+
 # 200MB min_upload_size
 
 

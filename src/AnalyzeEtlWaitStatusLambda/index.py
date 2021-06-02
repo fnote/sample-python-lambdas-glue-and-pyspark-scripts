@@ -7,10 +7,9 @@ import boto3
 import pymysql
 from botocore.config import Config
 
-# file name , etl, total business unit count , success count, failed count , file type
-# failed opco ids, success opco ids , status, record count ,start time ,end time,partial load , received opcos
-EXECUTION_STATUS_INSERT_QUERY = 'INSERT INTO PRICE_ZONE_LOAD_JOB_EXECUTION_STATUS (FILE_NAME,ETL_TIMESTAMP,TOTAL_BUSINESS_UNITS,SUCCESSFUL_BUSINESS_UNITS,FAILED_BUSINESS_UNITS,FILE_TYPE,FAILED_OPCO_IDS,SUCCESSFUL_OPCO_IDS,STATUS,RECORD_COUNT,START_TIME,END_TIME,PARTIAL_LOAD,RECEIVED_OPCOS) VALUES ("{}", "{}", 0, 0, 0 ,"{}","","","{}","0","{}",0,"{}","0")'
-RECORD_EXIST_CHECK_QUERY = 'SELECT * FROM PRICE_ZONE_LOAD_JOB_EXECUTION_STATUS WHERE FILE_NAME="{}" AND ETL_TIMESTAMP={}'
+# file name , etl, total bbusiness unit count , success count, failed count , file type ,  failed opco ids, success opco ids , status, record count ,start time ,end time,partial load
+EXECUTION_STATUS_INSERT_QUERY = 'INSERT INTO LOAD_JOB_EXECUTION_STATUS (FILE_NAME,ETL_TIMESTAMP, FILE_TYPE,STATUS,TOTAL_ACTIVE_OPCO_COUNT,SUCCESSFUL_ACTIVE_OPCO_COUNT,FAILED_ACTIVE_OPCO_COUNT,SUCCESSFUL_ACTIVE_OPCO_IDS,FAILED_OPCO_IDS,TOTAL_RECORD_COUNT,INVALID_RECORD_COUNT,PARTIAL_LOAD,RECEIVED_OPCOS,START_TIME,END_TIME) VALUES ("{}", "{}","{}","{}", 0, 0, 0 ,"","",0,0,"{}","0","{}","")'
+RECORD_EXIST_CHECK_QUERY = 'SELECT * FROM LOAD_JOB_EXECUTION_STATUS WHERE FILE_NAME="{}" AND ETL_TIMESTAMP={}'
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -58,7 +57,7 @@ def get_connection_details_and_max_concurrency(env):
     }
 
 
-def get_db_connection(env, connection_params):
+def get_db_connection(connection_params):
     return pymysql.connect(
         host=connection_params['db_endpoint'], user=connection_params['username'],
         password=connection_params['password'], db=connection_params['db_name'], charset=CHARSET,
@@ -78,7 +77,7 @@ def lambda_handler(event, context):
     logger.info("Received event:")
     logger.info(event)
     status = 'RUNNING'
-    file_progress_status = "IN_PROGRESS"
+    file_progress_status = "RUNNING"
 
     step_function = boto3.client('stepfunctions', config=config)
 
@@ -86,7 +85,7 @@ def lambda_handler(event, context):
     step_function_execution_id = event['stepFunctionExecutionId']
     etl_timestamp = event['etl_timestamp']
     file_name = event['s3_input_file_key']
-    file_type = event['file_type']
+    file_type = event['file_prefix']
     partial_load_string = event['partial_load']
     partial_load = str_to_bool_int(partial_load_string)
     env = os.environ['env']
@@ -117,13 +116,13 @@ def lambda_handler(event, context):
         if result == None:
             res = cursor_object.execute(
                 EXECUTION_STATUS_INSERT_QUERY.format(file_name, etl_timestamp, file_type, file_progress_status,
-                                                     start_time, partial_load))
+                                                     partial_load, start_time))
             logger.info('insert query results :%s' % res)
 
         database_connection.commit()
     except Exception as e:
         logger.error(e)
-        # TODO: handle this
+        raise e
 
     finally:
         database_connection.close()

@@ -1,6 +1,8 @@
-import json
-import boto3
 import copy
+import json
+
+import boto3
+
 
 def lambda_handler(event, context):
     s3_client = boto3.client('s3')
@@ -21,7 +23,6 @@ def lambda_handler(event, context):
     except s3_client.exceptions.NoSuchKey:
         print("Created a new file at s3:%s key:%s" % (bucket_name, s3_path))
         newString = additional_info_str
-
 
     encoded_string = newString.encode("utf-8")
 

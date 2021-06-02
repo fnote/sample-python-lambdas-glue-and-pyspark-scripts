@@ -1,10 +1,11 @@
-import boto3
 import re
+
+import boto3
 import pymysql
 
 OPCO_CLUSTER_MAPPINGS_QUERY = 'SELECT * FROM OPCO_CLUSTER WHERE OPCO_ID IN ({})'
 # file name , etl, total bbusiness unit count , success count, failed count , file type ,  failed opco ids, success opco ids , status, record count ,start time ,end time,partial load
-JOB_EXECUTION_STATUS_UPDATE_QUERY = 'UPDATE PRICE_ZONE_LOAD_JOB_EXECUTION_STATUS SET TOTAL_BUSINESS_UNITS = {} ,RECEIVED_OPCOS = "{}" WHERE FILE_NAME="{}" AND ETL_TIMESTAMP={}'
+JOB_EXECUTION_STATUS_UPDATE_QUERY = 'UPDATE LOAD_JOB_EXECUTION_STATUS SET TOTAL_ACTIVE_OPCO_COUNT = {} ,RECEIVED_OPCOS = "{}" WHERE FILE_NAME="{}" AND ETL_TIMESTAMP={}'
 CLUSTER_ID_COLUMN_NAME = 'CLUSTER_ID'
 OPCO_ID_COLUMN_NAME = 'OPCO_ID'
 ENVIRONMENT_PARAM_NAME = 'ENV'
@@ -28,8 +29,10 @@ def update_job_execution_status(env, file_name, etl_timestamp, opco_count, opco_
         database_connection.commit()
     except Exception as e:
         print(e)
+        raise e
     finally:
         database_connection.close()
+
 
 def get_values_from_ssm(keys):
     client_ssm = boto3.client('ssm')
@@ -46,6 +49,7 @@ def get_values_from_ssm(keys):
 
     return parameter_dictionary
 
+
 def get_connection_details(env):
     db_url = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/COMMON/DB_URL'
     password = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/COMMON/PASSWORD'
@@ -60,21 +64,13 @@ def get_connection_details(env):
         "db_name": ssm_key_values[db_name]
     }
 
+
 def get_db_connection(env):
     connection_params = get_connection_details(env)
     return pymysql.connect(
-        host=connection_params['db_url'], user=connection_params['username'], password=connection_params['password'], db=connection_params['db_name'], charset=charset, cursorclass=cursor_type)
+        host=connection_params['db_url'], user=connection_params['username'], password=connection_params['password'],
+        db=connection_params['db_name'], charset=charset, cursorclass=cursor_type)
 
-
-def return_results(opco_cluster_map):
-
-    resultant_json = {
-        "cluster_01": opco_cluster_map[0],
-        "cluster_02": opco_cluster_map[1],
-        "invalid_or_inactive_opco_list": opco_cluster_map[2]
-    }
-
-    return resultant_json
 
 def separate_opcos_by_cluster(mappings, active_opco_list):
     cluster_01_opcos = []
@@ -90,29 +86,21 @@ def separate_opcos_by_cluster(mappings, active_opco_list):
         else:
             invalid_or_inactive_opcos.append(opco_id)
 
-    print(cluster_01_opcos)
-    print(cluster_02_opcos)
-    print(invalid_or_inactive_opcos)
-    result_list = [cluster_01_opcos, cluster_02_opcos, invalid_or_inactive_opcos]
-    return result_list
+    resultant_json = {
+        "cluster_01": cluster_01_opcos,
+        "cluster_02": cluster_02_opcos,
+        "invalid_or_inactive_opco_list": invalid_or_inactive_opcos
+    }
 
-def filter_to_two_cluster(df):
-    opco_cluster_mapping = []
-    df_cluster_1 = df[df['CLUSTER_ID'] == 1]
-    df_cluster_2 = df[df['CLUSTER_ID'] == 2]
-
-    cluster_1_opco_list = df_cluster_1[OPCO_ID_COLUMN_NAME].tolist()
-    cluster_2_opco_list = df_cluster_2[OPCO_ID_COLUMN_NAME].tolist()
-
-    opco_cluster_mapping.append(cluster_1_opco_list)
-    opco_cluster_mapping.append(cluster_2_opco_list)
-    print(opco_cluster_mapping)
-    return opco_cluster_mapping
+    print("cluster 01 opcos: %s , cluster 02 opcos: %s , invalid or inactive opcos: %s" % (
+        cluster_01_opcos, cluster_02_opcos, invalid_or_inactive_opcos))
+    return resultant_json
 
 
 def extract_opco_id(x):
-     p = re.search('opco_id=(\d+?)/', x['Key'])
-     return p and p.group(1)
+    p = re.search('opco_id=(\d+?)/', x['Key'])
+    return p and p.group(1)
+
 
 def get_opco_cluster_mapping(opcos, env):
     database_connection = get_db_connection(env)
@@ -125,12 +113,13 @@ def get_opco_cluster_mapping(opcos, env):
         return result
     except Exception as e:
         print(e)
+        raise e
     finally:
         database_connection.close()
 
 
 def lambda_handler(event, context):
-    #read file type here
+    # read file type here
     client = boto3.client('s3')
     environment = event[ENVIRONMENT_PARAM_NAME]
     file_name = event[FILE_NAME_PARAM_NAME]
@@ -139,7 +128,6 @@ def lambda_handler(event, context):
     active_opco_id_list = active_opcos.split(',')
     partial_load = event['partial_load']
     file_type = event['file_type']
-
 
     paginator = client.get_paginator('list_objects_v2')
     pages = paginator.paginate(Bucket=event['intermediate_s3_name'], Prefix=event['partitioned_files_key'])
@@ -150,7 +138,6 @@ def lambda_handler(event, context):
         for opco_id in set(opco_ids):
             opco_id_set.add(opco_id)
 
-
     print(list(opco_id_set))
     opco_list = list(opco_id_set)
     joined_opco_list_string = ",".join(opco_list)
@@ -159,15 +146,10 @@ def lambda_handler(event, context):
 
     separated_opcos = separate_opcos_by_cluster(opco_cluster_mappings, active_opco_id_list)
 
-    separated_opco_result = return_results(separated_opcos)
-
-    valid_opco_count = len(separated_opco_result[CLUSTER_1_OPCO_KEY]) + len(separated_opco_result[CLUSTER_2_OPCO_KEY])
+    valid_opco_count = len(separated_opcos[CLUSTER_1_OPCO_KEY]) + len(separated_opcos[CLUSTER_2_OPCO_KEY])
 
     # update status table
     # 5 attributes, file type , success opcos , failed opcos , record count status start time end time
     update_job_execution_status(environment, file_name, etl_timestamp, valid_opco_count, joined_opco_list_string)
 
-    return separated_opco_result
-
-
-
+    return separated_opcos

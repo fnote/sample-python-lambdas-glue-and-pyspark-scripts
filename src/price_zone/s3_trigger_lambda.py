@@ -1,8 +1,3 @@
-"""
-trigger lambda to trigger the step function on arrival of a file
-"""
-# pylint: disable=too-many-locals
-
 import json
 import logging
 import os
@@ -35,6 +30,7 @@ def get_values_from_ssm(keys):
 
 
 def is_partial_or_full_load(file_name, partial_prefixes_str, full_prefixes_str):
+    """ Returns whether a file is a full load or partial load and also the file prefix looking at the file prefix"""
     partial_prefix_list = partial_prefixes_str.split(",")
     full_prefix_list = full_prefixes_str.split(",")
     for prefix in partial_prefix_list:
@@ -117,7 +113,7 @@ def lambda_handler(event, _):
         active_opco_list = ssm_key_values[active_opcos_key]
 
     if glue_number_of_workers == 0:
-        error_msg = 'Received illegal value for glue_NumberOfWorkers: {}'.format(glue_number_of_workers)
+        error_msg = 'Received illegal value for glue_number_of_workers: {}'.format(glue_number_of_workers)
         raise ValueError(error_msg)
 
     intermediate_directory_path = "s3://" + intermediate_s3_storage + "/" + folder_key

@@ -1,21 +1,25 @@
-# pylint: disable=invalid-name,too-many-locals
 import logging
 import os
 from collections import Counter
+from datetime import datetime
 
 import boto3
+import pymysql
 from botocore.config import Config
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
+charset = 'utf8'
+cursor_type = pymysql.cursors.DictCursor
 
-
+EXECUTION_STATUS_INSERT_QUERY = 'INSERT INTO LOAD_JOB_EXECUTION_STATUS (FILE_NAME,ETL_TIMESTAMP, FILE_TYPE,STATUS,TOTAL_ACTIVE_OPCO_COUNT,SUCCESSFUL_ACTIVE_OPCO_COUNT,FAILED_ACTIVE_OPCO_COUNT,SUCCESSFUL_ACTIVE_OPCO_IDS,FAILED_OPCO_IDS,TOTAL_RECORD_COUNT,INVALID_RECORD_COUNT,PARTIAL_LOAD,RECEIVED_OPCOS,START_TIME,END_TIME) VALUES ("{}", "{}","{}","{}", 0, 0, 0 ,"","",0,0,"{}","0","{}","")'
+RECORD_EXIST_CHECK_QUERY = 'SELECT * FROM LOAD_JOB_EXECUTION_STATUS WHERE FILE_NAME="{}" AND ETL_TIMESTAMP={}'
 # adaptive - Retries with additional client side throttling.
 config = Config(
-   retries={
-      'max_attempts': 50,
-      'mode': 'adaptive'
-   }
+    retries={
+        'max_attempts': 50,
+        'mode': 'adaptive'
+    }
 )
 
 
@@ -33,38 +37,80 @@ def get_values_from_ssm(keys):
     return parameter_dictionary
 
 
-def get_max_concurrency(env):
+def get_connection_details_and_max_concurrency(env):
+    db_url = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/COMMON/DB_URL'
+    password = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/COMMON/PASSWORD'
+    username = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/COMMON/USERNAME'
+    db_name = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/COMMON/DB_NAME'
     max_concurrency_ssm_key = '/CP/' + env + '/ETL/REF_PRICE/PA/MAX_ALLOWED_CONCURRENT_EXECUTIONS'
-    ssm_keys = [max_concurrency_ssm_key]
+    ssm_keys = [db_url, db_name, username, password, max_concurrency_ssm_key]
     ssm_key_values = get_values_from_ssm(ssm_keys)
-    logger.info('GetParameter called for ssm key: %s' % max_concurrency_ssm_key)
+    logger.info('GetParameter called for ssm key: %s, %s, %s' % (db_url, db_name, max_concurrency_ssm_key))
     return {
+        "db_endpoint": ssm_key_values[db_url],
+        "password": ssm_key_values[password],
+        "username": ssm_key_values[username],
+        "db_name": ssm_key_values[db_name],
         "max_concurrency": ssm_key_values[max_concurrency_ssm_key]
     }
 
 
-def lambda_handler(event, _):
+def get_db_connection(env, connection_params):
+    return pymysql.connect(
+        host=connection_params['db_endpoint'], user=connection_params['username'],
+        password=connection_params['password'], db=connection_params['db_name'], charset=charset,
+        cursorclass=cursor_type)
+
+
+def lambda_handler(event, context):
     logger.info("Received event:")
     logger.info(event)
     step_function = boto3.client('stepfunctions', config=config)
 
-    step_function_arn = event['stepFunctionArn']
+    step_functionArn = event['stepFunctionArn']
     step_function_execution_id = event['stepFunctionExecutionId']
     env = os.environ['env']
+    etl_timestamp = event['etl_timestamp']
+    file_name = event['s3_input_file_key']
+    partial_load = 1
 
-    params = get_max_concurrency(env)
-    allowed_concurrent_executions = int(params['max_concurrency'])
+    params = get_connection_details_and_max_concurrency(env)
+    ALLOWED_CONCURRENT_EXECUTIONS = int(params['max_concurrency'])
 
-    if allowed_concurrent_executions == 0:
+    start_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    database_connection = get_db_connection(env, params)
+    file_progress_status = "RUNNING"
+
+    # add a record with file name and time stamp to the execution status table
+    try:
+        cursor_object = database_connection.cursor()
+        cursor_object.execute(RECORD_EXIST_CHECK_QUERY.format(file_name, etl_timestamp))
+        result = cursor_object.fetchone()
+        logger.info('Retrieved record details from status table and the result :%s' % result)
+
+        if result == None:
+            res = cursor_object.execute(
+                EXECUTION_STATUS_INSERT_QUERY.format(file_name, etl_timestamp, "PA", file_progress_status,
+                                                     partial_load, start_time))
+            logger.info('insert query results :%s' % res)
+
+        database_connection.commit()
+    except Exception as e:
+        logger.error(e)
+        raise e
+    finally:
+        database_connection.close()
+
+    if ALLOWED_CONCURRENT_EXECUTIONS == 0:
         error_msg = 'Received illegal value for PA ETL workFlow maximum concurrency: {}' \
-            .format(allowed_concurrent_executions)
+            .format(ALLOWED_CONCURRENT_EXECUTIONS)
         raise ValueError(error_msg)
 
     status = 'RUNNING'
     paginator = step_function.get_paginator('list_executions')
-    pages = paginator.paginate(stateMachineArn=step_function_arn, statusFilter=status)
+    pages = paginator.paginate(stateMachineArn=step_functionArn, statusFilter=status)
     logger.info('paginator:%s  pages:%s' % (paginator, pages))
-    logger.info('Retrieved execution list for step function:%s with execution status:%s' % (step_function_arn, status))
+    logger.info('Retrieved execution list for step function:%s with execution status:%s' % (step_functionArn, status))
 
     execution_dictionary = {}
     for page in pages:
@@ -83,7 +129,7 @@ def lambda_handler(event, _):
         logger.info("Current execution index: %d for  step function execution Id:%s with start time:%6f "
                     % (step_function_wait_index, step_function_execution_id, step_function_start_time))
 
-        if step_function_wait_index <= allowed_concurrent_executions:
+        if step_function_wait_index <= ALLOWED_CONCURRENT_EXECUTIONS:
             start_time_counter = Counter(sorted_start_time_list)
             if start_time_counter[step_function_start_time] != 1:  # contains duplicates for same start time
                 logger.info("contains multiple execution ids with same start time: %.6f and number of entries %d"
@@ -99,7 +145,7 @@ def lambda_handler(event, _):
                 logger.info(sorted_execution_id_list)
                 step_function_wait_index = step_function_wait_index + sorted_execution_id_list.index(
                     step_function_execution_id)
-                if step_function_wait_index <= allowed_concurrent_executions:
+                if step_function_wait_index <= ALLOWED_CONCURRENT_EXECUTIONS:
                     logger.info("New Execution index:%d for execution id:%s. Hence can proceed"
                                 % (step_function_wait_index, step_function_execution_id))
                     shouldWait = False
@@ -113,7 +159,7 @@ def lambda_handler(event, _):
         else:
             logger.info("Step function execution id:%s with start time:%.6f has list index %d. Allowed concurrency %d"
                         % (step_function_execution_id, step_function_start_time, step_function_wait_index,
-                           allowed_concurrent_executions))
+                           ALLOWED_CONCURRENT_EXECUTIONS))
     else:
         logger.info("could not locate step function execution Id %s in the received execution list"
                     % step_function_execution_id)

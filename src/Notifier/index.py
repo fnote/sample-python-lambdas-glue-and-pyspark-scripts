@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import time
+from datetime import datetime
 
 import anticrlf
 import boto3
@@ -11,19 +12,38 @@ import requests
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-JOB_EXECUTION_STATUS_UPDATE_QUERY = 'UPDATE PRICE_ZONE_LOAD_JOB_EXECUTION_STATUS SET RECORD_COUNT = "{}" WHERE FILE_NAME="{}" AND ETL_TIMESTAMP={}'
+JOB_EXECUTION_STATUS_UPDATE_QUERY = 'UPDATE LOAD_JOB_EXECUTION_STATUS SET FAILED_OPCO_IDS = "{}", TOTAL_RECORD_COUNT = "{}",INVALID_RECORD_COUNT = "{}" WHERE FILE_NAME="{}" AND ETL_TIMESTAMP={}'
+JOB_EXECUTION_STATUS_UPDATE_QUERY_WHEN_FAIL = 'UPDATE LOAD_JOB_EXECUTION_STATUS SET STATUS = "{}" ,END_TIME = "{}" WHERE FILE_NAME="{}" AND ETL_TIMESTAMP={}'
 
 # Using a handler with anticrlf log formatter to avoid CRLF injections
 # https://www.veracode.com/blog/secure-development/fixing-crlf-injection-logging-issues-python
 
-CHARSET = 'utf8'
-CursorType = pymysql.cursors.DictCursor
+charset = 'utf8'
+cursor_type = pymysql.cursors.DictCursor
+
+
+def get_additional_info(additional_info_details):
+    additional_info_json = json.loads(additional_info_details)
+    total_record_count = additional_info_json['received_records_count']
+    received_valid_records_count = additional_info_json['received_valid_records_count']
+    failed_opcos = additional_info_json['failed_opcos']
+    failed_opcos_count = len(failed_opcos)
+    failed_opco_list_string = ",".join(failed_opcos)
+    invalid_record_count = total_record_count - received_valid_records_count
+
+    return {
+        "total_record_count": total_record_count,
+        "received_valid_records_count": received_valid_records_count,
+        "failed_opcos": failed_opcos,
+        "failed_opcos_count": failed_opcos_count,
+        "failed_opco_list_string": failed_opco_list_string,
+        "invalid_record_count": invalid_record_count
+    }
 
 
 def get_values_from_ssm(keys):
     client_ssm = boto3.client('ssm')
     response = client_ssm.get_parameters(Names=keys, WithDecryption=True)
-    print(response)
     parameters = response['Parameters']
     invalid_parameters = response['InvalidParameters']
     if invalid_parameters:
@@ -42,6 +62,7 @@ def get_connection_details(env):
     db_name = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/COMMON/DB_NAME'
     ssm_keys = [db_url, db_name, username, password]
     ssm_key_values = get_values_from_ssm(ssm_keys)
+    print(ssm_key_values)
     return {
         "db_endpoint": ssm_key_values[db_url],
         "password": ssm_key_values[password],
@@ -54,8 +75,8 @@ def get_db_connection(env):
     connection_params = get_connection_details(env)
     return pymysql.connect(
         host=connection_params['db_endpoint'], user=connection_params['username'],
-        password=connection_params['password'], db=connection_params['db_name'], charset=CHARSET,
-        cursorclass=CursorType)
+        password=connection_params['password'], db=connection_params['db_name'], charset=charset,
+        cursorclass=cursor_type)
 
 
 formatter = anticrlf.LogFormatter('[%(levelname)s]\t%(asctime)s.%(msecs)dZ\t%(aws_request_id)s\t%(message)s\n',
@@ -84,6 +105,22 @@ def read_additional_info(bucket_name, backup_completed, event):
         return 'None'
 
 
+def send_teams_notification(data, title, env):
+    try:
+        teams_url = 'teams_webhook_url_' + env
+        teams_webhook_url = os.environ[teams_url]
+        payload = {
+            "@type": "MessageCard",
+            "@context": "http://schema.org/extensions",
+            "themeColor": "d63333",
+            "title": "There is an issue - {}".format(title),
+            "text": json.dumps(data['message'])
+        }
+        requests.post(teams_webhook_url, data=json.dumps(payload))
+    except Exception as e:
+        logger.error(e)
+
+
 def lambda_handler(event, context):
     logger.info("Event: " + str(event))
     REFERENCE_PRICING = "REFERENCE_PRICING"
@@ -94,6 +131,7 @@ def lambda_handler(event, context):
     notification_event = event.get("event", "PROCESSOR")
     status = event.get("status", "ERROR")
     message = event.get("message", "NA")
+    ref_price_type = event.get("event", "NA")
     bucket_name = event['additional_info_file_s3']
 
     current_time = int(time.time())
@@ -121,44 +159,68 @@ def lambda_handler(event, context):
             "additional_info": json.dumps(additional_info)
         }
     }
-
     print(additional_info)
-
-
-    # Teams alerts for failed files
-    if status == 'ERROR':
-        print("failed opcos present , send teams alert")
-
-        try:
-            teams_url = 'teams_webhook_url_' + env
-            teams_webhook_url = os.environ[teams_url]
-
-            payload = {
-                "text": json.dumps(data['message'])
-            }
-            requests.post(teams_webhook_url, data=json.dumps(payload))
-        except Exception as e:
-            logger.error(e)
-
     # add record count to common db status table if event is prize zone
     # file name and etl time stamp required to edit the right record in db
 
     if notification_event == "[ETL] - [Ref Price] [Price Zone Data]" and status == "SUCCEEDED":
+        additional_info_json = json.loads(additional_info)
+        total_record_count = additional_info_json['received_records_count']
+        received_valid_records_count = additional_info_json['received_valid_records_count']
+        failed_opcos = additional_info_json['failed_opcos']
+        failed_opco_list_string = ",".join(failed_opcos)
+        invalid_record_count = total_record_count - received_valid_records_count
+
         etl_timestamp = event['etl_timestamp']
         input_file_name = event['file_name']
-        # send s3_input_file_key
-        # additional_info_json_string = json.dumps(additional_info)
-        additional_info_json = json.loads(additional_info)
 
-        record_count = additional_info_json['received_records_count']
+        logger.info(
+            'updating status DB with file name: %s, etl timestamp: %s, env: %s, failed opcos: %s, invalid record count:%s' % (
+                input_file_name, etl_timestamp, env, failed_opco_list_string, invalid_record_count))
+        database_connection = get_db_connection(env)
+        cursor_object = database_connection.cursor()
+        # add failed opcos here and increment failed opcos count
+        cursor_object.execute(JOB_EXECUTION_STATUS_UPDATE_QUERY.format(failed_opco_list_string, str(total_record_count),
+                                                                       str(invalid_record_count), input_file_name,
+                                                                       etl_timestamp))
+        database_connection.commit()
+
+        if invalid_record_count > 0:
+            send_teams_notification(data, "FAILED OPCOS", env)
+
+    if notification_event in ["ETL-PRICE_ZONE-OUTSIDE-FAILURE", "ETL-PA"] and status == "ERROR":
+        # we do not know whether additional info file got created
+        logger.info('file has failed before map state , update the execution status table with failed')
+        print(additional_info)
+        etl_timestamp = event['etl_timestamp']
+        input_file_name = event['file_name']
+        end_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
         logger.info('updating status DB with file name: %s, etl timestamp: %s, env: %s' % (
             input_file_name, etl_timestamp, env))
         database_connection = get_db_connection(env)
         cursor_object = database_connection.cursor()
         cursor_object.execute(
-            JOB_EXECUTION_STATUS_UPDATE_QUERY.format(str(record_count), input_file_name, etl_timestamp))
+            JOB_EXECUTION_STATUS_UPDATE_QUERY_WHEN_FAIL.format("FAILED", end_time, input_file_name, etl_timestamp))
         database_connection.commit()
+
+        send_teams_notification(data, notification_event, env)
+
+    if notification_event == "[ETL] - [Ref Price] [Price Data]":
+        etl_timestamp = event['etl_timestamp']
+        input_file_name = event['file_name']
+        logger.info('PA File successful , update executions status table')
+        database_connection = get_db_connection(env)
+        cursor_object = database_connection.cursor()
+        end_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        cursor_object.execute(
+            JOB_EXECUTION_STATUS_UPDATE_QUERY_WHEN_FAIL.format("SUCCEEDED", end_time, input_file_name, etl_timestamp))
+        database_connection.commit()
+
+        # Teams alerts for failed files
+    if notification_event == "ETL-PRICE_ZONE" and status == 'ERROR':
+        print("price zone map state failed ")
+        send_teams_notification(data, "PRICE ZONE - MAP STATE FAILED", env)
 
     # update the status table with total record count
     headers = {'host': host, 'Content-Type': 'application/json'}

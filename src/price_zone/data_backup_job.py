@@ -49,7 +49,7 @@ if __name__ == "__main__":
 
     input_file_destination_key = archiving_path + s3_input_file_key
     decompressed_file_destination_key = archiving_path + \
-        decompressed_file_key.split('/')[-1]
+                                        decompressed_file_key.split('/')[-1]
     copy_input_file(
         s3_input_bucket,
         s3_input_file_key,
