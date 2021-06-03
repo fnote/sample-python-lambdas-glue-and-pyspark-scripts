@@ -69,12 +69,11 @@ def get_job_count_by_status(job_statuses, cluster_opco_count, successful_opco_li
     success_count = 0
     print('load')
     for job_status in job_statuses:
-        if 'loadJob' in job_status:
-            if 'JobRunState' in job_status['loadJob']:
-                opco_id = job_status['id']
-                if job_status['loadJob']['JobRunState'] == 'SUCCEEDED':
-                    success_count = success_count + 1
-                    successful_opco_list.append(opco_id)
+        if 'loadJob' in job_status and 'JobRunState' in job_status['loadJob']:
+            opco_id = job_status['id']
+            if job_status['loadJob']['JobRunState'] == 'SUCCEEDED':
+                success_count = success_count + 1
+                successful_opco_list.append(opco_id)
 
     return {'success_count': success_count, 'failure_count': cluster_opco_count - success_count,
             'successful_opco_list': successful_opco_list}
@@ -164,3 +163,6 @@ def lambda_handler(event, _):
         database_connection.close()
 
     return {'shouldBackup': should_backup}
+
+data = {'cluster': '01', 'etl_timestamp': '1622707973', 'allocated_job_count': 1, 's3_object_key': 'PRICE_ZONE_Test_2067.csv.gz', 'loadJobStatuses': [{'cluster': '01', 'backup_file_path': 'price_zone/2021/June/3/new/etl_output_1622707973_1a8019d4-f093-4a4e-a136-64edef26cb82/', 'etl_output_path_key': 'new/etl_output_1622707973_1a8019d4-f093-4a4e-a136-64edef26cb82', 'etl_timestamp': '1622707973', 'partial_load': 'True', 'intermediate_s3_name': 'cp-ref-etl-output-bucket-exe', 'backup_bucket': 'cp-ref-etl-data-backup-storage-exe', 'intermediate_directory_path': 'price_zone/new/etl_output_1622707973_1a8019d4-f093-4a4e-a136-64edef26cb82', 'id': '011', 'partitioned_files_key': 'price_zone/new/etl_output_1622707973_1a8019d4-f093-4a4e-a136-64edef26cb82/partitioned', 'ENV': 'EXE', 'loadJob': {'AllocatedCapacity': 1, 'Arguments': {'--etl_timestamp': '1622707973', '--ENV': 'EXE', '--intermediate_directory_path': 'price_zone/new/etl_output_1622707973_1a8019d4-f093-4a4e-a136-64edef26cb82', '--partitioned_files_key': 'price_zone/new/etl_output_1622707973_1a8019d4-f093-4a4e-a136-64edef26cb82/partitioned', '--opco_id': '011', '--partial_load': 'True', '--intermediate_s3_name': 'cp-ref-etl-output-bucket-exe', '--cluster': '01'}, 'Attempt': 0, 'CompletedOn': 1622708259706, 'ExecutionTime': 22, 'GlueVersion': '1.0', 'Id': 'jr_eb8a1e389f3935f8c451dd76ddf4d6f30c269385a082efe268474df5329baeca', 'JobName': 'CP-REF-etl-price-zone-load-job-EXE', 'JobRunState': 'SUCCEEDED', 'LastModifiedOn': 1622708259706, 'LogGroupName': '/aws-glue/python-jobs', 'MaxCapacity': 1.0, 'PredecessorRuns': [], 'StartedOn': 1622708230961, 'Timeout': 2880}}], 'cluster_opcos': ['011'], 'ENV': 'EXE'}
+lambda_handler(data,'')
