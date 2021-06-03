@@ -92,7 +92,7 @@ def lambda_handler(event, context):
 
     # get allowed concurrent step function execution amount and common db connection parameters
     params = get_connection_details_and_max_concurrency(env)
-    database_connection = get_db_connection(env, params)
+    database_connection = get_db_connection(params)
     allowed_concurrent_executions = int(params['max_concurrency'])
 
     if allowed_concurrent_executions == 0:

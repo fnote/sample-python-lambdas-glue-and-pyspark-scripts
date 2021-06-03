@@ -82,6 +82,7 @@ def get_job_count_by_status(job_statuses, cluster_opco_count, successful_opco_li
 
 def lambda_handler(event, _):
     # read file type also from here
+    print(event)
     env = event[ENV_PARAM_NAME]
     cluster = event[CLUSTER_PARAM_NAME]
     file_name = event[FILE_NAME_PARAM_NAME]
