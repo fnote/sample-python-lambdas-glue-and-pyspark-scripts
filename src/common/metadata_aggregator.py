@@ -17,14 +17,14 @@ def lambda_handler(event, context):
 
     try:
         response = s3_client.get_object(Bucket=bucket_name, Key=s3_path)
-        currentContent = response['Body'].read().decode('utf-8')
+        current_content = response['Body'].read().decode('utf-8')
         print("Reading content from file at s3:%s key:%s" % (bucket_name, s3_path))
-        newString = '{}, {}'.format(currentContent, additional_info_str)
+        new_string = '{}, {}'.format(current_content, additional_info_str)
     except s3_client.exceptions.NoSuchKey:
         print("Created a new file at s3:%s key:%s" % (bucket_name, s3_path))
-        newString = additional_info_str
+        new_string = additional_info_str
 
-    encoded_string = newString.encode("utf-8")
+    encoded_string = new_string.encode("utf-8")
 
     response_from_s3_put = s3_client.put_object(Bucket=bucket_name, Key=s3_path, Body=encoded_string)
 

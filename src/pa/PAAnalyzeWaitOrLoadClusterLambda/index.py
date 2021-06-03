@@ -67,7 +67,7 @@ def lambda_handler(event, context):
     logger.info(event)
     step_function = boto3.client('stepfunctions', config=config)
 
-    step_functionArn = event['stepFunctionArn']
+    step_function_arn = event['stepFunctionArn']
     step_function_execution_id = event['stepFunctionExecutionId']
     env = os.environ['env']
     etl_timestamp = event['etl_timestamp']
@@ -108,9 +108,9 @@ def lambda_handler(event, context):
 
     status = 'RUNNING'
     paginator = step_function.get_paginator('list_executions')
-    pages = paginator.paginate(stateMachineArn=step_functionArn, statusFilter=status)
+    pages = paginator.paginate(stateMachineArn=step_function_arn, statusFilter=status)
     logger.info('paginator:%s  pages:%s' % (paginator, pages))
-    logger.info('Retrieved execution list for step function:%s with execution status:%s' % (step_functionArn, status))
+    logger.info('Retrieved execution list for step function:%s with execution status:%s' % (step_function_arn, status))
 
     execution_dictionary = {}
     for page in pages:

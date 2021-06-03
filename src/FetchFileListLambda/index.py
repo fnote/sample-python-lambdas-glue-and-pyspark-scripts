@@ -126,8 +126,6 @@ def lambda_handler(event, context):
     etl_timestamp = event[ETL_TIMESTAMP_PARAM_NAME]
     active_opcos = event['active_opcos']
     active_opco_id_list = active_opcos.split(',')
-    partial_load = event['partial_load']
-    file_type = event['file_type']
 
     paginator = client.get_paginator('list_objects_v2')
     pages = paginator.paginate(Bucket=event['intermediate_s3_name'], Prefix=event['partitioned_files_key'])
