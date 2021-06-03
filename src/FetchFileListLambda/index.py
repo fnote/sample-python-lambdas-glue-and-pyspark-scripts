@@ -38,10 +38,10 @@ def get_values_from_ssm(keys):
     client_ssm = boto3.client('ssm')
     response = client_ssm.get_parameters(Names=keys)
     parameters = response['Parameters']
-    invalidParameters = response['InvalidParameters']
+    invalid_parameters = response['InvalidParameters']
 
-    if invalidParameters:
-        raise KeyError('Found invalid ssm parameter keys:' + ','.join(invalidParameters))
+    if invalid_parameters:
+        raise KeyError('Found invalid ssm parameter keys:' + ','.join(invalid_parameters))
 
     parameter_dictionary = {}
     for parameter in parameters:
