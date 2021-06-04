@@ -2,18 +2,19 @@
 import json
 import logging
 import os
+import time
 from datetime import datetime
+from urllib.parse import unquote_plus
+
 # Import Boto 3 for AWS Glue
 import boto3
-import time
-from urllib.parse import unquote_plus
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 
 # Define Lambda function
-def lambda_handler(event, context):
+def lambda_handler(event, _):
     logger.info('## TRIGGERED BY EVENT: ')
     logger.info(event)
     step_function_arn = os.environ['stepFunctionArn']
@@ -24,7 +25,6 @@ def lambda_handler(event, context):
     etl_timestamp = str(int(time.time()))
     folder_key = 'pa/etl_output_' + etl_timestamp
     s3_path = "s3://" + s3['bucket']['name'] + "/" + s3_object_key
-    intermediate_directory_path = "/" + s3_object_key
     logger.info("File Path: %s" % s3_path)
 
     etl_time_object = datetime.fromtimestamp(int(etl_timestamp))
@@ -47,4 +47,5 @@ def lambda_handler(event, context):
     response = client.start_execution(stateMachineArn=step_function_arn,
                                       input=json.dumps(step_function_input_params))
 
+    logger.info('Step function response : ' + response)
     logger.info('Started the Step Function: ' + step_function_arn)

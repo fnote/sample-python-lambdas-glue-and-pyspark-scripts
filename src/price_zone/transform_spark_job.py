@@ -1,31 +1,35 @@
-import sys
-import boto3
+# pylint: disable=too-many-function-args,no-name-in-module,no-value-for-parameter)
 import json
+import sys
+
+import boto3
+from awsglue.context import GlueContext
+from awsglue.dynamicframe import DynamicFrame
+from awsglue.job import Job
 from awsglue.transforms import *
 from awsglue.utils import getResolvedOptions
+from constants import CUST_NBR_LENGTH, SUPC_LENGTH, PRICE_ZONE_MIN_VALUE, PRICE_ZONE_MAX_VALUE, DATE_FORMAT_REGEX, \
+    OUTPUT_DATE_FORMAT, INPUT_DATE_FORMAT
 from pyspark.context import SparkContext
-from awsglue.context import GlueContext
-from awsglue.job import Job
-from awsglue.dynamicframe import DynamicFrame
-from pyspark.sql.types import IntegerType
 from pyspark.sql.functions import to_timestamp
-from validator import validate_column, validate_column_length_less_than, validate_column_length_equals,\
-    validate_data_range, validate_date_format, validate_date_time_field,validate_opcos,\
+from pyspark.sql.types import IntegerType
+from validator import validate_column, validate_column_length_less_than, validate_data_range, validate_date_format, \
+    validate_date_time_field, validate_opcos, \
     remove_records_of_given_opcos
-from constants import CUST_NBR_LENGTH, SUPC_LENGTH, PRICE_ZONE_MIN_VALUE, PRICE_ZONE_MAX_VALUE, DATE_FORMAT_REGEX, OUTPUT_DATE_FORMAT, INPUT_DATE_FORMAT, CO_NBR_LENGTH
-
 
 lambda_client = boto3.client('lambda')
 ## @params: [JOB_NAME]
-args = getResolvedOptions(sys.argv, ['JOB_NAME', 's3_path', 'decompressed_file_path', 'partitioned_files_path', 'active_opcos',  'intermediate_s3_name', 'intermediate_directory_path', 'METADATA_LAMBDA','file_type'])
+args = getResolvedOptions(sys.argv,
+                          ['JOB_NAME', 's3_path', 'decompressed_file_path', 'partitioned_files_path', 'active_opcos',
+                           'intermediate_s3_name', 'intermediate_directory_path', 'METADATA_LAMBDA', 'file_type'])
 input_file_path = args['s3_path']
 decompressed_file_path = args['decompressed_file_path']
 partitioned_files_path = args['partitioned_files_path']
-active_opcos= args['active_opcos']
-file_type= args['file_type']
+active_opcos = args['active_opcos']
+file_type = args['file_type']
 metadata_lambda = args['METADATA_LAMBDA']
-intermediate_s3_name= args['intermediate_s3_name']
-intermediate_directory_path= args['intermediate_directory_path']
+intermediate_s3_name = args['intermediate_s3_name']
+intermediate_directory_path = args['intermediate_directory_path']
 sc = SparkContext()
 glueContext = GlueContext(sc)
 spark = glueContext.spark_session
@@ -38,14 +42,15 @@ else:
     file_location = input_file_path
 
 datasourceDF = spark.read.format("csv") \
-        .option("header", "true") \
-        .option("inferSchema", "false") \
-        .option("sep", ",") \
-        .load(file_location)
+    .option("header", "true") \
+    .option("inferSchema", "false") \
+    .option("sep", ",") \
+    .load(file_location)
 
 datasource0 = DynamicFrame.fromDF(datasourceDF, glueContext, "datasource0")
 
 # renaming columns and dropping off unnecessary columns
+# pylint: disable=undefined-variable
 applyMapping1 = ApplyMapping.apply(frame=datasource0, mappings=[("co_nbr", "string", "opco_id", "string"),
                                                                 ("supc", "string", "supc", "string"),
                                                                 ("prc_zone", "string", "price_zone", "string"),
@@ -54,7 +59,7 @@ applyMapping1 = ApplyMapping.apply(frame=datasource0, mappings=[("co_nbr", "stri
                                    transformation_ctx="applyMapping1")
 sparkDF = applyMapping1.toDF()
 
-#fetch active opcos
+# fetch active opcos
 active_opco_id_list = active_opcos.split(',')
 
 # validate data
@@ -67,9 +72,8 @@ invalid_opcos.extend(validate_date_format(sparkDF, 'eff_from_dttm', DATE_FORMAT_
 invalid_opcos.extend(validate_column_length_less_than(sparkDF, 'customer_id', CUST_NBR_LENGTH))
 invalid_opcos.extend(validate_column_length_less_than(sparkDF, 'supc', SUPC_LENGTH))
 
-#validate opcos
+# validate opcos
 invalid_opcos.extend(validate_opcos(sparkDF, active_opco_id_list, 'opco_id'))
-
 
 sparkDF = sparkDF.withColumn("price_zone", sparkDF["price_zone"].cast(IntegerType()))
 invalid_opcos.extend(validate_data_range(sparkDF, 'price_zone', PRICE_ZONE_MIN_VALUE, PRICE_ZONE_MAX_VALUE))

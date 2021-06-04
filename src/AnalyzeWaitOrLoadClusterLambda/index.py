@@ -1,5 +1,5 @@
-import pymysql
 import boto3
+import pymysql
 
 OPCO_CLUSTER_MAPPINGS_QUERY = 'SELECT * FROM OPCO_CLUSTER_MAPPING WHERE OPCO_ID IN ({})'
 CLUSTER_ID_COLUMN_NAME = 'CLUSTER_ID'
@@ -7,7 +7,6 @@ OPCO_ID_COLUMN_NAME = 'OPCO_ID'
 
 charset = 'utf8'
 cursor_type = pymysql.cursors.DictCursor
-
 
 MAX_LOAD_JOB_COUNT_KEY = 'MAX_LOAD_JOB_COUNT'
 RUNNING_LOAD_JOB_COUNT_KEY = 'RUNNING_LOAD_JOB_COUNT'
@@ -22,10 +21,10 @@ def get_values_from_ssm(keys):
     client_ssm = boto3.client('ssm')
     response = client_ssm.get_parameters(Names=keys)
     parameters = response['Parameters']
-    invalidParameters = response['InvalidParameters']
+    invalid_parameters = response['InvalidParameters']
 
-    if invalidParameters:
-        raise KeyError('Found invalid ssm parameter keys:' + ','.join(invalidParameters))
+    if invalid_parameters:
+        raise KeyError('Found invalid ssm parameter keys:' + ','.join(invalid_parameters))
 
     parameter_dictionary = {}
     for parameter in parameters:
@@ -50,22 +49,24 @@ def get_connection_details(env):
         "db_name": ssm_key_values[db_name]
     }
 
+
 def get_db_connection(env):
     connection_params = get_connection_details(env)
     return pymysql.connect(
-        host=connection_params['db_url'], user=connection_params['username'], password=connection_params['password'], db=connection_params['db_name'], charset=charset, cursorclass=cursor_type)
+        host=connection_params['db_url'], user=connection_params['username'], password=connection_params['password'],
+        db=connection_params['db_name'], charset=charset, cursorclass=cursor_type)
+
 
 def get_value_from_ssm(key):
     params_response = get_values_from_ssm([key])
     return params_response[key]
 
-def lambda_handler(event, context):
 
+def lambda_handler(event, context):
     opco_list_for_cluster = event['Input']
     print(opco_list_for_cluster)
     cluster = event['cluster']
     env = event['ENV']
-
 
     if len(opco_list_for_cluster) == 0:
         return {'nextStep': 'terminate'}
@@ -93,14 +94,14 @@ def lambda_handler(event, context):
 
             update_count = 0
 
-            #more jobs available
+            # more jobs available
             if available_count >= max_load_job_concurrency:
                 # if no of opcos less than max update by number opco
 
                 if required_job_count < max_load_job_concurrency:
                     update_count = required_job_count
                 else:
-                    #else update by max count
+                    # else update by max count
                     update_count = max_load_job_concurrency
             elif available_count >= required_job_count:
                 update_count = required_job_count
@@ -121,4 +122,3 @@ def lambda_handler(event, context):
             raise e
         finally:
             database_connection.close()
-
