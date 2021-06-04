@@ -121,10 +121,9 @@ def lambda_handler(event, context):
     REFERENCE_PRICING = "REFERENCE_PRICING"
 
     lambda_metric(
-        metric_name="prcp-ref_price_etl-valid_record_count",  # Metric name
-        metric_value=1200,  # Metric value
-        timestamp=1234567891123,  # Timestamp (optional)
-        tags=['service:cp-ref-price-etl', 'env:exe', 'application:pa', 'file:test-pa.csv']  # Associated tags
+        "ref_price_etl.valid_record_count",  # Metric name
+        1200,  # Metric value
+        tags = ['service:cp-ref-price-etl', 'env:exe', 'application:pa', 'file:test-pa.csv']  # Associated tags
     )
 
     url = os.environ['cp_notification_url']

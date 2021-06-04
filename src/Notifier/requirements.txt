@@ -1,6 +1,4 @@
 requests==2.25.0
 logging-formatter-anticrlf==1.2
 pymysql==1.0.2
-datadog==0.39.0
-ddtrace==0.45.0
-datadog-lambda=2.28.0
+datadog-lambda
