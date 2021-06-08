@@ -127,10 +127,19 @@ def lambda_handler(event, context):
     logger.info("Event: " + str(event))
     REFERENCE_PRICING = "REFERENCE_PRICING"
 
+    # tags = os.environ['tags']
+    # split_tags = tags.split(',')
+    # print(split_tags)
+    # lambda_metric(
+    #     "paper_house.order_value",  # Metric name
+    #     12.45,  # Metric value
+    #     tags=split_tags  # Associated tags
+    # )
+
     lambda_metric(
-        "ref_price_etl.valid_record_count",  # Metric name
+        "ref_price_etl.record_count",  # Metric name
         1200,  # Metric value
-        tags = ['service:cp-ref-price-etl', 'env:exe', 'application:pa', 'file:test-pa.csv']  # Associated tags
+        tags=['service:cp-ref-price-etl', 'env:exe']  # Associated tags
     )
 
     url = os.environ['cp_notification_url']
