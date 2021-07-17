@@ -34,10 +34,10 @@ def is_partial_or_full_load(file_name, partial_prefixes_str, full_prefixes_str):
     partial_prefix_list = partial_prefixes_str.split(",")
     full_prefix_list = full_prefixes_str.split(",")
     for prefix in partial_prefix_list:
-        if file_name.startswith(prefix):
+        if file_name.lower().startswith(prefix):
             return True, False, prefix
     for prefix in full_prefix_list:
-        if file_name.startswith(prefix):
+        if file_name.lower().startswith(prefix):
             return False, True, prefix
     return False, False, ''
 

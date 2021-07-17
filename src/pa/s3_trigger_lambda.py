@@ -44,8 +44,7 @@ def lambda_handler(event, _):
         "env": env,
     }
     client = boto3.client('stepfunctions')
-    response = client.start_execution(stateMachineArn=step_function_arn,
+    client.start_execution(stateMachineArn=step_function_arn,
                                       input=json.dumps(step_function_input_params))
 
-    logger.info('Step function response : ' + response)
     logger.info('Started the Step Function: ' + step_function_arn)

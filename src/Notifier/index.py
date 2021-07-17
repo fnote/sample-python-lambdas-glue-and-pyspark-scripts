@@ -149,6 +149,8 @@ def lambda_handler(event, context):
     status = event.get("status", "ERROR")
     message = event.get("message", "NA")
     bucket_name = event['additional_info_file_s3']
+    input_file_name = event.get("file_name", "None")
+    file_prefix = event.get("file_prefix", "None")
 
     current_time = int(time.time())
     logger.info('Sending notification env: %s, time: %s, status: %s, message: %s' % (
@@ -176,6 +178,11 @@ def lambda_handler(event, context):
         }
     }
     print(additional_info)
+    current_date = datetime.now().strftime('%Y-%m-%d')
+    str_env = 'env:' + env
+    file_name_tag = 'file_name:' + input_file_name
+    file_prefix_tag = 'file_prefix:' + file_prefix
+    current_date_tag = 'date:' + str(current_date)
     # add record count to common db status table if event is prize zone
     # file name and etl time stamp required to edit the right record in db
 
@@ -200,6 +207,11 @@ def lambda_handler(event, context):
                                                                        str(invalid_record_count), input_file_name,
                                                                        etl_timestamp))
         database_connection.commit()
+        str_etl = 'timestamp:' + str(etl_timestamp)
+        lambda_metric("ref_price_etl.pz_valid_record_count", received_valid_records_count,tags=['service:cp-ref-price-etl', 'file:pz', str_env, str_etl, file_name_tag, file_prefix_tag,current_date_tag])
+        lambda_metric("ref_price_etl.pz_invalid_record_count", invalid_record_count,tags=['service:cp-ref-price-etl', 'file:pz', str_env, str_etl, file_name_tag, file_prefix_tag,current_date_tag])
+        lambda_metric("ref_price_etl.pz_total_record_count", total_record_count,tags=['service:cp-ref-price-etl', 'file:pz', str_env, str_etl, file_name_tag, file_prefix_tag,current_date_tag])
+        lambda_metric("ref_price_etl.pz_failed_opcos", failed_opcos,tags=['service:cp-ref-price-etl', 'file:pz', str_env, str_etl, file_name_tag, file_prefix_tag,current_date_tag])
 
         if invalid_record_count > 0:
             send_teams_notification(data, "FAILED OPCOS", env)
@@ -222,6 +234,12 @@ def lambda_handler(event, context):
 
         send_teams_notification(data, notification_event, env)
 
+        str_etl = 'timestamp:' + str(etl_timestamp)
+        if notification_event == "ETL-PRICE_ZONE-OUTSIDE-FAILURE":
+            lambda_metric("ref_price_etl.price_zone_error", 1,tags=['service:cp-ref-price-etl', 'file:pz', str_env, str_etl, file_name_tag, file_prefix_tag,current_date_tag])
+        else:
+            lambda_metric("ref_price_etl.pa_error", 1,tags=['service:cp-ref-price-etl', 'file:pa', str_env, str_etl, file_name_tag, file_prefix_tag,current_date_tag])
+
     if notification_event == "[ETL] - [Ref Price] [Price Data]":
         etl_timestamp = event['etl_timestamp']
         input_file_name = event['file_name']
@@ -233,10 +251,26 @@ def lambda_handler(event, context):
             JOB_EXECUTION_STATUS_UPDATE_QUERY_WHEN_FAIL.format("SUCCEEDED", end_time, input_file_name, etl_timestamp))
         database_connection.commit()
 
+        additional_info_json = json.loads(additional_info)
+        total_record_count = additional_info_json['received_records_count']
+        invalid_records_count = additional_info_json['invalid_price_record_count']
+
+        print('send PA data to datadog')
+        str_etl = 'timestamp:' + str(etl_timestamp)
+        print(str_etl)
+        lambda_metric("ref_price_etl.pa_total_record_count", total_record_count,tags=['service:cp-ref-price-etl', 'file:pa', str_env, str_etl, file_name_tag, file_prefix_tag,current_date_tag])
+        lambda_metric("ref_price_etl.pa_invalid_records", invalid_records_count,tags=['service:cp-ref-price-etl', 'file:pa', str_env, str_etl, file_name_tag, file_prefix_tag,current_date_tag])
+
+        # here still we can have soft validation errors
+        if invalid_records_count > 0:
+            print('send pa soft validation failure data to teams')
+            send_teams_notification(data, "FAILED OPCOS", env)
+
         # Teams alerts for failed files
     if notification_event == "ETL-PRICE_ZONE" and status == 'ERROR':
         print("price zone map state failed ")
         send_teams_notification(data, "PRICE ZONE - MAP STATE FAILED", env)
+        lambda_metric("ref_price_etl.price_zone_error", 1,tags=['service:cp-ref-price-etl', 'file:pz', str_env, file_name_tag, file_prefix_tag,current_date_tag])
 
     # update the status table with total record count
     headers = {'host': host, 'Content-Type': 'application/json'}
