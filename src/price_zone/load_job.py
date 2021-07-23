@@ -59,7 +59,7 @@ def get_common_db_connection(env , connection_params):
     return pymysql.connect(
         host=connection_params['db_endpoint'], user=connection_params['username'], password=connection_params['password'], db=connection_params['db_name'], charset=charset, cursorclass=cursor_type)
 
-def _execute_load(pool, queue, database, table, threadErrors):
+def _execute_load(pool, queue, database, table, threadErrors, file_source):
     while not queue.empty():
         s3_file_path = queue.get()
         try:
@@ -74,7 +74,8 @@ def _execute_load(pool, queue, database, table, threadErrors):
                        "EFFECTIVE_DATE=@effective_date," \
                        "PRICE_ZONE=@price_zone," \
                        "ARRIVED_TIME=" + data_arrival_timestamp + "," \
-                       "UPDATED_TIME=" + load_timestamp + ";"
+                       "UPDATED_TIME=" + load_timestamp + "," \
+                       "FILE_SOURCE='" + file_source + "';"
 
             connection = pool.connect()
             print("Populating price zone data from file: %s to table %s with load time %s\n" % (s3_file_path,
@@ -90,7 +91,7 @@ def _execute_load(pool, queue, database, table, threadErrors):
             raise e
 
 
-def load_data(dbconfigs, opco_id, bucketname, partitioned_files_path):
+def load_data(dbconfigs, opco_id, bucketname, partitioned_files_path, file_source):
     prefix = partitioned_files_path + Configuration.OUTPUT_PATH_PREFIX + opco_id
     output_files = list_files_in_s3(bucketname, prefix)
     dbconfigs['database'] = Configuration.DATABASE_PREFIX + opco_id
@@ -106,7 +107,7 @@ def load_data(dbconfigs, opco_id, bucketname, partitioned_files_path):
     threads = []
     for i in range(0, 1):
         threads.append(threading.Thread(target=_execute_load,
-                                        args=(pool, queue, dbconfigs['database'], dbconfigs['table'], threadErrors)))
+                                        args=(pool, queue, dbconfigs['database'], dbconfigs['table'], threadErrors, file_source)))
 
     for t in threads:
         t.start()
@@ -282,7 +283,7 @@ def str_to_bool(s):
     else:
          raise ValueError
 
-def find_tables_to_load(partial_load ,env ,opco_id, intermediate_s3, partitioned_files_key):
+def find_tables_to_load(partial_load ,env ,opco_id, intermediate_s3, partitioned_files_key, file_source):
     db_configs = _retrieve_conection_details(cluster_id)
     db_configs['database'] = Configuration.DATABASE_PREFIX + opco_id
 
@@ -299,7 +300,7 @@ def find_tables_to_load(partial_load ,env ,opco_id, intermediate_s3, partitioned
 
         # load data to active table
         db_configs['table'] = active_table_name
-        load_data(db_configs, opco_id, intermediate_s3, partitioned_files_key)
+        load_data(db_configs, opco_id, intermediate_s3, partitioned_files_key, file_source)
 
         # check whether future table is empty
         db_configs['table'] = future_table_name
@@ -315,7 +316,7 @@ def find_tables_to_load(partial_load ,env ,opco_id, intermediate_s3, partitioned
                 print(
                     'partial load and the future table is empty and full export is in progress for the current opco, therefore load the future table')
                 db_configs['table'] = future_table_name
-                load_data(db_configs, opco_id, intermediate_s3, partitioned_files_key)
+                load_data(db_configs, opco_id, intermediate_s3, partitioned_files_key, file_source)
             else:
                 # opco not available in in progress full export or no full exports are currently running
                 print(
@@ -325,7 +326,7 @@ def find_tables_to_load(partial_load ,env ,opco_id, intermediate_s3, partitioned
             # future table not empty , therefore load future table
             db_configs['table'] = future_table_name
             print('partial load and the future table is not empty, therefore load the future table')
-            load_data(db_configs, opco_id, intermediate_s3, partitioned_files_key)
+            load_data(db_configs, opco_id, intermediate_s3, partitioned_files_key, file_source)
 
     else:
         future_table = get_active_and_future_tables(env, "FUTURE", db_configs)
@@ -336,7 +337,7 @@ def find_tables_to_load(partial_load ,env ,opco_id, intermediate_s3, partitioned
             print('full load and future table empty, therefore load to future table ')
             # load future table
             db_configs['table'] = future_table_name
-            load_data(db_configs, opco_id, intermediate_s3, partitioned_files_key)
+            load_data(db_configs, opco_id, intermediate_s3, partitioned_files_key, file_source)
 
             # update master db with future table effective date
             effective_date_result = get_effective_date(future_table_name, db_configs)
@@ -352,7 +353,7 @@ def find_tables_to_load(partial_load ,env ,opco_id, intermediate_s3, partitioned
             elif int(connection_params['soft_validation']) == 2:
                 print('load future table with full export even though future table is not empty and update effective date')
                 db_configs['table'] = future_table_name
-                load_data(db_configs, opco_id, intermediate_s3, partitioned_files_key)
+                load_data(db_configs, opco_id, intermediate_s3, partitioned_files_key, file_source)
             else:
                 raise Exception("full load and future table is not empty")
 
@@ -389,7 +390,7 @@ def __create_db_engine(credentials):
 
 
 if __name__ == "__main__":
-    args = getResolvedOptions(sys.argv, ['opco_id', 'cluster', 'partitioned_files_key', 'etl_timestamp', 'partial_load', 'ENV', 'intermediate_s3_name', 'intermediate_directory_path', 'METADATA_LAMBDA'])
+    args = getResolvedOptions(sys.argv, ['opco_id', 'cluster', 'partitioned_files_key', 'etl_timestamp', 'partial_load', 'ENV', 'intermediate_s3_name', 'intermediate_directory_path', 'METADATA_LAMBDA', 'file_prefix'])
     opco_id = args['opco_id']  # opco_id validation
     partitioned_files_key = args['partitioned_files_key']
     intermediate_s3 = args['intermediate_s3_name']
@@ -400,6 +401,7 @@ if __name__ == "__main__":
     environment = args['ENV']
     cluster_id = args['cluster']
     etl_timestamp = args['etl_timestamp']
+    file_source = args['file_prefix']
 
     print(
         "Started data loading job for Opco: %s, file path: %s/%s\n" % (opco_id, intermediate_s3, partitioned_files_key))
@@ -407,7 +409,7 @@ if __name__ == "__main__":
     partial_load_bool = str_to_bool(partial_load)
 
     try:
-      find_tables_to_load(partial_load_bool, environment, opco_id, intermediate_s3, partitioned_files_key)
+      find_tables_to_load(partial_load_bool, environment, opco_id, intermediate_s3, partitioned_files_key, file_source)
     except Exception as e:
         raise Exception()
 
