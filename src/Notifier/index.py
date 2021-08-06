@@ -212,6 +212,14 @@ def lambda_handler(event, context):
     if notification_event == "ETL-PRICE_ZONE" and status == 'ERROR':
         print("price zone map state failed ")
         send_teams_notification(data, "PRICE ZONE - MAP STATE FAILED", env)
+        etl_timestamp = event['etl_timestamp']
+        input_file_name = event['file_name']
+        database_connection = get_db_connection(env)
+        cursor_object = database_connection.cursor()
+        end_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        cursor_object.execute(
+            JOB_EXECUTION_STATUS_UPDATE_QUERY_WHEN_FAIL.format("FAILED", end_time, input_file_name, etl_timestamp))
+        database_connection.commit()
 
     # update the status table with total record count
     headers = {'host': host, 'Content-Type': 'application/json'}
