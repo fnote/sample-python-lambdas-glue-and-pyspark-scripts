@@ -8,7 +8,6 @@ import anticrlf
 import pymysql
 from datetime import datetime
 from datadog_lambda.metric import lambda_metric
-from datadog_lambda.wrapper import datadog_lambda_wrapper
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -122,26 +121,9 @@ def send_teams_notification(data, title, env):
         logger.error(e)
 
 
-@datadog_lambda_wrapper
 def lambda_handler(event, context):
     logger.info("Event: " + str(event))
     REFERENCE_PRICING = "REFERENCE_PRICING"
-
-    # tags = os.environ['tags']
-    # split_tags = tags.split(',')
-    # print(split_tags)
-    # lambda_metric(
-    #     "paper_house.order_value",  # Metric name
-    #     12.45,  # Metric value
-    #     tags=split_tags  # Associated tags
-    # )
-
-    lambda_metric(
-        "ref_price_etl.record_count",  # Metric name
-        1200,  # Metric value
-        tags=['service:cp-ref-price-etl', 'env:exe']  # Associated tags
-    )
-
     url = os.environ['cp_notification_url']
     host = os.environ['cp_notification_host']
     env = os.environ['env']
