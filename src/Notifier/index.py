@@ -14,10 +14,14 @@ logger.setLevel(logging.INFO)
 
 JOB_EXECUTION_STATUS_UPDATE_QUERY = 'UPDATE LOAD_JOB_EXECUTION_STATUS SET FAILED_OPCO_IDS = "{}", TOTAL_RECORD_COUNT = "{}",INVALID_RECORD_COUNT = "{}" WHERE FILE_NAME="{}" AND ETL_TIMESTAMP={}'
 JOB_EXECUTION_STATUS_UPDATE_QUERY_WHEN_FAIL = 'UPDATE LOAD_JOB_EXECUTION_STATUS SET STATUS = "{}" ,END_TIME = "{}" WHERE FILE_NAME="{}" AND ETL_TIMESTAMP={}'
+JOB_EXECUTION_STATUS_FETCH_QUERY = 'SELECT * FROM LOAD_JOB_EXECUTION_STATUS WHERE FILE_NAME="{}" AND ' \
+                                   'ETL_TIMESTAMP={} FOR UPDATE'
 
 # Using a handler with anticrlf log formatter to avoid CRLF injections
 # https://www.veracode.com/blog/secure-development/fixing-crlf-injection-logging-issues-python
-
+TOTAL_OPCO_COUNT_COLUMN_NAME = 'TOTAL_ACTIVE_OPCO_COUNT'
+SUCCESSFUL_OPCO_COUNT_COLUMN_NAME = 'SUCCESSFUL_ACTIVE_OPCO_COUNT'
+FAILED_OPCO_COUNT_COLUMN_NAME = 'FAILED_ACTIVE_OPCO_COUNT'
 charset = 'utf8'
 cursor_type = pymysql.cursors.DictCursor
 
@@ -190,6 +194,8 @@ def lambda_handler(event, context):
                                                                        etl_timestamp))
         database_connection.commit()
         str_etl = 'timestamp:' + str(etl_timestamp)
+
+        print('send data to datadog')
         lambda_metric("ref_price_etl.pz_valid_record_count", received_valid_records_count,tags=['service:cp-ref-price-etl', 'file:pz', str_env, str_etl, file_name_tag, file_prefix_tag,current_date_tag])
         lambda_metric("ref_price_etl.pz_invalid_record_count", invalid_record_count,tags=['service:cp-ref-price-etl', 'file:pz', str_env, str_etl, file_name_tag, file_prefix_tag,current_date_tag])
         lambda_metric("ref_price_etl.pz_total_record_count", total_record_count,tags=['service:cp-ref-price-etl', 'file:pz', str_env, str_etl, file_name_tag, file_prefix_tag,current_date_tag])
@@ -233,15 +239,33 @@ def lambda_handler(event, context):
             JOB_EXECUTION_STATUS_UPDATE_QUERY_WHEN_FAIL.format("SUCCEEDED", end_time, input_file_name, etl_timestamp))
         database_connection.commit()
 
+        # fetch PA opco details from the metadata db executions table
+        cursor_object.execute(JOB_EXECUTION_STATUS_FETCH_QUERY.format(input_file_name, etl_timestamp))
+        result = cursor_object.fetchone()
+
+        pa_total_opco_count = int(result[TOTAL_OPCO_COUNT_COLUMN_NAME])
+        pa_successful_opco_count = int(result[SUCCESSFUL_OPCO_COUNT_COLUMN_NAME])
+        pa_failed_opco_count = int(result[FAILED_OPCO_COUNT_COLUMN_NAME])
+
         additional_info_json = json.loads(additional_info)
         total_record_count = additional_info_json['received_records_count']
         invalid_records_count = additional_info_json['invalid_price_record_count']
 
-        print('send PA data to datadog')
+        print('send PA file , record count and opco data to datadog')
         str_etl = 'timestamp:' + str(etl_timestamp)
         print(str_etl)
         lambda_metric("ref_price_etl.pa_total_record_count", total_record_count,tags=['service:cp-ref-price-etl', 'file:pa', str_env, str_etl, file_name_tag, file_prefix_tag,current_date_tag])
         lambda_metric("ref_price_etl.pa_invalid_records", invalid_records_count,tags=['service:cp-ref-price-etl', 'file:pa', str_env, str_etl, file_name_tag, file_prefix_tag,current_date_tag])
+
+        lambda_metric("ref_price_etl.pa_total_opco_count", pa_total_opco_count,
+                      tags=['service:cp-ref-price-etl', 'file:pa', str_env, str_etl, file_name_tag, file_prefix_tag,
+                            current_date_tag])
+        lambda_metric("ref_price_etl.pa_successful_opco_count", pa_successful_opco_count,
+                      tags=['service:cp-ref-price-etl', 'file:pa', str_env, str_etl, file_name_tag, file_prefix_tag,
+                            current_date_tag])
+        lambda_metric("ref_price_etl.pa_failed_opco_count", pa_failed_opco_count,
+                      tags=['service:cp-ref-price-etl', 'file:pa', str_env, str_etl, file_name_tag, file_prefix_tag,
+                            current_date_tag])
 
         # here still we can have soft validation errors
         if invalid_records_count > 0:
