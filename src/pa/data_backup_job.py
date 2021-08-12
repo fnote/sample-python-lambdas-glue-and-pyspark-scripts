@@ -1,8 +1,12 @@
+"""
+Price data etl backup job
+"""
+# pylint: disable=import-error
+
 import sys
 from datetime import datetime
 
 from awsglue.utils import getResolvedOptions
-
 from move_s3_objects import copy_input_file, copy_objects_with_prefix, delete_object, delete_directory
 
 if __name__ == "__main__":
@@ -25,8 +29,8 @@ if __name__ == "__main__":
     input_file_destination_key = archiving_path + s3_input_file_key
     copy_input_file(s3_input_bucket, s3_input_file_key, archiving_s3_bucket, input_file_destination_key)
 
-    metadata_file = '{}/additionalInfo.txt'.format(etl_output_path_key)
-    copy_input_file(intermediate_s3_bucket, metadata_file, archiving_s3_bucket, archiving_path + 'additionalInfo.txt')
+    METADATA_FILE = '{}/additionalInfo.txt'.format(etl_output_path_key)
+    copy_input_file(intermediate_s3_bucket, METADATA_FILE, archiving_s3_bucket, archiving_path + 'additionalInfo.txt')
     opco_partitioned_path = archiving_path + 'partitioned/'
     copy_objects_with_prefix(intermediate_s3_bucket, etl_output_path_key, archiving_s3_bucket, opco_partitioned_path)
 

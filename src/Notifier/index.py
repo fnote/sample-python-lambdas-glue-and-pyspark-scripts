@@ -271,14 +271,6 @@ def lambda_handler(event, context):
         print("price zone map state failed ")
         send_teams_notification(data, "PRICE ZONE - MAP STATE FAILED", env)
         lambda_metric("ref_price_etl.price_zone_error", 1,tags=['service:cp-ref-price-etl', 'file:pz', str_env, file_name_tag, file_prefix_tag,current_date_tag])
-        etl_timestamp = event['etl_timestamp']
-        input_file_name = event['file_name']
-        database_connection = get_db_connection(env)
-        cursor_object = database_connection.cursor()
-        end_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        cursor_object.execute(
-            JOB_EXECUTION_STATUS_UPDATE_QUERY_WHEN_FAIL.format("FAILED", end_time, input_file_name, etl_timestamp))
-        database_connection.commit()
 
     # update the status table with total record count
     headers = {'host': host, 'Content-Type': 'application/json'}
