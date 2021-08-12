@@ -165,8 +165,12 @@ def lambda_handler(event, _):
         str_cluster_tag = 'cluster:'+str(cluster)
 
         print('send data to datadog')
-        lambda_metric("ref_price_etl.pz_successful_opcos_count", successful_opco_count + success_job_count, tags=['service:cp-ref-price-etl', 'file:pz',str_env,str_etl,file_name_tag,current_date_tag,str_cluster_tag])
-        lambda_metric("ref_price_etl.pz_failed_opcos_count", failed_opco_count + failed_job_count, tags=['service:cp-ref-price-etl', 'file:pz',str_env,str_etl,file_name_tag,current_date_tag,str_cluster_tag])
+        lambda_metric("ref_price_etl.pz_successful_opcos_count", successful_opco_count + success_job_count,
+                      tags=['service:cp-ref-price-etl', 'file:pz', str_env, str_etl, file_name_tag, current_date_tag,
+                            str_cluster_tag])
+        lambda_metric("ref_price_etl.pz_failed_opcos_count", failed_opco_count + failed_job_count,
+                      tags=['service:cp-ref-price-etl', 'file:pz', str_env, str_etl, file_name_tag, current_date_tag,
+                            str_cluster_tag])
         lambda_metric("ref_price_etl.pz_total_opcos_count", total_opco_count,
                       tags=['service:cp-ref-price-etl', 'file:pz', str_env, str_etl, file_name_tag, current_date_tag,
                             str_cluster_tag])
