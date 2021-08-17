@@ -171,6 +171,11 @@ def lambda_handler(event, context):
     file_name_tag = 'file_name:' + input_file_name
     file_prefix_tag = 'file_prefix:' + file_prefix
     current_date_tag = 'date:' + str(current_date)
+    str_etl = 'timestamp:' + str(etl_timestamp)
+    dd_pz_tags = ['service:cp-ref-price-etl', 'file:pz', str_env, str_etl, file_name_tag, file_prefix_tag,
+                  current_date_tag]
+    dd_pa_tags = ['service:cp-ref-price-etl', 'file:pa', str_env, str_etl, file_name_tag, file_prefix_tag,
+                            current_date_tag]
     # add record count to common db status table if event is prize zone
     # file name and etl time stamp required to edit the right record in db
 
@@ -192,21 +197,12 @@ def lambda_handler(event, context):
                                                                        str(invalid_record_count), input_file_name,
                                                                        etl_timestamp))
         database_connection.commit()
-        str_etl = 'timestamp:' + str(etl_timestamp)
 
         print('send data to datadog')
-        lambda_metric("ref_price_etl.pz_valid_record_count", received_valid_records_count,
-                      tags=['service:cp-ref-price-etl', 'file:pz', str_env, str_etl, file_name_tag, file_prefix_tag,
-                            current_date_tag])
-        lambda_metric("ref_price_etl.pz_invalid_record_count", invalid_record_count,
-                      tags=['service:cp-ref-price-etl', 'file:pz', str_env, str_etl, file_name_tag, file_prefix_tag,
-                            current_date_tag])
-        lambda_metric("ref_price_etl.pz_total_record_count", total_record_count,
-                      tags=['service:cp-ref-price-etl', 'file:pz', str_env, str_etl, file_name_tag, file_prefix_tag,
-                            current_date_tag])
-        lambda_metric("ref_price_etl.pz_failed_opcos", failed_opcos,
-                      tags=['service:cp-ref-price-etl', 'file:pz', str_env, str_etl, file_name_tag, file_prefix_tag,
-                            current_date_tag])
+        lambda_metric("ref_price_etl.pz_valid_record_count", received_valid_records_count, tags=dd_pz_tags)
+        lambda_metric("ref_price_etl.pz_invalid_record_count", invalid_record_count, tags=dd_pz_tags)
+        lambda_metric("ref_price_etl.pz_total_record_count", total_record_count, tags=dd_pz_tags)
+        lambda_metric("ref_price_etl.pz_failed_opcos", failed_opcos, tags=dd_pz_tags)
 
         if invalid_record_count > 0:
             send_teams_notification(data, "FAILED OPCOS", env)
@@ -226,16 +222,10 @@ def lambda_handler(event, context):
         database_connection.commit()
 
         send_teams_notification(data, notification_event, env)
-
-        str_etl = 'timestamp:' + str(etl_timestamp)
         if notification_event == "ETL-PRICE_ZONE-OUTSIDE-FAILURE":
-            lambda_metric("ref_price_etl.price_zone_error", 1,
-                          tags=['service:cp-ref-price-etl', 'file:pz', str_env, str_etl, file_name_tag, file_prefix_tag,
-                                current_date_tag])
+            lambda_metric("ref_price_etl.price_zone_error", 1, tags=dd_pz_tags)
         else:
-            lambda_metric("ref_price_etl.pa_error", 1,
-                          tags=['service:cp-ref-price-etl', 'file:pa', str_env, str_etl, file_name_tag, file_prefix_tag,
-                                current_date_tag])
+            lambda_metric("ref_price_etl.pa_error", 1, tags=dd_pa_tags)
 
     if notification_event == "[ETL] - [Ref Price] [Price Data]":
         logger.info('PA File successful , update executions status table')
@@ -259,24 +249,12 @@ def lambda_handler(event, context):
         invalid_records_count = additional_info_json['invalid_price_record_count']
 
         print('send PA file , record count and opco data to datadog')
-        str_etl = 'timestamp:' + str(etl_timestamp)
-        print(str_etl)
-        lambda_metric("ref_price_etl.pa_total_record_count", total_record_count,
-                      tags=['service:cp-ref-price-etl', 'file:pa', str_env, str_etl, file_name_tag, file_prefix_tag,
-                            current_date_tag])
-        lambda_metric("ref_price_etl.pa_invalid_records", invalid_records_count,
-                      tags=['service:cp-ref-price-etl', 'file:pa', str_env, str_etl, file_name_tag, file_prefix_tag,
-                            current_date_tag])
+        lambda_metric("ref_price_etl.pa_total_record_count", total_record_count, tags=dd_pa_tags)
+        lambda_metric("ref_price_etl.pa_invalid_records", invalid_records_count, tags=dd_pa_tags)
 
-        lambda_metric("ref_price_etl.pa_total_opco_count", pa_total_opco_count,
-                      tags=['service:cp-ref-price-etl', 'file:pa', str_env, str_etl, file_name_tag, file_prefix_tag,
-                            current_date_tag])
-        lambda_metric("ref_price_etl.pa_successful_opco_count", pa_successful_opco_count,
-                      tags=['service:cp-ref-price-etl', 'file:pa', str_env, str_etl, file_name_tag, file_prefix_tag,
-                            current_date_tag])
-        lambda_metric("ref_price_etl.pa_failed_opco_count", pa_failed_opco_count,
-                      tags=['service:cp-ref-price-etl', 'file:pa', str_env, str_etl, file_name_tag, file_prefix_tag,
-                            current_date_tag])
+        lambda_metric("ref_price_etl.pa_total_opco_count", pa_total_opco_count, tags=dd_pa_tags)
+        lambda_metric("ref_price_etl.pa_successful_opco_count", pa_successful_opco_count, tags=dd_pa_tags)
+        lambda_metric("ref_price_etl.pa_failed_opco_count", pa_failed_opco_count, tags=dd_pa_tags)
 
         # here still we can have soft validation errors
         if invalid_records_count > 0:
@@ -287,9 +265,7 @@ def lambda_handler(event, context):
     if notification_event == "ETL-PRICE_ZONE" and status == 'ERROR':
         print("price zone map state failed ")
         send_teams_notification(data, "PRICE ZONE - MAP STATE FAILED", env)
-        lambda_metric("ref_price_etl.price_zone_error", 1,
-                      tags=['service:cp-ref-price-etl', 'file:pz', str_env, file_name_tag, file_prefix_tag,
-                            current_date_tag])
+        lambda_metric("ref_price_etl.price_zone_error", 1, tags=dd_pz_tags)
         database_connection = get_db_connection(env)
         cursor_object = database_connection.cursor()
         end_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
