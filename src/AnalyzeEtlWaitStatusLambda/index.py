@@ -1,11 +1,11 @@
 import logging
 import os
 from collections import Counter
+from datetime import datetime
 
 import boto3
-from botocore.config import Config
 import pymysql
-from datetime import datetime
+from botocore.config import Config
 
 # file name , etl, total bbusiness unit count , success count, failed count , file type ,  failed opco ids, success opco ids , status, record count ,start time ,end time,partial load
 EXECUTION_STATUS_INSERT_QUERY = 'INSERT INTO LOAD_JOB_EXECUTION_STATUS (FILE_NAME,ETL_TIMESTAMP, FILE_TYPE,STATUS,TOTAL_ACTIVE_OPCO_COUNT,SUCCESSFUL_ACTIVE_OPCO_COUNT,FAILED_ACTIVE_OPCO_COUNT,SUCCESSFUL_ACTIVE_OPCO_IDS,FAILED_OPCO_IDS,TOTAL_RECORD_COUNT,INVALID_RECORD_COUNT,PARTIAL_LOAD,RECEIVED_OPCOS,START_TIME,END_TIME) VALUES ("{}", "{}","{}","{}", 0, 0, 0 ,"","",0,0,"{}","0","{}","")'
@@ -13,16 +13,17 @@ RECORD_EXIST_CHECK_QUERY = 'SELECT * FROM LOAD_JOB_EXECUTION_STATUS WHERE FILE_N
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
-charset = 'utf8'
-cursor_type = pymysql.cursors.DictCursor
+CHARSET = 'utf8'
+CursorType = pymysql.cursors.DictCursor
 
 # adaptive - Retries with additional client side throttling.
 config = Config(
-   retries={
-      'max_attempts': 50,
-      'mode': 'adaptive'
-   }
+    retries={
+        'max_attempts': 50,
+        'mode': 'adaptive'
+    }
 )
+
 
 def get_values_from_ssm(keys):
     client_ssm = boto3.client('ssm', config=config)
@@ -58,16 +59,18 @@ def get_connection_details_and_max_concurrency(env):
 
 def get_db_connection(connection_params):
     return pymysql.connect(
-        host=connection_params['db_endpoint'], user=connection_params['username'], password=connection_params['password'], db=connection_params['db_name'], charset=charset, cursorclass=cursor_type)
+        host=connection_params['db_endpoint'], user=connection_params['username'],
+        password=connection_params['password'], db=connection_params['db_name'], charset=CHARSET,
+        cursorclass=CursorType)
 
 
-def str_to_bool_int(s):
-    if s == 'True':
-         return 1
-    elif s == 'False':
-         return 0
+def str_to_bool_int(string_received):
+    if string_received == 'True':
+        return 1
+    elif string_received == 'False':
+        return 0
     else:
-         raise ValueError
+        raise ValueError
 
 
 def lambda_handler(event, context):
@@ -78,7 +81,7 @@ def lambda_handler(event, context):
 
     step_function = boto3.client('stepfunctions', config=config)
 
-    step_functionArn = event['stepFunctionArn']
+    step_function_arn = event['stepFunctionArn']
     step_function_execution_id = event['stepFunctionExecutionId']
     etl_timestamp = event['etl_timestamp']
     file_name = event['s3_input_file_key']
@@ -90,17 +93,17 @@ def lambda_handler(event, context):
     # get allowed concurrent step function execution amount and common db connection parameters
     params = get_connection_details_and_max_concurrency(env)
     database_connection = get_db_connection(params)
-    ALLOWED_CONCURRENT_EXECUTIONS = int(params['max_concurrency'])
+    allowed_concurrent_executions = int(params['max_concurrency'])
 
-    if ALLOWED_CONCURRENT_EXECUTIONS == 0:
+    if allowed_concurrent_executions == 0:
         error_msg = 'Received illegal value for Price Zone ETL workFlow maximum concurrency: {}' \
-            .format(ALLOWED_CONCURRENT_EXECUTIONS)
+            .format(allowed_concurrent_executions)
         raise ValueError(error_msg)
 
     paginator = step_function.get_paginator('list_executions')
-    pages = paginator.paginate(stateMachineArn=step_functionArn, statusFilter=status)
+    pages = paginator.paginate(stateMachineArn=step_function_arn, statusFilter=status)
     logger.info('paginator:%s  pages:%s' % (paginator, pages))
-    logger.info('Retrieved execution list for step function:%s with execution status:%s' % (step_functionArn, status))
+    logger.info('Retrieved execution list for step function:%s with execution status:%s' % (step_function_arn, status))
 
     start_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
@@ -108,22 +111,23 @@ def lambda_handler(event, context):
         cursor_object = database_connection.cursor()
         cursor_object.execute(RECORD_EXIST_CHECK_QUERY.format(file_name, etl_timestamp))
         result = cursor_object.fetchone()
-        logger.info('Retrieved record details from status table and the result :%s' % result)
+        logger.info('Retrieved record details from status table and the result :%s', result)
 
         if result == None:
-            res = cursor_object.execute(EXECUTION_STATUS_INSERT_QUERY.format(file_name, etl_timestamp, file_type, file_progress_status, partial_load, start_time))
+            res = cursor_object.execute(
+                EXECUTION_STATUS_INSERT_QUERY.format(file_name, etl_timestamp, file_type, file_progress_status,
+                                                     partial_load, start_time))
             logger.info('insert query results :%s' % res)
 
         database_connection.commit()
     except Exception as e:
         logger.error(e)
         raise e
-        # TODO: handle this
 
     finally:
         database_connection.close()
-    #identify the file and etl timestamp here , avoid creating new records in db for retry occasions
-    #if file name and etl exist update else insert
+    # identify the file and etl timestamp here , avoid creating new records in db for retry occasions
+    # if file name and etl exist update else insert
 
     execution_dictionary = {}
     for page in pages:
@@ -134,7 +138,7 @@ def lambda_handler(event, context):
 
     sorted_start_time_list = sorted(list(execution_dictionary.values()))
 
-    shouldWait = True
+    should_wait = True
 
     if step_function_execution_id in execution_dictionary:
         step_function_start_time = execution_dictionary.get(step_function_execution_id)
@@ -142,7 +146,7 @@ def lambda_handler(event, context):
         logger.info("Current execution index: %d for  step function execution Id:%s with start time:%6f "
                     % (step_function_wait_index, step_function_execution_id, step_function_start_time))
 
-        if step_function_wait_index <= ALLOWED_CONCURRENT_EXECUTIONS:
+        if step_function_wait_index <= allowed_concurrent_executions:
             start_time_counter = Counter(sorted_start_time_list)
             if start_time_counter[step_function_start_time] != 1:  # contains duplicates for same start time
                 logger.info("contains multiple execution ids with same start time: %.6f and number of entries %d"
@@ -158,25 +162,25 @@ def lambda_handler(event, context):
                 logger.info(sorted_execution_id_list)
                 step_function_wait_index = step_function_wait_index + sorted_execution_id_list.index(
                     step_function_execution_id)
-                if step_function_wait_index <= ALLOWED_CONCURRENT_EXECUTIONS:
+                if step_function_wait_index <= allowed_concurrent_executions:
                     logger.info("New Execution index:%d for execution id:%s. Hence can proceed"
                                 % (step_function_wait_index, step_function_execution_id))
-                    shouldWait = False
+                    should_wait = False
 
             else:
                 logger.info("Does not contain duplicate start time values for %.6f. Hence execution id:%s "
                             "with list index %d can proceed " % (step_function_start_time,
                                                                  step_function_execution_id,
                                                                  step_function_wait_index))
-                shouldWait = False
+                should_wait = False
         else:
             logger.info("Step function execution id:%s with start time:%.6f has list index %d. Allowed concurrency %d"
                         % (step_function_execution_id, step_function_start_time, step_function_wait_index,
-                           ALLOWED_CONCURRENT_EXECUTIONS))
+                           allowed_concurrent_executions))
     else:
         logger.info("could not locate step function execution Id %s in the received execution list"
-                    % step_function_execution_id)
+                    , step_function_execution_id)
 
     return {
-        'shouldWait': shouldWait
+        'shouldWait': should_wait
     }
