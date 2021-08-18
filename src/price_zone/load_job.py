@@ -401,7 +401,7 @@ if __name__ == "__main__":
     environment = args['ENV']
     cluster_id = args['cluster']
     etl_timestamp = args['etl_timestamp']
-    file_source = args['file_prefix']
+    file_source_type = args['file_prefix']
 
     print(
         "Started data loading job for Opco: %s, file path: %s/%s\n" % (opco_id, intermediate_s3, partitioned_files_key))
@@ -410,7 +410,7 @@ if __name__ == "__main__":
 
     try:
         find_tables_to_load(PARTIAL_LOAD_BOOL, environment, opco_id, intermediate_s3, partitioned_files_key,
-                            file_source)
+                            file_source_type)
     except Exception as e:
         print(e)
         raise e
