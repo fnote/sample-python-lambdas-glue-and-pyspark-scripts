@@ -2,6 +2,7 @@ from datetime import datetime
 
 import boto3
 import pymysql
+from datadog_lambda.metric import lambda_metric
 
 ENV_PARAM_NAME = 'ENV'
 CLUSTER_PARAM_NAME = 'cluster'
@@ -77,7 +78,6 @@ def get_job_count_by_status(job_statuses, cluster_opco_count, successful_opco_li
 
     return {'success_count': success_count, 'failure_count': cluster_opco_count - success_count,
             'successful_opco_list': successful_opco_list}
-
 
 def lambda_handler(event, _):
     # read file type also from here
@@ -156,6 +156,23 @@ def lambda_handler(event, _):
         cursor_object.execute(CLUSTER_LOAD_JOB_COUNT_UPDATE_QUERY.format(allocated_job_count, cluster))
 
         database_connection.commit()
+
+        current_date = datetime.now().strftime('%Y-%m-%d')
+        str_env = 'env:' + env
+        file_name_tag = 'file_name:' + file_name
+        current_date_tag = 'date:' + str(current_date)
+        str_etl = 'timestamp:' + str(etl_timestamp)
+        str_cluster_tag = 'cluster:'+str(cluster)
+
+        print('send data to datadog')
+        dd_tags = ['service:cp-ref-price-etl', 'file:pz', str_env, str_etl, file_name_tag, current_date_tag,
+                   str_cluster_tag]
+        lambda_metric("ref_price_etl.pz_successful_opcos_count", successful_opco_count + success_job_count,
+                      tags=dd_tags)
+        lambda_metric("ref_price_etl.pz_failed_opcos_count", failed_opco_count + failed_job_count,
+                      tags=dd_tags)
+        lambda_metric("ref_price_etl.pz_total_opcos_count", total_opco_count,
+                      tags=dd_tags)
     except Exception as e:
         print(e)
         raise e
