@@ -1,12 +1,13 @@
-import requests
-import time
-import os
-import logging
-import boto3
 import json
-import anticrlf
-import pymysql
+import logging
+import os
+import time
 from datetime import datetime
+
+import anticrlf
+import boto3
+import pymysql
+import requests
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -38,6 +39,7 @@ def get_additional_info(additional_info_details):
         "failed_opco_list_string": failed_opco_list_string,
         "invalid_record_count": invalid_record_count
     }
+
 
 def get_values_from_ssm(keys):
     client_ssm = boto3.client('ssm')
@@ -72,13 +74,17 @@ def get_connection_details(env):
 def get_db_connection(env):
     connection_params = get_connection_details(env)
     return pymysql.connect(
-        host=connection_params['db_endpoint'], user=connection_params['username'], password=connection_params['password'], db=connection_params['db_name'], charset=charset, cursorclass=cursor_type)
+        host=connection_params['db_endpoint'], user=connection_params['username'],
+        password=connection_params['password'], db=connection_params['db_name'], charset=charset,
+        cursorclass=cursor_type)
 
 
-formatter = anticrlf.LogFormatter('[%(levelname)s]\t%(asctime)s.%(msecs)dZ\t%(aws_request_id)s\t%(message)s\n', '%Y-%m-%dT%H:%M:%S')
+formatter = anticrlf.LogFormatter('[%(levelname)s]\t%(asctime)s.%(msecs)dZ\t%(aws_request_id)s\t%(message)s\n',
+                                  '%Y-%m-%dT%H:%M:%S')
 
 for handler in logger.handlers:
     handler.setFormatter(formatter)
+
 
 def read_additional_info(bucket_name, backup_completed, event):
     logger.info('bucket name: %s' % (bucket_name))
@@ -98,7 +104,8 @@ def read_additional_info(bucket_name, backup_completed, event):
     except s3_client.exceptions.NoSuchKey:
         return 'None'
 
-def send_teams_notification(data, title ,env):
+
+def send_teams_notification(data, title, env):
     try:
         teams_url = 'teams_webhook_url_' + env
         teams_webhook_url = os.environ[teams_url]
@@ -113,6 +120,7 @@ def send_teams_notification(data, title ,env):
     except Exception as e:
         logger.error(e)
 
+
 def lambda_handler(event, context):
     logger.info("Event: " + str(event))
     REFERENCE_PRICING = "REFERENCE_PRICING"
@@ -123,9 +131,7 @@ def lambda_handler(event, context):
     notification_event = event.get("event", "PROCESSOR")
     status = event.get("status", "ERROR")
     message = event.get("message", "NA")
-    ref_price_type = event.get("event", "NA")
     bucket_name = event['additional_info_file_s3']
-
 
     current_time = int(time.time())
     logger.info('Sending notification env: %s, time: %s, status: %s, message: %s' % (
@@ -167,12 +173,15 @@ def lambda_handler(event, context):
         etl_timestamp = event['etl_timestamp']
         input_file_name = event['file_name']
 
-        logger.info('updating status DB with file name: %s, etl timestamp: %s, env: %s, failed opcos: %s, invalid record count:%s' % (
-            input_file_name, etl_timestamp, env, failed_opco_list_string, invalid_record_count))
+        logger.info(
+            'updating status DB with file name: %s, etl timestamp: %s, env: %s, failed opcos: %s, invalid record count:%s' % (
+                input_file_name, etl_timestamp, env, failed_opco_list_string, invalid_record_count))
         database_connection = get_db_connection(env)
         cursor_object = database_connection.cursor()
         # add failed opcos here and increment failed opcos count
-        cursor_object.execute(JOB_EXECUTION_STATUS_UPDATE_QUERY.format(failed_opco_list_string, str(total_record_count), str(invalid_record_count), input_file_name, etl_timestamp))
+        cursor_object.execute(JOB_EXECUTION_STATUS_UPDATE_QUERY.format(failed_opco_list_string, str(total_record_count),
+                                                                       str(invalid_record_count), input_file_name,
+                                                                       etl_timestamp))
         database_connection.commit()
 
         if invalid_record_count > 0:
@@ -206,7 +215,6 @@ def lambda_handler(event, context):
         cursor_object.execute(
             JOB_EXECUTION_STATUS_UPDATE_QUERY_WHEN_FAIL.format("SUCCEEDED", end_time, input_file_name, etl_timestamp))
         database_connection.commit()
-
 
         # Teams alerts for failed files
     if notification_event == "ETL-PRICE_ZONE" and status == 'ERROR':

@@ -1,11 +1,11 @@
 import logging
 import os
 from collections import Counter
+from datetime import datetime
 
 import boto3
-from botocore.config import Config
-from datetime import datetime
 import pymysql
+from botocore.config import Config
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -16,10 +16,10 @@ EXECUTION_STATUS_INSERT_QUERY = 'INSERT INTO LOAD_JOB_EXECUTION_STATUS (FILE_NAM
 RECORD_EXIST_CHECK_QUERY = 'SELECT * FROM LOAD_JOB_EXECUTION_STATUS WHERE FILE_NAME="{}" AND ETL_TIMESTAMP={}'
 # adaptive - Retries with additional client side throttling.
 config = Config(
-   retries={
-      'max_attempts': 50,
-      'mode': 'adaptive'
-   }
+    retries={
+        'max_attempts': 50,
+        'mode': 'adaptive'
+    }
 )
 
 
@@ -54,16 +54,20 @@ def get_connection_details_and_max_concurrency(env):
         "max_concurrency": ssm_key_values[max_concurrency_ssm_key]
     }
 
+
 def get_db_connection(env, connection_params):
     return pymysql.connect(
-        host=connection_params['db_endpoint'], user=connection_params['username'], password=connection_params['password'], db=connection_params['db_name'], charset=charset, cursorclass=cursor_type)
+        host=connection_params['db_endpoint'], user=connection_params['username'],
+        password=connection_params['password'], db=connection_params['db_name'], charset=charset,
+        cursorclass=cursor_type)
+
 
 def lambda_handler(event, context):
     logger.info("Received event:")
     logger.info(event)
     step_function = boto3.client('stepfunctions', config=config)
 
-    step_functionArn = event['stepFunctionArn']
+    step_function_arn = event['stepFunctionArn']
     step_function_execution_id = event['stepFunctionExecutionId']
     env = os.environ['env']
     etl_timestamp = event['etl_timestamp']
@@ -104,9 +108,9 @@ def lambda_handler(event, context):
 
     status = 'RUNNING'
     paginator = step_function.get_paginator('list_executions')
-    pages = paginator.paginate(stateMachineArn=step_functionArn, statusFilter=status)
+    pages = paginator.paginate(stateMachineArn=step_function_arn, statusFilter=status)
     logger.info('paginator:%s  pages:%s' % (paginator, pages))
-    logger.info('Retrieved execution list for step function:%s with execution status:%s' % (step_functionArn, status))
+    logger.info('Retrieved execution list for step function:%s with execution status:%s' % (step_function_arn, status))
 
     execution_dictionary = {}
     for page in pages:
@@ -117,7 +121,7 @@ def lambda_handler(event, context):
 
     sorted_start_time_list = sorted(list(execution_dictionary.values()))
 
-    shouldWait = True
+    should_wait = True
 
     if step_function_execution_id in execution_dictionary:
         step_function_start_time = execution_dictionary.get(step_function_execution_id)
@@ -144,14 +148,14 @@ def lambda_handler(event, context):
                 if step_function_wait_index <= ALLOWED_CONCURRENT_EXECUTIONS:
                     logger.info("New Execution index:%d for execution id:%s. Hence can proceed"
                                 % (step_function_wait_index, step_function_execution_id))
-                    shouldWait = False
+                    should_wait = False
 
             else:
                 logger.info("Does not contain duplicate start time values for %.6f. Hence execution id:%s "
                             "with list index %d can proceed " % (step_function_start_time,
                                                                  step_function_execution_id,
                                                                  step_function_wait_index))
-                shouldWait = False
+                should_wait = False
         else:
             logger.info("Step function execution id:%s with start time:%.6f has list index %d. Allowed concurrency %d"
                         % (step_function_execution_id, step_function_start_time, step_function_wait_index,
@@ -161,5 +165,5 @@ def lambda_handler(event, context):
                     % step_function_execution_id)
 
     return {
-        'shouldWait': shouldWait
+        'shouldWait': should_wait
     }

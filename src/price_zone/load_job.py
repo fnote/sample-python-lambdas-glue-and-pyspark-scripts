@@ -1,26 +1,26 @@
+import base64
 import sys
 import threading
 import time
+from functools import reduce
+from queue import Queue
 
 import boto3
-import base64
 import pymysql
-import datetime
-
 import sqlalchemy as sqlalchemy
-from queue import Queue
-from sqlalchemy.pool import QueuePool
 from awsglue.utils import getResolvedOptions
-from functools import reduce
+from sqlalchemy.pool import QueuePool
 
 lambda_client = boto3.client('lambda')
 
-glue_connection_name = 'cp-ref-etl-common-connection-{}-cluster-{}'
+GLUE_CONNECTION_NAME = 'cp-ref-etl-common-connection-{}-cluster-{}'
 
-charset = 'utf8'
-cursor_type = pymysql.cursors.DictCursor
+CHARSET = 'utf8'
+CursorType = pymysql.cursors.DictCursor
 
-JOB_EXECUTION_STATUS_FETCH_QUERY = 'SELECT RECEIVED_OPCOS FROM LOAD_JOB_EXECUTION_STATUS WHERE PARTIAL_LOAD={} AND STATUS="{}" FOR UPDATE'
+JOB_EXECUTION_STATUS_FETCH_QUERY = 'SELECT RECEIVED_OPCOS FROM LOAD_JOB_EXECUTION_STATUS WHERE ' \
+                                   'PARTIAL_LOAD={} AND STATUS="{}" FOR UPDATE'
+
 
 def get_values_from_ssm(keys):
     client_ssm = boto3.client('ssm')
@@ -41,8 +41,8 @@ def get_common_db_connection_details(env):
     password = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/COMMON/PASSWORD'
     username = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/COMMON/USERNAME'
     db_name = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/COMMON/DB_NAME'
-    soft_validation_on_future_table_loading = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/FULL_EXPORT_LOADING/SOFT_VALIDATION'
-    ssm_keys = [db_url, db_name, username, password, soft_validation_on_future_table_loading]
+    soft_val_on_future_table_loading = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/FULL_EXPORT_LOADING/SOFT_VALIDATION'
+    ssm_keys = [db_url, db_name, username, password, soft_val_on_future_table_loading]
     ssm_key_values = get_values_from_ssm(ssm_keys)
     print(ssm_key_values)
     return {
@@ -50,23 +50,25 @@ def get_common_db_connection_details(env):
         "password": ssm_key_values[password],
         "username": ssm_key_values[username],
         "db_name": ssm_key_values[db_name],
-        "soft_validation": ssm_key_values[soft_validation_on_future_table_loading]
+        "soft_validation": ssm_key_values[soft_val_on_future_table_loading]
     }
 
 
-
-def get_common_db_connection(env , connection_params):
+def get_common_db_connection(connection_params):
     return pymysql.connect(
-        host=connection_params['db_endpoint'], user=connection_params['username'], password=connection_params['password'], db=connection_params['db_name'], charset=charset, cursorclass=cursor_type)
+        host=connection_params['db_endpoint'], user=connection_params['username'],
+        password=connection_params['password'], db=connection_params['db_name'], charset=CHARSET,
+        cursorclass=CursorType)
 
-def _execute_load(pool, queue, database, table, threadErrors):
+
+def _execute_load(pool, queue, database, table, thread_errors):
     while not queue.empty():
         s3_file_path = queue.get()
         try:
-            table_with_database_name = database + Configuration.DOT + table
+            table_with_db_name = database + Configuration.DOT + table
             load_timestamp = str(int(time.time()))
             load_qry = "LOAD DATA FROM S3 '" + s3_file_path + "'" \
-                                                              "REPLACE INTO TABLE " + table_with_database_name + \
+                                                              "REPLACE INTO TABLE " + table_with_db_name + \
                        " FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '\"' LINES TERMINATED BY '\n' " \
                        "IGNORE 1 LINES (@supc,@price_zone,@customer_id,@effective_date) SET " \
                        "SUPC=@supc," \
@@ -74,26 +76,26 @@ def _execute_load(pool, queue, database, table, threadErrors):
                        "EFFECTIVE_DATE=@effective_date," \
                        "PRICE_ZONE=@price_zone," \
                        "ARRIVED_TIME=" + data_arrival_timestamp + "," \
-                       "UPDATED_TIME=" + load_timestamp + ";"
+                                                                  "UPDATED_TIME=" + load_timestamp + ";"
 
             connection = pool.connect()
             print("Populating price zone data from file: %s to table %s with load time %s\n" % (s3_file_path,
-                                                                                                table_with_database_name,
+                                                                                                table_with_db_name,
                                                                                                 load_timestamp))
             connection.execute(load_qry)
             print(
-                "Completed loading price zone data from s3 %s to table %s\n" % (s3_file_path, table_with_database_name))
+                "Completed loading price zone data from s3 %s to table %s\n" % (s3_file_path, table_with_db_name))
             connection.close()
         except Exception as e:
             print("Error occurred when trying to file: %s, error: %s" % (s3_file_path, repr(e)))
-            threadErrors.append(repr(e))
+            thread_errors.append(repr(e))
             raise e
 
 
-def load_data(dbconfigs, opco_id, bucketname, partitioned_files_path):
-    prefix = partitioned_files_path + Configuration.OUTPUT_PATH_PREFIX + opco_id
+def load_data(dbconfigs, opco, bucketname, partitioned_files_path):
+    prefix = partitioned_files_path + Configuration.OUTPUT_PATH_PREFIX + opco
     output_files = list_files_in_s3(bucketname, prefix)
-    dbconfigs['database'] = Configuration.DATABASE_PREFIX + opco_id
+    dbconfigs['database'] = Configuration.DATABASE_PREFIX + opco
     pool = __create_db_engine(dbconfigs)
     queue = Queue()
     for file in output_files:
@@ -102,11 +104,12 @@ def load_data(dbconfigs, opco_id, bucketname, partitioned_files_path):
             s3_file_path = "s3://" + bucketname + "/" + file['Key']
             queue.put(s3_file_path)
 
-    threadErrors = []
+    thread_errors = []
     threads = []
     for i in range(0, 1):
+        print(i)
         threads.append(threading.Thread(target=_execute_load,
-                                        args=(pool, queue, dbconfigs['database'], dbconfigs['table'], threadErrors)))
+                                        args=(pool, queue, dbconfigs['database'], dbconfigs['table'], thread_errors)))
 
     for t in threads:
         t.start()
@@ -114,19 +117,19 @@ def load_data(dbconfigs, opco_id, bucketname, partitioned_files_path):
     for t in threads:
         t.join()
 
-    if len(threadErrors) > 0:
-        print(threadErrors)
-        raise Exception(threadErrors)
+    if len(thread_errors) > 0:
+        print(thread_errors)
+        raise Exception(thread_errors)
 
 
-def getNewConnection(host, user, decrypted ,db):
+def get_new_connection(host, user, decrypted, db):
     return pymysql.connect(host=host, user=user, password=decrypted, db=db)
 
 
-def _retrieve_conection_details(cluster_id):
+def _retrieve_connection_details(cluster_id_string):
     glue = boto3.client('glue', region_name='us-east-1')
 
-    response = glue.get_connection(Name=glue_connection_name.format(environment, cluster_id))
+    response = glue.get_connection(Name=GLUE_CONNECTION_NAME.format(environment, cluster_id_string))
 
     connection_properties = response['Connection']['ConnectionProperties']
     URL = connection_properties['JDBC_CONNECTION_URL']
@@ -150,30 +153,16 @@ def _retrieve_conection_details(cluster_id):
         "decrypted": decrypted
     }
 
-def get_values_from_ssm(keys):
-    client_ssm = boto3.client('ssm')
-    response = client_ssm.get_parameters(Names=keys)
-    parameters = response['Parameters']
-    invalidParameters = response['InvalidParameters']
 
-    if invalidParameters:
-        raise KeyError('Found invalid ssm parameter keys:' + ','.join(invalidParameters))
-
-    parameter_dictionary = {}
-    for parameter in parameters:
-        parameter_dictionary[parameter['Name']] = parameter['Value']
-
-    return parameter_dictionary
-
-
-def get_active_and_future_tables(env, table, db_configs):
+def get_active_and_future_tables(table, db_configs):
     # from common db
-    database_connection = getNewConnection(db_configs['host'], db_configs['username'], db_configs['password'], db_configs['database'])
+    database_connection = get_new_connection(db_configs['host'], db_configs['username'], db_configs['password'],
+                                             db_configs['database'])
 
     try:
         cursor_object = database_connection.cursor()
 
-        sql = "SELECT TABLE_NAMES FROM PRICE_ZONE_MASTER_DATA WHERE TABLE_TYPE= '%s'"%table
+        sql = "SELECT TABLE_NAMES FROM PRICE_ZONE_MASTER_DATA WHERE TABLE_TYPE= '%s'" % table
         print(sql)
         cursor_object.execute(sql)
         result = cursor_object.fetchall()
@@ -184,16 +173,18 @@ def get_active_and_future_tables(env, table, db_configs):
         raise e
     finally:
         database_connection.close()
+
 
 def check_table_is_empty(table, db_configs):
     print('check if tables are empty')
     # here not common db connection ,connection to ref dbs has to be taken here
-    #use the passed db config since it contains whch table
-    database_connection = getNewConnection(db_configs['host'], db_configs['username'], db_configs['password'], db_configs['database'])
+    # use the passed db config since it contains whch table
+    database_connection = get_new_connection(db_configs['host'], db_configs['username'], db_configs['password'],
+                                             db_configs['database'])
 
     try:
         cursor_object = database_connection.cursor()
-        sql = "SELECT * FROM %s LIMIT 1"% table
+        sql = "SELECT * FROM %s LIMIT 1" % table
         print(sql)
         cursor_object.execute(sql)
         result = cursor_object.fetchall()
@@ -205,18 +196,20 @@ def check_table_is_empty(table, db_configs):
     finally:
         database_connection.close()
 
+
 def update_table_effective_dates(db_configs, effective_date):
     print('update the effective dates in price zone master data table')
 
-    database_connection = getNewConnection(db_configs['host'], db_configs['username'], db_configs['password'],
-                                           db_configs['database'])
+    database_connection = get_new_connection(db_configs['host'], db_configs['username'], db_configs['password'],
+                                             db_configs['database'])
 
     try:
         cursor_object = database_connection.cursor()
 
-        #'0000-00-00 00:00:00' this is not a valid date handle this
+        # '0000-00-00 00:00:00' this is not a valid date handle this
         effective_date_of_latest_records = effective_date.strftime("%Y-%m-%d %H:%M:%S")
-        update_sql = "UPDATE PRICE_ZONE_MASTER_DATA SET EFFECTIVE_DATE ='%s' WHERE TABLE_TYPE = '%s'"% (effective_date_of_latest_records, 'FUTURE')
+        update_sql = "UPDATE PRICE_ZONE_MASTER_DATA SET EFFECTIVE_DATE ='%s' WHERE TABLE_TYPE = '%s'" % (
+            effective_date_of_latest_records, 'FUTURE')
         print(update_sql)
         cursor_object.execute(update_sql)
         result = cursor_object.fetchall()
@@ -230,12 +223,13 @@ def update_table_effective_dates(db_configs, effective_date):
         database_connection.commit()
         database_connection.close()
 
-def get_effective_date(table, db_configs):
 
-    database_connection = getNewConnection(db_configs['host'], db_configs['username'], db_configs['password'], db_configs['database'])
+def get_effective_date(table, db_configs):
+    database_connection = get_new_connection(db_configs['host'], db_configs['username'], db_configs['password'],
+                                             db_configs['database'])
     try:
         cursor_object = database_connection.cursor()
-        sql = "SELECT min(EFFECTIVE_DATE) FROM %s"% table
+        sql = "SELECT min(EFFECTIVE_DATE) FROM %s" % table
         print(sql)
         cursor_object.execute(sql)
         result = cursor_object.fetchall()
@@ -249,9 +243,9 @@ def get_effective_date(table, db_configs):
         database_connection.close()
 
 
-def check_for_full_exports_in_progress(common_db_connection_params, opco_id):
+def check_for_full_exports_in_progress(common_db_connection_params, opco):
     opcos_in_full_export = []
-    database_connection = get_common_db_connection(environment, connection_params=common_db_connection_params)
+    database_connection = get_common_db_connection(connection_params=common_db_connection_params)
     try:
         cursor_object = database_connection.cursor()
         cursor_object.execute(JOB_EXECUTION_STATUS_FETCH_QUERY.format(0, "RUNNING"))
@@ -261,12 +255,11 @@ def check_for_full_exports_in_progress(common_db_connection_params, opco_id):
         flat_opco_list_in_export = []
         if opcos_in_full_export:
             flat_opco_list_in_export = reduce(list.__add__, opcos_in_full_export)
-        if opco_id in flat_opco_list_in_export:
+        if opco in flat_opco_list_in_export:
             print('current loading opco present in a full export in progress')
             return True
-        else:
-            print('current loading opco not present in full export in progress')
-            return False
+        print('current loading opco not present in full export in progress')
+        return False
 
     except Exception as e:
         print(e)
@@ -274,24 +267,25 @@ def check_for_full_exports_in_progress(common_db_connection_params, opco_id):
     finally:
         database_connection.close()
 
+
 def str_to_bool(s):
     if s == 'True':
-         return True
-    elif s == 'False':
-         return False
-    else:
-         raise ValueError
+        return True
+    if s == 'False':
+        return False
+    raise ValueError
 
-def find_tables_to_load(partial_load ,env ,opco_id, intermediate_s3, partitioned_files_key):
-    db_configs = _retrieve_conection_details(cluster_id)
-    db_configs['database'] = Configuration.DATABASE_PREFIX + opco_id
+
+def find_tables_to_load(partial_load_status, env, opco, intermediate_s3_name, partitioned_files_path):
+    db_configs = _retrieve_connection_details(cluster_id)
+    db_configs['database'] = Configuration.DATABASE_PREFIX + opco
 
     # get connection params for common db and validation type
     connection_params = get_common_db_connection_details(env)
 
-    if partial_load:
-        active_table = get_active_and_future_tables(env, "ACTIVE", db_configs)
-        future_table = get_active_and_future_tables(env, "FUTURE", db_configs)
+    if partial_load_status:
+        active_table = get_active_and_future_tables("ACTIVE", db_configs)
+        future_table = get_active_and_future_tables("FUTURE", db_configs)
 
         # find active table from db
         active_table_name = active_table[0][0]
@@ -299,7 +293,7 @@ def find_tables_to_load(partial_load ,env ,opco_id, intermediate_s3, partitioned
 
         # load data to active table
         db_configs['table'] = active_table_name
-        load_data(db_configs, opco_id, intermediate_s3, partitioned_files_key)
+        load_data(db_configs, opco, intermediate_s3_name, partitioned_files_path)
 
         # check whether future table is empty
         db_configs['table'] = future_table_name
@@ -309,26 +303,28 @@ def find_tables_to_load(partial_load ,env ,opco_id, intermediate_s3, partitioned
         if len(future_table_query_result) == 0:
             # If future table empty -> stop
             # Check if full export is in progress for that opco if so load to future too
-            opco_available_in_full_export = check_for_full_exports_in_progress(connection_params, opco_id)
+            opco_available_in_full_export = check_for_full_exports_in_progress(connection_params, opco)
 
             if opco_available_in_full_export:
                 print(
-                    'partial load and the future table is empty and full export is in progress for the current opco, therefore load the future table')
+                    'partial load and the future table is empty and full export is in progress for the current opco, '
+                    'therefore load the future table')
                 db_configs['table'] = future_table_name
-                load_data(db_configs, opco_id, intermediate_s3, partitioned_files_key)
+                load_data(db_configs, opco, intermediate_s3_name, partitioned_files_path)
             else:
                 # opco not available in in progress full export or no full exports are currently running
                 print(
-                    'partial load and the future table is empty and full export is not in progress or current opco not in full export, therefore stop loading process')
+                    'partial load and the future table is empty and full export is not in progress or current opco '
+                    'not in full export, therefore stop loading process')
 
         else:
             # future table not empty , therefore load future table
             db_configs['table'] = future_table_name
             print('partial load and the future table is not empty, therefore load the future table')
-            load_data(db_configs, opco_id, intermediate_s3, partitioned_files_key)
+            load_data(db_configs, opco, intermediate_s3_name, partitioned_files_path)
 
     else:
-        future_table = get_active_and_future_tables(env, "FUTURE", db_configs)
+        future_table = get_active_and_future_tables("FUTURE", db_configs)
         future_table_name = future_table[0][0]
 
         future_table_query_result = check_table_is_empty(future_table_name, db_configs)
@@ -336,7 +332,7 @@ def find_tables_to_load(partial_load ,env ,opco_id, intermediate_s3, partitioned
             print('full load and future table empty, therefore load to future table ')
             # load future table
             db_configs['table'] = future_table_name
-            load_data(db_configs, opco_id, intermediate_s3, partitioned_files_key)
+            load_data(db_configs, opco, intermediate_s3_name, partitioned_files_path)
 
             # update master db with future table effective date
             effective_date_result = get_effective_date(future_table_name, db_configs)
@@ -346,26 +342,28 @@ def find_tables_to_load(partial_load ,env ,opco_id, intermediate_s3, partitioned
             # hard validation -> 0 -> throw error
             # proceed -> 2 -> load irrespective of error
             if int(connection_params['soft_validation']) == 0:
+                # pylint: disable=no-else-raise
                 raise Exception("full load and future table is not empty")
             elif int(connection_params['soft_validation']) == 1:
                 print('fill load and future table is not empty and soft validation hence job allowed to progress')
             elif int(connection_params['soft_validation']) == 2:
-                print('load future table with full export even though future table is not empty and update effective date')
+                print(
+                    'load future table with full export eventhough future table is not empty and update effective date')
                 db_configs['table'] = future_table_name
-                load_data(db_configs, opco_id, intermediate_s3, partitioned_files_key)
+                load_data(db_configs, opco, intermediate_s3_name, partitioned_files_path)
             else:
                 raise Exception("full load and future table is not empty")
 
 
-def list_files_in_s3(bucketname, prefix):
+def list_files_in_s3(bucket_name, prefix):
     s3 = boto3.client('s3')
     paginator = s3.get_paginator('list_objects_v2')
-    pages = paginator.paginate(Bucket=bucketname, Prefix=prefix)
-    matchingObjects = []
+    pages = paginator.paginate(Bucket=bucket_name, Prefix=prefix)
+    matching_objects = []
     for page in pages:
-        matchingObjects.extend(page['Contents'])
+        matching_objects.extend(page['Contents'])
 
-    return matchingObjects
+    return matching_objects
 
 
 class Configuration:
@@ -387,9 +385,10 @@ def __create_db_engine(credentials):
     return sqlalchemy.create_engine(connect_url, poolclass=QueuePool, pool_size=5, max_overflow=10, pool_timeout=30)
 
 
-
 if __name__ == "__main__":
-    args = getResolvedOptions(sys.argv, ['opco_id', 'cluster', 'partitioned_files_key', 'etl_timestamp', 'partial_load', 'ENV', 'intermediate_s3_name', 'intermediate_directory_path', 'METADATA_LAMBDA'])
+    args = getResolvedOptions(sys.argv,
+                              ['opco_id', 'cluster', 'partitioned_files_key', 'etl_timestamp', 'partial_load', 'ENV',
+                               'intermediate_s3_name', 'intermediate_directory_path', 'METADATA_LAMBDA'])
     opco_id = args['opco_id']  # opco_id validation
     partitioned_files_key = args['partitioned_files_key']
     intermediate_s3 = args['intermediate_s3_name']
@@ -404,10 +403,10 @@ if __name__ == "__main__":
     print(
         "Started data loading job for Opco: %s, file path: %s/%s\n" % (opco_id, intermediate_s3, partitioned_files_key))
 
-    partial_load_bool = str_to_bool(partial_load)
+    PARTIAL_LOAD_BOOL = str_to_bool(partial_load)
 
     try:
-      find_tables_to_load(partial_load_bool, environment, opco_id, intermediate_s3, partitioned_files_key)
+        find_tables_to_load(PARTIAL_LOAD_BOOL, environment, opco_id, intermediate_s3, partitioned_files_key)
     except Exception as e:
-        raise Exception()
-
+        print(e)
+        raise e

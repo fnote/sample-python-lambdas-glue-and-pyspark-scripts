@@ -5,7 +5,7 @@ from pyspark.sql.functions import to_timestamp
 
 from src.price_zone import validator
 from src.price_zone.constants import SUPC_LENGTH, CUST_NBR_LENGTH, PRICE_ZONE_MIN_VALUE, PRICE_ZONE_MAX_VALUE, \
-    DATE_FORMAT_REGEX, INPUT_DATE_FORMAT, OUTPUT_DATE_FORMAT, CO_NBR_LENGTH
+    DATE_FORMAT_REGEX, INPUT_DATE_FORMAT, OUTPUT_DATE_FORMAT
 
 
 class TestSparkDataframeValidator(unittest.TestCase):

@@ -1,5 +1,6 @@
-import boto3
 import re
+
+import boto3
 import pymysql
 
 OPCO_CLUSTER_MAPPINGS_QUERY = 'SELECT * FROM OPCO_CLUSTER WHERE OPCO_ID IN ({})'
@@ -32,20 +33,22 @@ def update_job_execution_status(env, file_name, etl_timestamp, opco_count, opco_
     finally:
         database_connection.close()
 
+
 def get_values_from_ssm(keys):
     client_ssm = boto3.client('ssm')
     response = client_ssm.get_parameters(Names=keys)
     parameters = response['Parameters']
-    invalidParameters = response['InvalidParameters']
+    invalid_parameters = response['InvalidParameters']
 
-    if invalidParameters:
-        raise KeyError('Found invalid ssm parameter keys:' + ','.join(invalidParameters))
+    if invalid_parameters:
+        raise KeyError('Found invalid ssm parameter keys:' + ','.join(invalid_parameters))
 
     parameter_dictionary = {}
     for parameter in parameters:
         parameter_dictionary[parameter['Name']] = parameter['Value']
 
     return parameter_dictionary
+
 
 def get_connection_details(env):
     db_url = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/COMMON/DB_URL'
@@ -61,10 +64,12 @@ def get_connection_details(env):
         "db_name": ssm_key_values[db_name]
     }
 
+
 def get_db_connection(env):
     connection_params = get_connection_details(env)
     return pymysql.connect(
-        host=connection_params['db_url'], user=connection_params['username'], password=connection_params['password'], db=connection_params['db_name'], charset=charset, cursorclass=cursor_type)
+        host=connection_params['db_url'], user=connection_params['username'], password=connection_params['password'],
+        db=connection_params['db_name'], charset=charset, cursorclass=cursor_type)
 
 
 def separate_opcos_by_cluster(mappings, active_opco_list):
@@ -87,13 +92,14 @@ def separate_opcos_by_cluster(mappings, active_opco_list):
         "invalid_or_inactive_opco_list": invalid_or_inactive_opcos
     }
 
-    print("cluster 01 opcos: %s , cluster 02 opcos: %s , invalid or inactive opcos: %s" % (cluster_01_opcos, cluster_02_opcos, invalid_or_inactive_opcos))
+    print("cluster 01 opcos: %s , cluster 02 opcos: %s , invalid or inactive opcos: %s" % (
+        cluster_01_opcos, cluster_02_opcos, invalid_or_inactive_opcos))
     return resultant_json
 
 
 def extract_opco_id(x):
-     p = re.search('opco_id=(\d+?)/', x['Key'])
-     return p and p.group(1)
+    p = re.search('opco_id=(\d+?)/', x['Key'])
+    return p and p.group(1)
 
 
 def get_opco_cluster_mapping(opcos, env):
@@ -113,16 +119,13 @@ def get_opco_cluster_mapping(opcos, env):
 
 
 def lambda_handler(event, context):
-    #read file type here
+    # read file type here
     client = boto3.client('s3')
     environment = event[ENVIRONMENT_PARAM_NAME]
     file_name = event[FILE_NAME_PARAM_NAME]
     etl_timestamp = event[ETL_TIMESTAMP_PARAM_NAME]
     active_opcos = event['active_opcos']
     active_opco_id_list = active_opcos.split(',')
-    partial_load = event['partial_load']
-    file_type = event['file_type']
-
 
     paginator = client.get_paginator('list_objects_v2')
     pages = paginator.paginate(Bucket=event['intermediate_s3_name'], Prefix=event['partitioned_files_key'])
@@ -132,7 +135,6 @@ def lambda_handler(event, context):
         opco_ids = map(extract_opco_id, page['Contents'])
         for opco_id in set(opco_ids):
             opco_id_set.add(opco_id)
-
 
     print(list(opco_id_set))
     opco_list = list(opco_id_set)
@@ -149,6 +151,3 @@ def lambda_handler(event, context):
     update_job_execution_status(environment, file_name, etl_timestamp, valid_opco_count, joined_opco_list_string)
 
     return separated_opcos
-
-
-

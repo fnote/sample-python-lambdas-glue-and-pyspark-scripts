@@ -1,0 +1,9 @@
+exclude: test/
+repos:
+-   repo: local
+    hooks:
+    -   id: pylint
+        name: pylint
+        entry: pylint src
+        language: system
+        types: [python]

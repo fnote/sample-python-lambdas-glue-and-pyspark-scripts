@@ -1,6 +1,7 @@
+from datetime import datetime
+
 import boto3
 import pymysql
-from datetime import datetime
 
 ENV_PARAM_NAME = 'ENV'
 CLUSTER_PARAM_NAME = 'cluster'
@@ -8,16 +9,23 @@ CLUSTER_N_OPCO_PARAM_NAME = 'cluster_opcos'
 FILE_NAME_PARAM_NAME = 's3_object_key'
 ETL_TIMESTAMP_PARAM_NAME = 'etl_timestamp'
 ALLOCATED_JOB_COUNT_PARAM_NAME = 'allocated_job_count'
-JOB_EXECUTION_STATUS_FETCH_QUERY = 'SELECT * FROM LOAD_JOB_EXECUTION_STATUS WHERE FILE_NAME="{}" AND ETL_TIMESTAMP={} FOR UPDATE'
-JOB_EXECUTION_STATUS_UPDATE_QUERY = 'UPDATE LOAD_JOB_EXECUTION_STATUS SET STATUS ="{}", SUCCESSFUL_ACTIVE_OPCO_COUNT = {}, FAILED_ACTIVE_OPCO_COUNT = {}, SUCCESSFUL_ACTIVE_OPCO_IDS =CONCAT( SUCCESSFUL_ACTIVE_OPCO_IDS ,"{}"), FAILED_OPCO_IDS =CONCAT( FAILED_OPCO_IDS ,"{}") , END_TIME = "{}" WHERE FILE_NAME="{}" AND ETL_TIMESTAMP={}'
-CLUSTER_LOAD_JOB_COUNT_UPDATE_QUERY = 'UPDATE PRICE_ZONE_CLUSTER_LOAD_JOB_SETTINGS SET RUNNING_LOAD_JOB_COUNT = RUNNING_LOAD_JOB_COUNT - {} WHERE CLUSTER_ID  = "{}"'
+JOB_EXECUTION_STATUS_FETCH_QUERY = 'SELECT * FROM LOAD_JOB_EXECUTION_STATUS WHERE FILE_NAME="{}" AND ' \
+                                   'ETL_TIMESTAMP={} FOR UPDATE'
+JOB_EXECUTION_STATUS_UPDATE_QUERY = 'UPDATE LOAD_JOB_EXECUTION_STATUS SET STATUS ="{}", ' \
+                                    'SUCCESSFUL_ACTIVE_OPCO_COUNT = {}, FAILED_ACTIVE_OPCO_COUNT = {}, ' \
+                                    'SUCCESSFUL_ACTIVE_OPCO_IDS =CONCAT( SUCCESSFUL_ACTIVE_OPCO_IDS ,"{}"), ' \
+                                    'FAILED_OPCO_IDS =CONCAT( FAILED_OPCO_IDS ,"{}") , END_TIME = "{}" ' \
+                                    'WHERE FILE_NAME="{}" AND ETL_TIMESTAMP={}'
+CLUSTER_LOAD_JOB_COUNT_UPDATE_QUERY = 'UPDATE PRICE_ZONE_CLUSTER_LOAD_JOB_SETTINGS SET ' \
+                                      'RUNNING_LOAD_JOB_COUNT = RUNNING_LOAD_JOB_COUNT - {} WHERE CLUSTER_ID  = "{}"'
 TOTAL_OPCO_COUNT_COLUMN_NAME = 'TOTAL_ACTIVE_OPCO_COUNT'
 SUCCESSFUL_OPCO_COUNT_COLUMN_NAME = 'SUCCESSFUL_ACTIVE_OPCO_COUNT'
 FAILED_OPCO_COUNT_COLUMN_NAME = 'FAILED_ACTIVE_OPCO_COUNT'
 CLUSTER_LOAD_JOB_STATUSES_PARAM_NAME = 'loadJobStatuses'
 
-charset = 'utf8'
-cursor_type = pymysql.cursors.DictCursor
+CHARSET = 'utf8'
+CursorType = pymysql.cursors.DictCursor
+
 
 def get_values_from_ssm(keys):
     client_ssm = boto3.client('ssm')
@@ -52,24 +60,28 @@ def get_connection_details(env):
 def get_db_connection(env):
     connection_params = get_connection_details(env)
     return pymysql.connect(
-        host=connection_params['db_endpoint'], user=connection_params['username'], password=connection_params['password'], db=connection_params['db_name'], charset=charset, cursorclass=cursor_type)
+        host=connection_params['db_endpoint'], user=connection_params['username'],
+        password=connection_params['password'], db=connection_params['db_name'], charset=CHARSET,
+        cursorclass=CursorType)
 
 
-def get_job_count_by_status(job_statuses, cluster_opco_count ,successful_opco_list ):
+def get_job_count_by_status(job_statuses, cluster_opco_count, successful_opco_list):
     success_count = 0
     print('load')
     for job_status in job_statuses:
-        if 'loadJob' in job_status:
-            if 'JobRunState' in job_status['loadJob']:
-                opco_id = job_status['id']
-                if job_status['loadJob']['JobRunState'] == 'SUCCEEDED':
-                    success_count = success_count + 1
-                    successful_opco_list.append(opco_id)
+        if 'loadJob' in job_status and 'JobRunState' in job_status['loadJob']:
+            opco_id = job_status['id']
+            if job_status['loadJob']['JobRunState'] == 'SUCCEEDED':
+                success_count = success_count + 1
+                successful_opco_list.append(opco_id)
 
-    return {'success_count': success_count, 'failure_count': cluster_opco_count - success_count , 'successful_opco_list': successful_opco_list}
+    return {'success_count': success_count, 'failure_count': cluster_opco_count - success_count,
+            'successful_opco_list': successful_opco_list}
 
-def lambda_handler(event, context):
+
+def lambda_handler(event, _):
     # read file type also from here
+    print(event)
     env = event[ENV_PARAM_NAME]
     cluster = event[CLUSTER_PARAM_NAME]
     file_name = event[FILE_NAME_PARAM_NAME]
@@ -122,19 +134,23 @@ def lambda_handler(event, context):
 
         # no failures and opco count equals total then complete
         if not failed_opco_list and (successful_opco_count + success_job_count == total_opco_count):
-            #no failed opcos in current cluster and total jobs completed
+            # no failed opcos in current cluster and total jobs completed
             status = "SUCCEEDED"
-        elif total_failed_opco_count_from_both_clusters > 0 and (successful_opco_count + failed_opco_count + success_job_count + failed_job_count == total_opco_count):
-            #entire process is done , all opcos in file processed but there are failures
+        elif total_failed_opco_count_from_both_clusters > 0 and (
+                successful_opco_count + failed_opco_count + success_job_count + failed_job_count == total_opco_count):
+            # entire process is done , all opcos in file processed but there are failures
             status = "FAILED"
         else:
             # no failed opcos in finished current cluster but other cluster still loading
             status = "RUNNING"
 
         date_time_now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        cursor_object.execute(JOB_EXECUTION_STATUS_UPDATE_QUERY.format(status, successful_opco_count + success_job_count,
-                                                                       failed_opco_count + failed_job_count, successful_opcos_joined_string, failed_opcos_joined_string, date_time_now, file_name,
-                                                                       etl_timestamp))
+        cursor_object.execute(
+            JOB_EXECUTION_STATUS_UPDATE_QUERY.format(status, successful_opco_count + success_job_count,
+                                                     failed_opco_count + failed_job_count,
+                                                     successful_opcos_joined_string, failed_opcos_joined_string,
+                                                     date_time_now, file_name,
+                                                     etl_timestamp))
 
         # update the load job count
         cursor_object.execute(CLUSTER_LOAD_JOB_COUNT_UPDATE_QUERY.format(allocated_job_count, cluster))
