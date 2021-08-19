@@ -104,7 +104,7 @@ def read_additional_info(bucket_name, backup_completed, event):
     try:
         response = s3_client.get_object(Bucket=bucket_name, Key=s3_path)
         additional_info = response['Body'].read().decode('utf-8')
-        logger.info('Additional Info: {}'.format(additional_info))
+        logger.info('Additional Info: {}'.format(additional_info.encode()))
         return additional_info
     except s3_client.exceptions.NoSuchKey:
         return 'None'
