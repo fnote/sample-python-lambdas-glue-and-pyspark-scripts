@@ -4,7 +4,7 @@ import os
 import logging
 import boto3
 import json
-import anticrlf
+# import anticrlf
 import pymysql
 from datetime import datetime
 from datadog_lambda.metric import lambda_metric
@@ -67,7 +67,6 @@ def get_connection_details(env):
     db_name = '/CP/' + env + '/ETL/REF_PRICE/PRICE_ZONE/COMMON/DB_NAME'
     ssm_keys = [db_url, db_name, username, password]
     ssm_key_values = get_values_from_ssm(ssm_keys)
-    print(ssm_key_values)
     return {
         "db_endpoint": ssm_key_values[db_url],
         "password": ssm_key_values[password],
@@ -84,11 +83,11 @@ def get_db_connection(env):
         cursorclass=cursor_type)
 
 
-formatter = anticrlf.LogFormatter('[%(levelname)s]\t%(asctime)s.%(msecs)dZ\t%(aws_request_id)s\t%(message)s\n',
-                                  '%Y-%m-%dT%H:%M:%S')
+# formatter = anticrlf.LogFormatter('[%(levelname)s]\t%(asctime)s.%(msecs)dZ\t%(aws_request_id)s\t%(message)s\n',
+#                                   '%Y-%m-%dT%H:%M:%S')
 
-for handler in logger.handlers:
-    handler.setFormatter(formatter)
+# for handler in logger.handlers:
+#     handler.setFormatter(formatter)
 
 
 def read_additional_info(bucket_name, backup_completed, event):
@@ -145,9 +144,6 @@ def lambda_handler(event, context):
         env, current_time, status, message))
     additional_info = read_additional_info(bucket_name, status == 'SUCCEEDED', event)
 
-    logger.info('Sending notification env: %s, time: %s, status: %s, message: %s' % (
-        env, current_time, status, message))
-
     data = {
         "messageAttributes": {
             "application": REFERENCE_PRICING,
@@ -175,7 +171,7 @@ def lambda_handler(event, context):
     dd_pz_tags = ['service:cp-ref-price-etl', 'file:pz', str_env, str_etl, file_name_tag, file_prefix_tag,
                   current_date_tag]
     dd_pa_tags = ['service:cp-ref-price-etl', 'file:pa', str_env, str_etl, file_name_tag, file_prefix_tag,
-                            current_date_tag]
+                  current_date_tag]
     # add record count to common db status table if event is prize zone
     # file name and etl time stamp required to edit the right record in db
 
@@ -199,10 +195,14 @@ def lambda_handler(event, context):
         database_connection.commit()
 
         print('send data to datadog')
-        lambda_metric("ref_price_etl.pz_valid_record_count", received_valid_records_count, tags=dd_pz_tags)
-        lambda_metric("ref_price_etl.pz_invalid_record_count", invalid_record_count, tags=dd_pz_tags)
-        lambda_metric("ref_price_etl.pz_total_record_count", total_record_count, tags=dd_pz_tags)
-        lambda_metric("ref_price_etl.pz_failed_opcos", failed_opcos, tags=dd_pz_tags)
+        lambda_metric("ref_price_etl.pz_valid_record_count", received_valid_records_count,
+                      tags=dd_pz_tags)
+        lambda_metric("ref_price_etl.pz_invalid_record_count", invalid_record_count,
+                      tags=dd_pz_tags)
+        lambda_metric("ref_price_etl.pz_total_record_count", total_record_count,
+                      tags=dd_pz_tags)
+        lambda_metric("ref_price_etl.pz_failed_opcos", failed_opcos,
+                      tags=dd_pz_tags)
 
         if invalid_record_count > 0:
             send_teams_notification(data, "FAILED OPCOS", env)
@@ -249,12 +249,17 @@ def lambda_handler(event, context):
         invalid_records_count = additional_info_json['invalid_price_record_count']
 
         print('send PA file , record count and opco data to datadog')
-        lambda_metric("ref_price_etl.pa_total_record_count", total_record_count, tags=dd_pa_tags)
-        lambda_metric("ref_price_etl.pa_invalid_records", invalid_records_count, tags=dd_pa_tags)
+        lambda_metric("ref_price_etl.pa_total_record_count", total_record_count,
+                      tags=dd_pa_tags)
+        lambda_metric("ref_price_etl.pa_invalid_records", invalid_records_count,
+                      tags=dd_pa_tags)
 
-        lambda_metric("ref_price_etl.pa_total_opco_count", pa_total_opco_count, tags=dd_pa_tags)
-        lambda_metric("ref_price_etl.pa_successful_opco_count", pa_successful_opco_count, tags=dd_pa_tags)
-        lambda_metric("ref_price_etl.pa_failed_opco_count", pa_failed_opco_count, tags=dd_pa_tags)
+        lambda_metric("ref_price_etl.pa_total_opco_count", pa_total_opco_count,
+                      tags=dd_pa_tags)
+        lambda_metric("ref_price_etl.pa_successful_opco_count", pa_successful_opco_count,
+                      tags=dd_pa_tags)
+        lambda_metric("ref_price_etl.pa_failed_opco_count", pa_failed_opco_count,
+                      tags=dd_pa_tags)
 
         # here still we can have soft validation errors
         if invalid_records_count > 0:
