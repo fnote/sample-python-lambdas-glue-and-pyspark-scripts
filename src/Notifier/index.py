@@ -4,7 +4,7 @@ import os
 import logging
 import boto3
 import json
-# import anticrlf
+import anticrlf
 import pymysql
 from datetime import datetime
 from datadog_lambda.metric import lambda_metric
@@ -83,11 +83,11 @@ def get_db_connection(env):
         cursorclass=cursor_type)
 
 
-# formatter = anticrlf.LogFormatter('[%(levelname)s]\t%(asctime)s.%(msecs)dZ\t%(aws_request_id)s\t%(message)s\n',
-#                                   '%Y-%m-%dT%H:%M:%S')
+formatter = anticrlf.LogFormatter('[%(levelname)s]\t%(asctime)s.%(msecs)dZ\t%(aws_request_id)s\t%(message)s\n',
+                                  '%Y-%m-%dT%H:%M:%S')
 
-# for handler in logger.handlers:
-#     handler.setFormatter(formatter)
+for handler in logger.handlers:
+    handler.setFormatter(formatter)
 
 
 def read_additional_info(bucket_name, backup_completed, event):
