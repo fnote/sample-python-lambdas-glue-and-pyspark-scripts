@@ -261,7 +261,7 @@ def lambda_handler(event, context):
         lambda_metric("ref_price_etl.pa_failed_opco_count", pa_failed_opco_count,
                       tags=dd_pa_tags)
 
-        # here still we can have soft validation errors
+        # Here still we can have soft validation errors
         if invalid_records_count > 0:
             print('send pa soft validation failure data to teams')
             send_teams_notification(data, "FAILED OPCOS", env)
