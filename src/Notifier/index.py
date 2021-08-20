@@ -15,7 +15,7 @@ logger.setLevel(logging.INFO)
 JOB_EXECUTION_STATUS_UPDATE_QUERY = 'UPDATE LOAD_JOB_EXECUTION_STATUS SET FAILED_OPCO_IDS = "{}", TOTAL_RECORD_COUNT = "{}",INVALID_RECORD_COUNT = "{}" WHERE FILE_NAME="{}" AND ETL_TIMESTAMP={}'
 JOB_EXECUTION_STATUS_UPDATE_QUERY_WHEN_FAIL = 'UPDATE LOAD_JOB_EXECUTION_STATUS SET STATUS = "{}" ,END_TIME = "{}" WHERE FILE_NAME="{}" AND ETL_TIMESTAMP={}'
 JOB_EXECUTION_STATUS_FETCH_QUERY = 'SELECT * FROM LOAD_JOB_EXECUTION_STATUS WHERE FILE_NAME="{}" AND ' \
-                                   'ETL_TIMESTAMP={} FOR UPDATE'
+                                   'ETL_TIMESTAMP={}'
 
 # Using a handler with anticrlf log formatter to avoid CRLF injections
 # https://www.veracode.com/blog/secure-development/fixing-crlf-injection-logging-issues-python
