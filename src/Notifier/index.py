@@ -216,7 +216,7 @@ def lambda_handler(event, context):
             JOB_EXECUTION_STATUS_UPDATE_QUERY_WHEN_FAIL.format("SUCCEEDED", end_time, input_file_name, etl_timestamp))
         database_connection.commit()
 
-        # Teams alerts for failed files
+    # Teams alerts for failed files
     if notification_event == "ETL-PRICE_ZONE" and status == 'ERROR':
         print("price zone map state failed ")
         send_teams_notification(data, "PRICE ZONE - MAP STATE FAILED", env)
