@@ -278,7 +278,7 @@ def lambda_handler(event, context):
             JOB_EXECUTION_STATUS_UPDATE_QUERY_WHEN_FAIL.format(FAILED_STATUS, end_time, input_file_name, etl_timestamp))
         database_connection.commit()
 
-    # update the status table with total record count
+    # Update the status table with total record count
     headers = {'host': host, 'Content-Type': 'application/json'}
     response = requests.post(url, json=data, headers=headers)
     logger.info('Response: %s' % response.json())
