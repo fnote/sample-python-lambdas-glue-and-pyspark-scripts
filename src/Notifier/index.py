@@ -195,15 +195,10 @@ def lambda_handler(event, context):
         database_connection.commit()
 
         print('send data to datadog')
-        lambda_metric("ref_price_etl.pz_valid_record_count", received_valid_records_count,
-                      tags=dd_pz_tags)
-        lambda_metric("ref_price_etl.pz_invalid_record_count", invalid_record_count,
-                      tags=dd_pz_tags)
-        lambda_metric("ref_price_etl.pz_total_record_count", total_record_count,
-                      tags=dd_pz_tags)
-        lambda_metric("ref_price_etl.pz_failed_opcos", failed_opcos,
-                      tags=dd_pz_tags)
-
+        lambda_metric("ref_price_etl.pz_valid_record_count", received_valid_records_count, tags=dd_pz_tags)
+        lambda_metric("ref_price_etl.pz_invalid_record_count", invalid_record_count, tags=dd_pz_tags)
+        lambda_metric("ref_price_etl.pz_total_record_count", total_record_count, tags=dd_pz_tags)
+       
         if invalid_record_count > 0:
             send_teams_notification(data, "FAILED OPCOS", env)
 
