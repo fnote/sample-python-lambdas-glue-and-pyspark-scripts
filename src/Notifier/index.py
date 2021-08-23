@@ -125,6 +125,13 @@ def send_teams_notification(data, title, env):
         logger.error(e)
 
 
+def send_metric_to_datadog(metric_name, metric_value, metric_tags):
+    try:
+        lambda_metric(metric_name, metric_value, tags=metric_tags)
+    except Exception as e:
+        logger.error(e)
+
+
 def lambda_handler(event, context):
     logger.info("Event: " + str(event))
     REFERENCE_PRICING = "REFERENCE_PRICING"
@@ -195,9 +202,9 @@ def lambda_handler(event, context):
         database_connection.commit()
 
         print('send data to datadog')
-        lambda_metric("ref_price_etl.pz_valid_record_count", received_valid_records_count, tags=dd_pz_tags)
-        lambda_metric("ref_price_etl.pz_invalid_record_count", invalid_record_count, tags=dd_pz_tags)
-        lambda_metric("ref_price_etl.pz_total_record_count", total_record_count, tags=dd_pz_tags)
+        send_metric_to_datadog("ref_price_etl.pz_valid_record_count", received_valid_records_count, dd_pz_tags)
+        send_metric_to_datadog("ref_price_etl.pz_invalid_record_count", invalid_record_count, dd_pz_tags)
+        send_metric_to_datadog("ref_price_etl.pz_total_record_count", total_record_count, dd_pz_tags)
        
         if invalid_record_count > 0:
             send_teams_notification(data, "FAILED OPCOS", env)
@@ -218,9 +225,9 @@ def lambda_handler(event, context):
 
         send_teams_notification(data, notification_event, env)
         if notification_event == "ETL-PRICE_ZONE-OUTSIDE-FAILURE":
-            lambda_metric("ref_price_etl.price_zone_error", 1, tags=dd_pz_tags)
+            send_metric_to_datadog("ref_price_etl.price_zone_error", 1, dd_pz_tags)
         else:
-            lambda_metric("ref_price_etl.pa_error", 1, tags=dd_pa_tags)
+            send_metric_to_datadog("ref_price_etl.pa_error", 1, dd_pa_tags)
 
     if notification_event == "[ETL] - [Ref Price] [Price Data]":
         logger.info('PA File successful , update executions status table')
@@ -244,17 +251,12 @@ def lambda_handler(event, context):
         invalid_records_count = additional_info_json['invalid_price_record_count']
 
         print('send PA file , record count and opco data to datadog')
-        lambda_metric("ref_price_etl.pa_total_record_count", total_record_count,
-                      tags=dd_pa_tags)
-        lambda_metric("ref_price_etl.pa_invalid_records", invalid_records_count,
-                      tags=dd_pa_tags)
+        send_metric_to_datadog("ref_price_etl.pa_total_record_count", total_record_count, dd_pa_tags)
+        send_metric_to_datadog("ref_price_etl.pa_invalid_records", invalid_records_count, dd_pa_tags)
 
-        lambda_metric("ref_price_etl.pa_total_opco_count", pa_total_opco_count,
-                      tags=dd_pa_tags)
-        lambda_metric("ref_price_etl.pa_successful_opco_count", pa_successful_opco_count,
-                      tags=dd_pa_tags)
-        lambda_metric("ref_price_etl.pa_failed_opco_count", pa_failed_opco_count,
-                      tags=dd_pa_tags)
+        send_metric_to_datadog("ref_price_etl.pa_total_opco_count", pa_total_opco_count, dd_pa_tags)
+        send_metric_to_datadog("ref_price_etl.pa_successful_opco_count", pa_successful_opco_count, dd_pa_tags)
+        send_metric_to_datadog("ref_price_etl.pa_failed_opco_count", pa_failed_opco_count, dd_pa_tags)
 
         # Here still we can have soft validation errors
         if invalid_records_count > 0:
@@ -265,7 +267,7 @@ def lambda_handler(event, context):
     if notification_event == "ETL-PRICE_ZONE" and status == 'ERROR':
         print("price zone map state failed ")
         send_teams_notification(data, "PRICE ZONE - MAP STATE FAILED", env)
-        lambda_metric("ref_price_etl.price_zone_error", 1, tags=dd_pz_tags)
+        send_metric_to_datadog("ref_price_etl.price_zone_error", 1, dd_pz_tags)
         database_connection = get_db_connection(env)
         cursor_object = database_connection.cursor()
         end_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
