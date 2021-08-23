@@ -1,12 +1,13 @@
-import requests
-import time
-import os
-import logging
-import boto3
 import json
-import anticrlf
-import pymysql
+import logging
+import os
+import time
 from datetime import datetime
+
+import anticrlf
+import boto3
+import pymysql
+import requests
 from datadog_lambda.metric import lambda_metric
 
 logger = logging.getLogger()
