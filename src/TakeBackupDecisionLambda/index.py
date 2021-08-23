@@ -79,6 +79,14 @@ def get_job_count_by_status(job_statuses, cluster_opco_count, successful_opco_li
     return {'success_count': success_count, 'failure_count': cluster_opco_count - success_count,
             'successful_opco_list': successful_opco_list}
 
+
+def send_metric_to_datadog(metric_name, metric_value, metric_tags):
+    try:
+        lambda_metric(metric_name, metric_value, tags=metric_tags)
+    except Exception as e:
+        print(e)
+
+
 def lambda_handler(event, _):
     # read file type also from here
     print(event)
@@ -162,17 +170,15 @@ def lambda_handler(event, _):
         file_name_tag = 'file_name:' + file_name
         current_date_tag = 'date:' + str(current_date)
         str_etl = 'timestamp:' + str(etl_timestamp)
-        str_cluster_tag = 'cluster:'+str(cluster)
+        str_cluster_tag = 'cluster:' + str(cluster)
 
         print('send data to datadog')
         dd_tags = ['service:cp-ref-price-etl', 'file:pz', str_env, str_etl, file_name_tag, current_date_tag,
                    str_cluster_tag]
-        lambda_metric("ref_price_etl.pz_successful_opcos_count", successful_opco_count + success_job_count,
-                      tags=dd_tags)
-        lambda_metric("ref_price_etl.pz_failed_opcos_count", failed_opco_count + failed_job_count,
-                      tags=dd_tags)
-        lambda_metric("ref_price_etl.pz_total_opcos_count", total_opco_count,
-                      tags=dd_tags)
+        send_metric_to_datadog("ref_price_etl.pz_successful_opcos_count", successful_opco_count + success_job_count,
+                               dd_tags)
+        send_metric_to_datadog("ref_price_etl.pz_failed_opcos_count", failed_opco_count + failed_job_count, dd_tags)
+        send_metric_to_datadog("ref_price_etl.pz_total_opcos_count", total_opco_count, dd_tags)
     except Exception as e:
         print(e)
         raise e
