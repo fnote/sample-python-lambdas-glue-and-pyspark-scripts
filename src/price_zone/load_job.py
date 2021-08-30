@@ -278,6 +278,25 @@ def str_to_bool(s):
     raise ValueError
 
 
+def check_validation_type_and_proceed(connection_params, db_configs, future_table_name, opco, intermediate_s3_name,
+                                      partitioned_files_path, file_source):
+    # soft validation -> 0 -> hard validation ->  throw error
+    # soft validation -> 1 -> we just print skip that opco return opco id metadata
+    # soft validation -> 2 -> proceed with the load irrespective of the error
+    if int(connection_params['soft_validation']) == 0:
+        # pylint: disable=no-else-raise
+        raise Exception("full load and future table is not empty")
+    elif int(connection_params['soft_validation']) == 1:
+        print('fill load and future table is not empty and soft validation hence job allowed to progress')
+    elif int(connection_params['soft_validation']) == 2:
+        print(
+            'load future table with full export eventhough future table is not empty and update effective date')
+        db_configs['table'] = future_table_name
+        load_data(db_configs, opco, intermediate_s3_name, partitioned_files_path, file_source)
+    else:
+        raise Exception("full load and future table is not empty")
+
+
 def find_tables_to_load(partial_load_status, env, opco, intermediate_s3_name, partitioned_files_path, file_source):
     db_configs = _retrieve_connection_details(cluster_id)
     db_configs['database'] = Configuration.DATABASE_PREFIX + opco
@@ -340,21 +359,9 @@ def find_tables_to_load(partial_load_status, env, opco, intermediate_s3_name, pa
             effective_date_result = get_effective_date(future_table_name, db_configs)
             update_table_effective_dates(db_configs, effective_date_result[0][0])
         else:
-            # soft validation -> 1 -> we just print skip that opco return opco id metadata
-            # hard validation -> 0 -> throw error
-            # proceed -> 2 -> load irrespective of error
-            if int(connection_params['soft_validation']) == 0:
-                # pylint: disable=no-else-raise
-                raise Exception("full load and future table is not empty")
-            elif int(connection_params['soft_validation']) == 1:
-                print('fill load and future table is not empty and soft validation hence job allowed to progress')
-            elif int(connection_params['soft_validation']) == 2:
-                print(
-                    'load future table with full export eventhough future table is not empty and update effective date')
-                db_configs['table'] = future_table_name
-                load_data(db_configs, opco, intermediate_s3_name, partitioned_files_path, file_source)
-            else:
-                raise Exception("full load and future table is not empty")
+            # check the soft validation value and determine what to do
+            check_validation_type_and_proceed(connection_params, db_configs, future_table_name, opco,
+                                              intermediate_s3_name, partitioned_files_path, file_source)
 
 
 def list_files_in_s3(bucket_name, prefix):
