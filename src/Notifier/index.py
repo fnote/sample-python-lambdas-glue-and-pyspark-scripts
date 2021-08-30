@@ -24,6 +24,7 @@ TOTAL_OPCO_COUNT_COLUMN_NAME = 'TOTAL_ACTIVE_OPCO_COUNT'
 SUCCESSFUL_OPCO_COUNT_COLUMN_NAME = 'SUCCESSFUL_ACTIVE_OPCO_COUNT'
 FAILED_OPCO_COUNT_COLUMN_NAME = 'FAILED_ACTIVE_OPCO_COUNT'
 FAILED_STATUS = 'FAILED'
+DATE_TIME_FORMAT = '%Y-%m-%d %H:%M:%S'
 charset = 'utf8'
 cursor_type = pymysql.cursors.DictCursor
 
@@ -214,7 +215,7 @@ def lambda_handler(event, context):
         # we do not know whether additional info file got created
         logger.info('file has failed before map state , update the execution status table with failed')
         print(additional_info)
-        end_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        end_time = datetime.now().strftime(DATE_TIME_FORMAT)
 
         logger.info('updating status DB with file name: %s, etl timestamp: %s, env: %s' % (
             input_file_name, etl_timestamp, env))
@@ -234,7 +235,7 @@ def lambda_handler(event, context):
         logger.info('PA File successful , update executions status table')
         database_connection = get_db_connection(env)
         cursor_object = database_connection.cursor()
-        end_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        end_time = datetime.now().strftime(DATE_TIME_FORMAT)
         cursor_object.execute(
             JOB_EXECUTION_STATUS_UPDATE_QUERY_WHEN_FAIL.format("SUCCEEDED", end_time, input_file_name, etl_timestamp))
         database_connection.commit()
@@ -271,7 +272,7 @@ def lambda_handler(event, context):
         send_metric_to_datadog("ref_price_etl.price_zone_error", 1, dd_pz_tags)
         database_connection = get_db_connection(env)
         cursor_object = database_connection.cursor()
-        end_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        end_time = datetime.now().strftime(DATE_TIME_FORMAT)
         cursor_object.execute(
             JOB_EXECUTION_STATUS_UPDATE_QUERY_WHEN_FAIL.format(FAILED_STATUS, end_time, input_file_name, etl_timestamp))
         database_connection.commit()
