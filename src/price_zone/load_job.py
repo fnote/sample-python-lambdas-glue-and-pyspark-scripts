@@ -381,7 +381,6 @@ def list_files_in_s3(bucket_name, prefix):
 
 class Configuration:
     DOT = "."
-
     TABLE_NAME = "PRICE_ZONE_01"
     OUTPUT_PATH_PREFIX = "/opco_id="  # opco_id substring depends on the column naming at spark job
     DATABASE_PREFIX = "REF_PRICE_"
