@@ -73,6 +73,72 @@ def str_to_bool_int(string_received):
         raise ValueError
 
 
+def add_file_details_to_metadata_table(database_connection, file_name, etl_timestamp, file_type, file_progress_status,
+                                       partial_load, start_time):
+    try:
+        cursor_object = database_connection.cursor()
+        cursor_object.execute(RECORD_EXIST_CHECK_QUERY.format(file_name, etl_timestamp))
+        result = cursor_object.fetchone()
+        logger.info('Retrieved record details from status table and the result :%s', result)
+
+        if result == None:
+            res = cursor_object.execute(
+                EXECUTION_STATUS_INSERT_QUERY.format(file_name, etl_timestamp, file_type, file_progress_status,
+                                                     partial_load, start_time))
+            logger.info('insert query results :%s' % res)
+
+        database_connection.commit()
+    except Exception as e:
+        logger.error(e)
+        raise e
+
+    finally:
+        database_connection.close()
+
+
+def organize_executions(sorted_start_time_list, execution_dictionary, step_function_execution_id,
+                        allowed_concurrent_executions, should_wait):
+    step_function_start_time = execution_dictionary.get(step_function_execution_id)
+    step_function_wait_index = sorted_start_time_list.index(step_function_start_time) + 1
+    logger.info("Current execution index: %d for  step function execution Id:%s with start time:%6f "
+                % (step_function_wait_index, step_function_execution_id, step_function_start_time))
+
+    if step_function_wait_index <= allowed_concurrent_executions:
+        start_time_counter = Counter(sorted_start_time_list)
+        if start_time_counter[step_function_start_time] != 1:  # contains duplicates for same start time
+            logger.info("contains multiple execution ids with same start time: %.6f and number of entries %d"
+                        % (step_function_start_time, start_time_counter[step_function_start_time]))
+            execution_id_list = []
+            for key, value in execution_dictionary.items():
+                if value == step_function_start_time:
+                    execution_id_list.append(key)
+
+            # sort from execution Id
+            sorted_execution_id_list = sorted(execution_id_list)
+            logger.info("Execution ids containing same start time: ")
+            logger.info(sorted_execution_id_list)
+            step_function_wait_index = step_function_wait_index + sorted_execution_id_list.index(
+                step_function_execution_id)
+            if step_function_wait_index <= allowed_concurrent_executions:
+                logger.info("New Execution index:%d for execution id:%s. Hence can proceed"
+                            % (step_function_wait_index, step_function_execution_id))
+                should_wait = False
+                return should_wait
+
+        else:
+            logger.info("Does not contain duplicate start time values for %.6f. Hence execution id:%s "
+                        "with list index %d can proceed " % (step_function_start_time,
+                                                             step_function_execution_id,
+                                                             step_function_wait_index))
+            should_wait = False
+            return should_wait
+    else:
+        logger.info("Step function execution id:%s with start time:%.6f has list index %d. Allowed concurrency %d"
+                    % (step_function_execution_id, step_function_start_time, step_function_wait_index,
+                       allowed_concurrent_executions))
+        return should_wait
+
+
 def lambda_handler(event, context):
     logger.info("Received event:")
     logger.info(event)
@@ -107,28 +173,12 @@ def lambda_handler(event, context):
 
     start_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
-    try:
-        cursor_object = database_connection.cursor()
-        cursor_object.execute(RECORD_EXIST_CHECK_QUERY.format(file_name, etl_timestamp))
-        result = cursor_object.fetchone()
-        logger.info('Retrieved record details from status table and the result :%s', result)
+    # add file details to metadata table
+    add_file_details_to_metadata_table(database_connection, file_name, etl_timestamp, file_type, file_progress_status,
+                                       partial_load, start_time)
 
-        if result == None:
-            res = cursor_object.execute(
-                EXECUTION_STATUS_INSERT_QUERY.format(file_name, etl_timestamp, file_type, file_progress_status,
-                                                     partial_load, start_time))
-            logger.info('insert query results :%s' % res)
-
-        database_connection.commit()
-    except Exception as e:
-        logger.error(e)
-        raise e
-
-    finally:
-        database_connection.close()
     # identify the file and etl timestamp here , avoid creating new records in db for retry occasions
     # if file name and etl exist update else insert
-
     execution_dictionary = {}
     for page in pages:
         logger.info(page)
@@ -141,42 +191,10 @@ def lambda_handler(event, context):
     should_wait = True
 
     if step_function_execution_id in execution_dictionary:
-        step_function_start_time = execution_dictionary.get(step_function_execution_id)
-        step_function_wait_index = sorted_start_time_list.index(step_function_start_time) + 1
-        logger.info("Current execution index: %d for  step function execution Id:%s with start time:%6f "
-                    % (step_function_wait_index, step_function_execution_id, step_function_start_time))
 
-        if step_function_wait_index <= allowed_concurrent_executions:
-            start_time_counter = Counter(sorted_start_time_list)
-            if start_time_counter[step_function_start_time] != 1:  # contains duplicates for same start time
-                logger.info("contains multiple execution ids with same start time: %.6f and number of entries %d"
-                            % (step_function_start_time, start_time_counter[step_function_start_time]))
-                execution_id_list = []
-                for key, value in execution_dictionary.items():
-                    if value == step_function_start_time:
-                        execution_id_list.append(key)
+        should_wait = organize_executions(sorted_start_time_list, execution_dictionary, step_function_execution_id,
+                                          allowed_concurrent_executions, should_wait)
 
-                # sort from execution Id
-                sorted_execution_id_list = sorted(execution_id_list)
-                logger.info("Execution ids containing same start time: ")
-                logger.info(sorted_execution_id_list)
-                step_function_wait_index = step_function_wait_index + sorted_execution_id_list.index(
-                    step_function_execution_id)
-                if step_function_wait_index <= allowed_concurrent_executions:
-                    logger.info("New Execution index:%d for execution id:%s. Hence can proceed"
-                                % (step_function_wait_index, step_function_execution_id))
-                    should_wait = False
-
-            else:
-                logger.info("Does not contain duplicate start time values for %.6f. Hence execution id:%s "
-                            "with list index %d can proceed " % (step_function_start_time,
-                                                                 step_function_execution_id,
-                                                                 step_function_wait_index))
-                should_wait = False
-        else:
-            logger.info("Step function execution id:%s with start time:%.6f has list index %d. Allowed concurrency %d"
-                        % (step_function_execution_id, step_function_start_time, step_function_wait_index,
-                           allowed_concurrent_executions))
     else:
         logger.info("could not locate step function execution Id %s in the received execution list"
                     , step_function_execution_id)
