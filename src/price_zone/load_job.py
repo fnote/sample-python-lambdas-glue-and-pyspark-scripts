@@ -22,6 +22,10 @@ JOB_EXECUTION_STATUS_FETCH_QUERY = 'SELECT RECEIVED_OPCOS FROM LOAD_JOB_EXECUTIO
                                    'PARTIAL_LOAD={} AND STATUS="{}" FOR UPDATE'
 
 
+class ETLLoadJobException(Exception):
+    pass
+
+
 def get_values_from_ssm(keys):
     client_ssm = boto3.client('ssm')
     response = client_ssm.get_parameters(Names=keys, WithDecryption=True)
@@ -121,7 +125,7 @@ def load_data(dbconfigs, opco, bucketname, partitioned_files_path, file_source):
 
     if len(thread_errors) > 0:
         print(thread_errors)
-        raise Exception(thread_errors)
+        raise ETLLoadJobException(thread_errors)
 
 
 def get_new_connection(host, user, decrypted, db):
@@ -285,7 +289,7 @@ def check_validation_type_and_proceed(connection_params, db_configs, future_tabl
     # soft validation -> 2 -> proceed with the load irrespective of the error
     if int(connection_params['soft_validation']) == 0:
         # pylint: disable=no-else-raise
-        raise Exception("full load and future table is not empty")
+        raise ETLLoadJobException("full load and future table is not empty")
     elif int(connection_params['soft_validation']) == 1:
         print('fill load and future table is not empty and soft validation hence job allowed to progress')
     elif int(connection_params['soft_validation']) == 2:
@@ -294,7 +298,7 @@ def check_validation_type_and_proceed(connection_params, db_configs, future_tabl
         db_configs['table'] = future_table_name
         load_data(db_configs, opco, intermediate_s3_name, partitioned_files_path, file_source)
     else:
-        raise Exception("full load and future table is not empty")
+        raise ETLLoadJobException("full load and future table is not empty")
 
 
 def find_tables_to_load(partial_load_status, env, opco, intermediate_s3_name, partitioned_files_path, file_source):
