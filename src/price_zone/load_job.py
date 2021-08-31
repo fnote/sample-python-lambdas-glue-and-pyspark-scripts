@@ -161,7 +161,7 @@ def _retrieve_connection_details(cluster_id_string):
 
 
 def get_active_and_future_tables(table, db_configs):
-    # from common db
+    # from metadata db
     database_connection = get_new_connection(db_configs['host'], db_configs['username'], db_configs['password'],
                                              db_configs['database'])
 
@@ -184,7 +184,7 @@ def get_active_and_future_tables(table, db_configs):
 def check_table_is_empty(table, db_configs):
     print('check if tables are empty')
     # here not common db connection ,connection to ref dbs has to be taken here
-    # use the passed db config since it contains whch table
+    # use the passed db config since it contains which table
     database_connection = get_new_connection(db_configs['host'], db_configs['username'], db_configs['password'],
                                              db_configs['database'])
 
